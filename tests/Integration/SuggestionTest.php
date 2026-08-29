@@ -66,7 +66,28 @@ test('lazy load violations are persisted with caller on flush', function () {
 
     expect($lazyLoads)->toHaveCount(2)
         ->and($lazyLoads->pluck('relation')->all())->toBe(['stages', 'stages'])
-        ->and($lazyLoads->first()->model)->toBe(CloseoutPackage::class);
+        ->and($lazyLoads->first()->model)->toBe(CloseoutPackage::class)
+        ->and($lazyLoads->first()->caller_file)->toBeNull()
+        ->and($lazyLoads->first()->caller_line)->toBeNull();
+});
+
+test('caller file and line are persisted when provided to the recorder', function () {
+    $recorder = app(Recorder::class);
+
+    $recorder->recordLazyLoad(CloseoutPackage::class, 'stages', ['file' => 'app/Services/Foo.php', 'line' => 42]);
+    $recorder->flush([
+        'route_name' => 'api.test',
+        'method' => 'GET',
+        'path' => 'api/test',
+        'duration_ms' => 10,
+    ]);
+
+    $this->assertDatabaseHas('pinpoint_lazy_loads', [
+        'model' => CloseoutPackage::class,
+        'relation' => 'stages',
+        'caller_file' => 'app/Services/Foo.php',
+        'caller_line' => 42,
+    ]);
 });
 
 test('report drill-down shows an actionable eager-load suggestion', function () {
@@ -112,6 +133,36 @@ test('check json includes suggestions for lazy-load violations', function () {
     expect($payload['passed'])->toBeFalse()
         ->and($payload['violations'][0]['suggestions'][0]['relations'])->toBe('stages.photos')
         ->and($payload['violations'][0]['suggestions'][0]['suggested'])->toBe(CloseoutPackage::class.'::with(\'stages.photos\')');
+});
+
+test('report does not chain violations from different requests', function () {
+    // Request 1: only CloseoutPackage->stages was lazy-loaded.
+    $requestOne = DB::table('pinpoint_requests')->insertGetId([
+        'route_name' => 'api.packages', 'method' => 'GET', 'path' => 'api/packages',
+        'duration_ms' => 100, 'query_count' => 1, 'query_time_ms' => 10,
+        'has_n_plus_one' => true, 'created_at' => now(),
+    ]);
+    DB::table('pinpoint_lazy_loads')->insert([
+        ['request_id' => $requestOne, 'model' => CloseoutPackage::class, 'relation' => 'stages', 'caller_file' => null, 'caller_line' => null, 'created_at' => now()],
+    ]);
+
+    // Request 2: only Stage->photos was lazy-loaded. Different request, so
+    // the chain stages.photos must NOT be suggested.
+    $requestTwo = DB::table('pinpoint_requests')->insertGetId([
+        'route_name' => 'api.packages', 'method' => 'GET', 'path' => 'api/packages',
+        'duration_ms' => 100, 'query_count' => 1, 'query_time_ms' => 10,
+        'has_n_plus_one' => true, 'created_at' => now(),
+    ]);
+    DB::table('pinpoint_lazy_loads')->insert([
+        ['request_id' => $requestTwo, 'model' => Stage::class, 'relation' => 'photos', 'caller_file' => null, 'caller_line' => null, 'created_at' => now()],
+    ]);
+
+    $buffer = new BufferedOutput;
+    Artisan::call('pinpoint:report --route=api.packages', [], $buffer);
+
+    $output = $buffer->fetch();
+
+    expect($output)->not->toContain('stages.photos');
 });
 
 test('self-referential relations do not infinitely chain', function () {

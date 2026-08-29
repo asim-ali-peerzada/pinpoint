@@ -2,6 +2,7 @@
 
 namespace AsimAli\Pinpoint\Internal;
 
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 
 /**
@@ -86,10 +87,27 @@ class SuggestionBuilder
 
     protected function resolveRelatedModel(string $model, string $relations): object
     {
+        // The model/relation strings come from persisted rows — validate
+        // before invoking anything so a non-relation method's side effects
+        // can never run.
+        if (! is_subclass_of($model, Model::class)) {
+            throw new \InvalidArgumentException("Not an Eloquent model: {$model}");
+        }
+
         $instance = new $model;
 
         foreach (explode('.', $relations) as $segment) {
-            $instance = $instance->{$segment}()->getRelated();
+            if (! method_exists($instance, $segment)) {
+                throw new \InvalidArgumentException("Unknown relation: {$segment}");
+            }
+
+            $relation = $instance->{$segment}();
+
+            if (! $relation instanceof Relation) {
+                throw new \InvalidArgumentException("Not a relation: {$segment}");
+            }
+
+            $instance = $relation->getRelated();
         }
 
         return $instance;

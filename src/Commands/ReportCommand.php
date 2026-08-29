@@ -132,27 +132,48 @@ class ReportCommand extends Command
                 ->where('path', $path));
         }
 
-        $requestIds = $query->pluck('id');
+        // Bound the request set to the most recent ones: the whereIn lookup
+        // below would otherwise grow without bound on frequently recorded
+        // routes (SQLite bind limit / MySQL packet limit / memory), and
+        // chaining violations from different requests would fabricate chains
+        // that never occurred in a single request.
+        $requestIds = $query->orderByDesc('id')
+            ->limit((int) $this->option('limit'))
+            ->pluck('id');
 
         if ($requestIds->isEmpty()) {
             return;
         }
 
+        // Build chains per request, then merge: a suggestion must reflect a
+        // chain that actually happened inside one request.
         $violations = DB::table('pinpoint_lazy_loads')
             ->whereIn('request_id', $requestIds)
-            ->select('model', 'relation', 'caller_file', 'caller_line')
+            ->select('request_id', 'model', 'relation', 'caller_file', 'caller_line')
             ->get()
             ->map(fn ($row) => [
+                'request_id' => $row->request_id,
                 'model' => $row->model,
                 'relation' => $row->relation,
                 'caller_file' => $row->caller_file,
                 'caller_line' => $row->caller_line,
             ])
-            ->unique(fn ($row) => $row['model'].'->'.$row['relation'])
-            ->values()
-            ->all();
+            ->unique(fn ($row) => $row['request_id'].'|'.$row['model'].'->'.$row['relation'])
+            ->groupBy('request_id');
 
-        $chains = $this->suggestions->build($violations);
+        $chains = [];
+
+        foreach ($violations as $rows) {
+            foreach ($this->suggestions->build($rows->values()->all()) as $chain) {
+                $key = $chain['model'].'|'.$chain['relations'];
+
+                if (! isset($chains[$key])) {
+                    $chains[$key] = $chain;
+                }
+            }
+        }
+
+        $chains = array_values($chains);
 
         if ($chains === []) {
             return;
