@@ -16,10 +16,15 @@ class Caller
     {
         $frames = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 15);
 
+        $vendorPath = $basePath.'/vendor';
+
         foreach ($frames as $frame) {
             $file = $frame['file'] ?? null;
 
-            if ($file !== null && str_starts_with($file, $basePath)) {
+            if ($file !== null
+                && str_starts_with($file, $basePath)
+                && ! str_starts_with($file, $vendorPath)
+            ) {
                 return [
                     'file' => $file,
                     'line' => $frame['line'] ?? 0,

@@ -124,4 +124,4 @@ Report security vulnerabilities privately to `asimalipeerzada@gmail.com`. Please
 
 ## License
 
-The MIT License (MIT). Please see [LICENSE](LICENSE.md) for more information.
+The MIT License (MIT). Please see [LICENSE](LICENSE) for more information.

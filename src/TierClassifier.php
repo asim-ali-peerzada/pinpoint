@@ -41,8 +41,8 @@ class TierClassifier
 
         $overrides = $this->config->get('pinpoint.route_threshold_overrides', []);
 
-        return $routeName !== null && isset($overrides[$routeName])
-            ? $overrides[$routeName]
-            : $defaults;
+        // Merge so a partial override (e.g. only 'good') falls back to the
+        // defaults for the keys it omits instead of throwing on missing keys.
+        return array_merge($defaults, $overrides[$routeName] ?? []);
     }
 }

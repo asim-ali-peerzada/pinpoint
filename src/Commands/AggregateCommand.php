@@ -2,8 +2,7 @@
 
 namespace AsimAli\Pinpoint\Commands;
 
-use AsimAli\Pinpoint\Internal\Statistics;
-use AsimAli\Pinpoint\TierClassifier;
+use AsimAli\Pinpoint\Internal\SummaryReader;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -15,7 +14,7 @@ class AggregateCommand extends Command
 
     protected $description = 'Roll raw pinpoint_requests into per-route percentile summaries';
 
-    public function __construct(protected TierClassifier $tiers)
+    public function __construct(protected SummaryReader $summaries)
     {
         parent::__construct();
     }
@@ -36,41 +35,23 @@ class AggregateCommand extends Command
 
     protected function aggregate(): void
     {
-        $rows = DB::table('pinpoint_requests')
-            ->select('route_name', 'method', 'path')
-            ->selectRaw('COUNT(*) as sample_count')
-            ->selectRaw('AVG(duration_ms) as avg_ms')
-            ->groupBy('route_name', 'method', 'path')
-            ->get();
+        $summaries = $this->summaries->fromRaw();
 
-        foreach ($rows as $row) {
-            $label = $row->route_name ?? sprintf('%s %s', $row->method, $row->path);
-            $durations = $this->durationsFor($label);
-
+        foreach ($summaries as $summary) {
             DB::table('pinpoint_summaries')->updateOrInsert(
-                ['route_name' => $label],
+                ['route_name' => $summary['route']],
                 [
-                    'p50_ms' => Statistics::percentile($durations, 50),
-                    'p95_ms' => Statistics::percentile($durations, 95),
-                    'p99_ms' => Statistics::percentile($durations, 99),
-                    'avg_ms' => (int) round($row->avg_ms),
-                    'sample_count' => (int) $row->sample_count,
-                    'tier' => $this->tiers->classify(Statistics::percentile($durations, 95), $row->route_name),
+                    'p50_ms' => $summary['p50'],
+                    'p95_ms' => $summary['p95'],
+                    'p99_ms' => $summary['p99'],
+                    'avg_ms' => $summary['avg'],
+                    'sample_count' => $summary['samples'],
+                    'tier' => $summary['tier'],
                     'last_computed_at' => now(),
                 ]
             );
         }
 
-        $this->info(sprintf('Aggregated %d route(s).', count($rows)));
-    }
-
-    protected function durationsFor(string $label): array
-    {
-        return DB::table('pinpoint_requests')
-            ->get(['route_name', 'method', 'path', 'duration_ms'])
-            ->filter(fn ($row) => ($row->route_name ?? sprintf('%s %s', $row->method, $row->path)) === $label)
-            ->pluck('duration_ms')
-            ->map(fn ($ms) => (int) $ms)
-            ->all();
+        $this->info(sprintf('Aggregated %d route(s).', count($summaries)));
     }
 }

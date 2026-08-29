@@ -33,12 +33,13 @@ test('prune deletes requests and queries older than the retention window', funct
     $this->assertDatabaseHas('pinpoint_queries', ['request_id' => $new]);
 });
 
-test('prune respects the days override', function () {
+test('prune rejects invalid retention windows', function () {
     DB::table('pinpoint_requests')->insert([
-        ['route_name' => 'api.mid', 'method' => 'GET', 'path' => 'api/mid', 'duration_ms' => 100, 'query_count' => 1, 'query_time_ms' => 10, 'has_n_plus_one' => false, 'created_at' => now()->subDays(10)],
+        ['route_name' => 'api.mid', 'method' => 'GET', 'path' => 'api/mid', 'duration_ms' => 100, 'query_count' => 1, 'query_time_ms' => 10, 'has_n_plus_one' => false, 'created_at' => now()],
     ]);
 
-    $this->artisan('pinpoint:prune --days=5')->assertSuccessful();
+    $this->artisan('pinpoint:prune --days=0')->assertFailed();
+    $this->artisan('pinpoint:prune --days=abc')->assertFailed();
 
-    $this->assertDatabaseCount('pinpoint_requests', 0);
+    $this->assertDatabaseCount('pinpoint_requests', 1);
 });

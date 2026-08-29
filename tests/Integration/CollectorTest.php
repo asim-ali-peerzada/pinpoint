@@ -75,6 +75,12 @@ test('lazy loading violation is recorded for apps with their own handler', funct
     expect(app(Recorder::class)->lazyLoads())->toHaveCount(1);
 });
 
+test('facade provides static observeLazyLoad access', function () {
+    AsimAli\Pinpoint\Facades\Pinpoint::observeLazyLoad(User::class, 'posts');
+
+    expect(app(Recorder::class)->lazyLoads())->toHaveCount(1);
+});
+
 test('caller capture is disabled outside local environments', function () {
     $recorder = app(Recorder::class);
     $app = app();

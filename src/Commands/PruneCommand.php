@@ -18,6 +18,12 @@ class PruneCommand extends Command
         try {
             $days = (int) ($this->option('days') ?? config('pinpoint.retention_days', 30));
 
+            if ($days < 1) {
+                $this->error('Retention window must be a positive number of days.');
+
+                return self::FAILURE;
+            }
+
             $cutoff = now()->subDays($days);
 
             $queries = DB::table('pinpoint_queries')->where('created_at', '<', $cutoff)->delete();

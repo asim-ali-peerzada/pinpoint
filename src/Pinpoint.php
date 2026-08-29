@@ -11,6 +11,8 @@ use AsimAli\Pinpoint\Internal\Recorder;
  * handleLazyLoadingViolationUsing() in a provider that boots AFTER this
  * package, call Pinpoint::observeLazyLoad() inside your own handler so
  * Pinpoint's N+1 signal keeps working.
+ *
+ * @see Facades\Pinpoint
  */
 class Pinpoint
 {

@@ -18,18 +18,19 @@ class QueryReader
      */
     public function topQueries(string $routeLabel, int $limit = 20): Collection
     {
-        $requestIds = DB::table('pinpoint_requests')
-            ->where('route_name', $routeLabel)
-            ->orWhereNull('route_name')
-            ->get(['id', 'route_name', 'method', 'path'])
-            ->filter(function ($row) use ($routeLabel) {
-                if ($row->route_name !== null) {
-                    return $row->route_name === $routeLabel;
-                }
+        $query = DB::table('pinpoint_requests')->select('id')
+            ->where('route_name', $routeLabel);
 
-                return sprintf('%s %s', $row->method, $row->path) === $routeLabel;
-            })
-            ->pluck('id');
+        if (str_contains($routeLabel, ' ')) {
+            [$method, $path] = explode(' ', $routeLabel, 2);
+
+            $query->orWhere(fn ($q) => $q
+                ->whereNull('route_name')
+                ->where('method', $method)
+                ->where('path', $path));
+        }
+
+        $requestIds = $query->pluck('id');
 
         if ($requestIds->isEmpty()) {
             return collect();

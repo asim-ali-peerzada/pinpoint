@@ -14,4 +14,4 @@ composer format:test # Pint (check only)
 
 ## Release checklist
 
-See the package rules in `AGENTS.md` — CI green across the matrix, Pint + Larastan clean, CHANGELOG updated, version bumped per SemVer.
+Before tagging a release: CI matrix green across supported PHP/Laravel versions, Pint + Larastan clean, CHANGELOG updated, version bumped per SemVer (breaking changes = major bump, no exceptions).

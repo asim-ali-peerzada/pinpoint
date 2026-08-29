@@ -37,9 +37,11 @@ class PinpointServiceProvider extends PackageServiceProvider
 
     public function registeringPackage(): void
     {
-        $this->app->singleton(Recorder::class, fn () => new Recorder($this->app->make('config')));
+        // scoped() (not singleton) so per-request mutable state is cleared
+        // between requests under Octane / long-running workers.
+        $this->app->scoped(Recorder::class, fn () => new Recorder($this->app->make('config')));
 
-        $this->app->singleton(Pinpoint::class, fn () => new Pinpoint($this->app->make(Recorder::class)));
+        $this->app->scoped(Pinpoint::class, fn () => new Pinpoint($this->app->make(Recorder::class)));
     }
 
     public function bootingPackage(): void
@@ -118,14 +120,23 @@ class PinpointServiceProvider extends PackageServiceProvider
      */
     protected function registerLazyLoadingObserver(): void
     {
-        if (! config('pinpoint.capture_lazy_loading_violations', true)) {
+        // The master switch must fully disable the package: no Eloquent
+        // global state changes, no handler chaining, when disabled.
+        $recorder = $this->app->make(Recorder::class);
+
+        if (! $recorder->isRecording() || ! config('pinpoint.capture_lazy_loading_violations', true)) {
             return;
         }
 
-        $recorder = $this->app->make(Recorder::class);
         $existing = $this->currentLazyLoadingCallback();
 
-        Model::preventLazyLoading(! app()->isProduction());
+        // preventLazyLoading() only needs to be flipped on outside production
+        // (that's where Pinpoint records instead of throwing); in production
+        // leave the host app's own strict-mode choice untouched.
+        if (! app()->isProduction() && ! Model::preventsLazyLoading()) {
+            Model::preventLazyLoading(true);
+        }
+
         Model::handleLazyLoadingViolationUsing(function ($model, $relation) use ($existing, $recorder) {
             try {
                 $recorder->recordLazyLoad(get_class($model), $relation);

@@ -15,37 +15,41 @@ class SummaryReader
     /**
      * Per-route summary computed on-demand from raw requests.
      *
+     * Single pass over the requests table: group durations by route label in
+     * PHP instead of re-querying per route (the previous version was an
+     * N+1-shaped scan inside the very tool that detects N+1s).
+     *
      * @return array<int, array{route: string, p50: int, p95: int, p99: int, avg: int, samples: int, tier: string, n1_repeat: int}>
      */
     public function fromRaw(): array
     {
-        $rows = DB::table('pinpoint_requests')
-            ->select('route_name', 'method', 'path')
-            ->selectRaw('COUNT(*) as sample_count')
-            ->selectRaw('AVG(duration_ms) as avg_ms')
-            ->groupBy('route_name', 'method', 'path')
-            ->get();
+        $requests = DB::table('pinpoint_requests')
+            ->get(['route_name', 'method', 'path', 'duration_ms']);
 
-        if ($rows->isEmpty()) {
+        if ($requests->isEmpty()) {
             return [];
         }
 
         $counts = $this->maxRepeatCounts();
 
+        $durationsByLabel = [];
+
+        foreach ($requests as $row) {
+            $label = $row->route_name ?? sprintf('%s %s', $row->method, $row->path);
+            $durationsByLabel[$label][] = (int) $row->duration_ms;
+        }
+
         $summaries = [];
 
-        foreach ($rows as $row) {
-            $label = $row->route_name ?? sprintf('%s %s', $row->method, $row->path);
-            $durations = $this->durationsFor($label);
-
+        foreach ($durationsByLabel as $label => $durations) {
             $summaries[] = [
                 'route' => $label,
                 'p50' => Statistics::percentile($durations, 50),
                 'p95' => Statistics::percentile($durations, 95),
                 'p99' => Statistics::percentile($durations, 99),
-                'avg' => (int) round($row->avg_ms),
-                'samples' => (int) $row->sample_count,
-                'tier' => $this->tiers->classify(Statistics::percentile($durations, 95), $row->route_name),
+                'avg' => (int) round(array_sum($durations) / count($durations)),
+                'samples' => count($durations),
+                'tier' => $this->tiers->classify(Statistics::percentile($durations, 95), $label),
                 'n1_repeat' => $counts[$label] ?? 0,
             ];
         }
@@ -75,15 +79,5 @@ class SummaryReader
         }
 
         return $counts;
-    }
-
-    protected function durationsFor(string $label): array
-    {
-        return DB::table('pinpoint_requests')
-            ->get(['route_name', 'method', 'path', 'duration_ms'])
-            ->filter(fn ($row) => ($row->route_name ?? sprintf('%s %s', $row->method, $row->path)) === $label)
-            ->pluck('duration_ms')
-            ->map(fn ($ms) => (int) $ms)
-            ->all();
     }
 }

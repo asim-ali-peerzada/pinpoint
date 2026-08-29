@@ -40,6 +40,23 @@ test('api top queries returns offending queries for a route', function () {
         ->assertJsonPath('data.0.caller_line', 12);
 });
 
+test('api drill down works for unnamed routes with slash labels', function () {
+    $id = DB::table('pinpoint_requests')->insertGetId([
+        'route_name' => null, 'method' => 'GET', 'path' => 'api/orders/5',
+        'duration_ms' => 5000, 'query_count' => 1, 'query_time_ms' => 100,
+        'has_n_plus_one' => false, 'created_at' => now(),
+    ]);
+
+    DB::table('pinpoint_queries')->insert([
+        ['request_id' => $id, 'sql_fingerprint' => 'abc', 'sql' => 'select * from orders where id = ?', 'time_ms' => 99, 'caller_file' => 'app/Models/Order.php', 'caller_line' => 12, 'created_at' => now()],
+    ]);
+
+    $this->getJson('/_pinpoint/api/v1/summaries/GET%20api%2Forders%2F5/queries')
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.sql', 'select * from orders where id = ?');
+});
+
 test('api blocks when pinpoint is disabled', function () {
     config()->set('pinpoint.enabled', false);
 

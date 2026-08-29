@@ -8,5 +8,8 @@ Route::middleware(LocalOnly::class)
     ->prefix('_pinpoint/api/v1')
     ->group(function () {
         Route::get('summaries', [PinpointApiController::class, 'summaries']);
-        Route::get('summaries/{route}/queries', [PinpointApiController::class, 'topQueries']);
+        // Labels may be "METHOD path" (contains a slash) — allow slashes in
+        // the segment so unnamed-route drill-downs actually resolve.
+        Route::get('summaries/{route}/queries', [PinpointApiController::class, 'topQueries'])
+            ->where('route', '.*');
     });
