@@ -9,14 +9,18 @@ Pinpoint is a local-first Laravel request performance profiler. It captures ever
 ```bash
 php artisan pinpoint:report
 
-┌─────────────┬────────┬────────┬─────────┬──────────┬──────────┐
-│ Route       │ p95    │ Avg    │ Samples │ Tier     │ N+1?     │
-├─────────────┼────────┼────────┼─────────┼──────────┼──────────┤
-│ api.orders  │ 1420ms │ 890ms  │ 340     │ CRITICAL │ Yes (x14)│
-│ api.users   │ 210ms  │ 140ms  │ 1200    │ ACCEPT.  │ No       │
-│ api.ping    │ 95ms   │ 60ms   │ 800     │ GOOD     │ No       │
-└─────────────┴────────┴────────┴─────────┴──────────┴──────────┘
+   PINPOINT                              Performance Report
+
+  ┌─────────────┬──────┬──────┬─────────┬──────────────┬───────────┐
+  │ Route       │ p95  │ Avg  │ Samples │ Tier         │ N+1?      │
+  ├─────────────┼──────┼──────┼─────────┼──────────────┼───────────┤
+  │ api.orders  │ 1420 │ 890  │ 340     │ ██ CRITICAL  │ Yes (x14) │
+  │ api.users   │ 210  │ 140  │ 1200    │ ██ ACCEPTABLE│ No        │
+  │ api.ping    │ 95   │ 60   │ 800     │ ██ GOOD      │ No        │
+  └─────────────┴──────┴──────┴─────────┴──────────────┴───────────┘
 ```
+
+Terminal output is rendered with **Termwind** (ships with Laravel): tier pills are color-coded (green / yellow / red), numbers are right-aligned for quick scanning, units are dimmed, and N+1 flags are red and bold. The design is defined once in `Internal\CliRenderer` and shared by every Pinpoint command.
 
 ## What this is / what it is not
 

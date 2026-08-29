@@ -102,10 +102,7 @@ test('report drill-down shows an actionable eager-load suggestion', function () 
         ['request_id' => $requestId, 'model' => Stage::class, 'relation' => 'photos', 'caller_file' => null, 'caller_line' => null, 'created_at' => now()],
     ]);
 
-    $buffer = new BufferedOutput;
-    Artisan::call('pinpoint:report --route=api.packages', [], $buffer);
-
-    $output = $buffer->fetch();
+    $output = runArtisanCaptured('pinpoint:report --route=api.packages');
 
     expect($output)
         ->toContain('AsimAli\Pinpoint\Tests\Fixtures\CloseoutPackage')
@@ -157,10 +154,7 @@ test('report does not chain violations from different requests', function () {
         ['request_id' => $requestTwo, 'model' => Stage::class, 'relation' => 'photos', 'caller_file' => null, 'caller_line' => null, 'created_at' => now()],
     ]);
 
-    $buffer = new BufferedOutput;
-    Artisan::call('pinpoint:report --route=api.packages', [], $buffer);
-
-    $output = $buffer->fetch();
+    $output = runArtisanCaptured('pinpoint:report --route=api.packages');
 
     expect($output)->not->toContain('stages.photos');
 });

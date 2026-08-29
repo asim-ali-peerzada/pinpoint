@@ -1,8 +1,6 @@
 <?php
 
-use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
-use Symfony\Component\Console\Output\BufferedOutput;
 
 beforeEach(function () {
     DB::table('pinpoint_requests')->truncate();
@@ -102,9 +100,5 @@ test('report handles missing tables without breaking', function () {
 
 function runReport(array $parameters = []): string
 {
-    $buffer = new BufferedOutput;
-
-    Artisan::call('pinpoint:report', $parameters, $buffer);
-
-    return $buffer->fetch();
+    return runArtisanCaptured('pinpoint:report', $parameters);
 }

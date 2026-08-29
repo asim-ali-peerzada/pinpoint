@@ -2,6 +2,7 @@
 
 namespace AsimAli\Pinpoint\Commands;
 
+use AsimAli\Pinpoint\Internal\CliRenderer;
 use AsimAli\Pinpoint\Internal\SuggestionBuilder;
 use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
@@ -21,8 +22,10 @@ class CheckCommand extends Command
 
     protected $description = 'CI gate: fail when recorded requests violate N+1 or performance budgets';
 
-    public function __construct(protected SuggestionBuilder $suggestions)
-    {
+    public function __construct(
+        protected SuggestionBuilder $suggestions,
+        protected CliRenderer $cli,
+    ) {
         parent::__construct();
     }
 
@@ -221,6 +224,7 @@ class CheckCommand extends Command
     protected function printResult(array $violations, array $meta, int $limit): void
     {
         if ($this->option('json')) {
+            // CI contract: plain JSON on stdout, no ANSI/HTML markup.
             $this->line(json_encode([
                 'passed' => $violations === [],
                 'meta' => $meta,
@@ -230,56 +234,34 @@ class CheckCommand extends Command
             return;
         }
 
-        $this->info(sprintf('Checked %d request(s) from the last %d minute(s).', $meta['requests'], $meta['window_minutes']));
-
-        if ($violations === []) {
-            $this->info('All checks passed.');
-
-            return;
-        }
-
         $rows = array_map(
             function (array $v) {
-                $row = [
-                    'type' => $v['type'],
-                    'route' => $v['route'],
-                    'repeats' => '-',
-                    'duration' => '-',
-                    'caller' => '-',
-                    'sql' => '-',
-                ];
+                $detail = match ($v['type']) {
+                    'n_plus_one' => $v['repeat_count'] !== null
+                        ? sprintf('Repeated x%s — %s', $v['repeat_count'], str_replace("\n", ' ', mb_strimwidth($v['sql'], 0, 70, '…')))
+                        : 'Eloquent lazy-loading violation (see request query log)',
+                    'query_budget' => sprintf('%d queries (budget %d)', $v['query_count'], $v['budget']),
+                    'duration_budget' => sprintf('%dms (budget %dms)', $v['duration_ms'], $v['budget_ms']),
+                    default => '',
+                };
 
-                if ($v['type'] === 'n_plus_one') {
-                    $row['repeats'] = $v['repeat_count'] !== null ? 'x'.$v['repeat_count'] : '-';
-                    $row['caller'] = $v['caller_file'] ? $v['caller_file'].':'.$v['caller_line'] : '-';
-                    $row['sql'] = str_replace("\n", ' ', mb_strimwidth($v['sql'], 0, 70, '…'));
+                if ($v['type'] === 'n_plus_one' && $v['caller_file']) {
+                    $detail .= sprintf(' at %s:%d', $v['caller_file'], $v['caller_line']);
+                }
 
-                    if (($v['suggestions'][0]['suggested'] ?? null) !== null) {
-                        $row['sql'] .= ' | '.$v['suggestions'][0]['suggested'];
-                    }
-                } elseif ($v['type'] === 'query_budget') {
-                    $row['repeats'] = $v['query_count'].' > '.$v['budget'];
-                } else {
-                    $row['duration'] = $v['duration_ms'].'ms > '.$v['budget_ms'].'ms';
+                if ($v['type'] === 'n_plus_one' && ($v['suggestions'][0]['suggested'] ?? null) !== null) {
+                    $detail .= ' | '.$v['suggestions'][0]['suggested'];
                 }
 
                 return [
-                    $row['type'] === 'n_plus_one' ? 'N+1' : ($row['type'] === 'query_budget' ? 'Query budget' : 'Duration budget'),
-                    $row['route'],
-                    $row['repeats'],
-                    $row['duration'],
-                    $row['caller'],
-                    $row['sql'],
+                    'type' => $v['type'],
+                    'route' => $v['route'],
+                    'detail' => $detail,
                 ];
             },
             array_slice($violations, 0, $limit)
         );
 
-        $this->table(
-            ['Type', 'Route', 'Repeats', 'Duration', 'Caller', 'SQL'],
-            $rows
-        );
-
-        $this->error(sprintf('%d violation(s) found.', count($violations)));
+        $this->cli->checkReport($rows, $meta['requests'], $meta['window_minutes'], $violations === []);
     }
 }

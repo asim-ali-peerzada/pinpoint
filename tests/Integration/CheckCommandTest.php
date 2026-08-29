@@ -26,11 +26,7 @@ function insertRequest(array $overrides = []): int
 
 function runCheck(array $parameters = []): string
 {
-    $buffer = new BufferedOutput;
-
-    Artisan::call('pinpoint:check', $parameters, $buffer);
-
-    return $buffer->fetch();
+    return runArtisanCaptured('pinpoint:check', $parameters);
 }
 
 test('passes when there are no violations', function () {
@@ -71,8 +67,9 @@ test('fails when query count exceeds the budget', function () {
     insertRequest(['query_count' => 25]);
 
     $this->artisan('pinpoint:check --max-queries=20')
-        ->assertExitCode(1)
-        ->expectsOutputToContain('25');
+        ->assertExitCode(1);
+
+    expect(runCheck(['--max-queries' => 20]))->toContain('25');
 });
 
 test('fails when duration exceeds the budget', function () {

@@ -2,6 +2,7 @@
 
 namespace AsimAli\Pinpoint\Commands;
 
+use AsimAli\Pinpoint\Internal\CliRenderer;
 use AsimAli\Pinpoint\Internal\QueryReader;
 use AsimAli\Pinpoint\Internal\SuggestionBuilder;
 use AsimAli\Pinpoint\Internal\SummaryReader;
@@ -23,6 +24,7 @@ class ReportCommand extends Command
         protected SummaryReader $summaries,
         protected QueryReader $queries,
         protected SuggestionBuilder $suggestions,
+        protected CliRenderer $cli,
     ) {
         parent::__construct();
     }
@@ -52,7 +54,7 @@ class ReportCommand extends Command
         $rows = $this->summaries->fromRaw();
 
         if ($rows === []) {
-            $this->info('No requests recorded yet. Run some requests, then re-run this command.');
+            $this->cli->info('No requests recorded yet. Run some requests, then re-run this command.');
 
             return;
         }
@@ -66,52 +68,32 @@ class ReportCommand extends Command
                 continue;
             }
 
+            $repeat = $row['n1_repeat'];
+            $n1 = $repeat >= (int) config('pinpoint.n_plus_one_repeat_threshold', 3) ? "Yes (x{$repeat})" : 'No';
+
             $table[] = [
                 'route' => $row['route'],
                 'p95' => $row['p95'],
                 'avg' => $row['avg'],
                 'samples' => $row['samples'],
                 'tier' => $row['tier'],
-                'n1' => $row['n1_repeat'] >= (int) config('pinpoint.n_plus_one_repeat_threshold', 3) ? "Yes (x{$row['n1_repeat']})" : 'No',
+                'n1' => $n1,
             ];
         }
 
-        $this->table(
-            ['Route', 'p95', 'Avg', 'Samples', 'Tier', 'N+1?'],
-            array_map(
-                fn ($row) => [
-                    $row['route'],
-                    $row['p95'].'ms',
-                    $row['avg'].'ms',
-                    $row['samples'],
-                    strtoupper($row['tier']),
-                    $row['n1'],
-                ],
-                array_slice($table, 0, (int) $this->option('limit'))
-            )
-        );
+        $this->cli->reportTable('Performance Report', array_slice($table, 0, (int) $this->option('limit')));
     }
 
     protected function drillInto(string $routeLabel): void
     {
         $queries = $this->queries->topQueries($routeLabel, (int) $this->option('limit'));
 
-        $this->info("Route: {$routeLabel}");
+        $this->cli->info("Route: {$routeLabel}");
 
-        if ($queries->isEmpty()) {
-            $this->info('No queries captured for this route.');
+        if ($queries->isNotEmpty()) {
+            $this->cli->queriesTable($queries, (int) config('pinpoint.n_plus_one_repeat_threshold', 3));
         } else {
-            $this->table(
-                ['Fingerprint', 'SQL', 'Repeats', 'Avg ms', 'Max ms', 'Caller'],
-                $queries->map(fn ($q) => [
-                    substr($q->sql_fingerprint, 0, 8),
-                    str_replace("\n", ' ', mb_strimwidth($q->sql, 0, 70, '…')),
-                    $q->repeat_count,
-                    (int) round($q->avg_ms),
-                    $q->max_ms,
-                    $q->caller_file ? $q->caller_file.':'.$q->caller_line : '-',
-                ])->all()
-            );
+            $this->cli->info('No queries captured for this route.');
         }
 
         $this->printSuggestions($routeLabel);
@@ -173,22 +155,6 @@ class ReportCommand extends Command
             }
         }
 
-        $chains = array_values($chains);
-
-        if ($chains === []) {
-            return;
-        }
-
-        $this->newLine();
-        $this->warn('N+1 detected — suggested eager loads:');
-
-        foreach ($chains as $chain) {
-            $caller = $chain['caller_file'] ? sprintf(' at %s:%d', $chain['caller_file'], $chain['caller_line']) : '';
-
-            $this->line(sprintf('  %s -> %s%s', $chain['model'], $chain['relations'], $caller));
-            $this->line(sprintf('  Suggested fix: %s::with(%s)', $chain['model'], var_export($chain['relations'], true)));
-        }
-
-        $this->newLine();
+        $this->cli->suggestions(array_values($chains));
     }
 }
