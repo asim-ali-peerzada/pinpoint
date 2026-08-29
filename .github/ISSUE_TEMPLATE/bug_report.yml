@@ -1,0 +1,172 @@
+name: Bug report
+description: Report a problem with Pinpoint so it can be fixed
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! Please fill in every section — incomplete
+        reports are hard to diagnose and may be closed as such.
+
+  - type: input
+    id: pinpoint-version
+    attributes:
+      label: Pinpoint version
+      description: How is it installed, and which version? (e.g. `dev-main` via a path repo, or a tagged release)
+      placeholder: dev-main / 1.0.0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: laravel-version
+    attributes:
+      label: Laravel version
+      description: Run `php artisan --version`
+      options:
+        - 13.x
+        - 12.x
+        - Other (specify in Additional context)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: php-version
+    attributes:
+      label: PHP version
+      description: Run `php -v`
+      options:
+        - 8.5
+        - 8.4
+        - 8.3
+        - 8.2
+        - Other (specify in Additional context)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: database
+    attributes:
+      label: Database / driver
+      options:
+        - MySQL
+        - MariaDB
+        - PostgreSQL
+        - SQLite
+        - SQL Server
+        - Other (specify in Additional context)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: runtime
+    attributes:
+      label: Runtime
+      description: Where does this happen?
+      options:
+        - PHP-FPM
+        - Octane (FrankenPHP / Swoole / RoadRunner)
+        - Artisan CLI / queue worker
+        - Unit / feature test suite
+        - Other (specify in Additional context)
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: "## Package configuration"
+
+  - type: checkboxes
+    id: config-modifications
+    attributes:
+      label: Have you modified the published `config/pinpoint.php`?
+      options:
+        - label: "Yes — I changed `sample_rate`"
+        - label: "Yes — I changed `route_threshold_overrides`"
+        - label: "Yes — I changed `n_plus_one_repeat_threshold`"
+        - label: "Yes — I disabled `capture_lazy_loading_violations`"
+        - label: "Yes — I changed something else (specify in Additional context)"
+        - label: "No — I use the defaults"
+
+  - type: input
+    id: environment-flags
+    attributes:
+      label: Environment variables
+      description: Any `PINPOINT_*` env overrides in use?
+      placeholder: e.g. PINPOINT_ENABLED=true, PINPOINT_CAPTURE_CALLER=false
+
+  - type: markdown
+    attributes:
+      value: "## The bug"
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Describe the bug
+      description: What happened, and what did you expect to happen?
+      placeholder: "e.g. pinpoint:check --fail-on-n1 reports a false positive on my route"
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro-steps
+    attributes:
+      label: Steps to reproduce
+      description: Minimal repro — ideally a failing test or a small route/controller snippet
+      placeholder: |
+        1. Set up two models with a hasMany relationship
+        2. Run this route:
+           ```php
+           Route::get('/orders', fn () => Order::all()->each->items);
+           ```
+        3. Run `php artisan pinpoint:report`
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+
+  - type: textarea
+    id: eloquent-snippet
+    attributes:
+      label: Eloquent query / model structure / raw SQL involved
+      description: Pinpoint relies on SQL fingerprinting and Eloquent relation hooks — paste the exact query, model relationships, or raw SQL that triggered the bug or false positive.
+      placeholder: |
+        ```php
+        class Order extends Model
+        {
+            public function items(): HasMany { ... }
+        }
+        ```
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      placeholder: What should have happened?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      placeholder: What actually happened?
+    validations:
+      required: true
+
+  - type: textarea
+    id: output
+    attributes:
+      label: CLI output / stack trace
+      description: Paste the exact output of the relevant `pinpoint:` command, or the error stack trace. Redact any sensitive data first.
+      render: text
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Anything else relevant — custom middleware, route model binding, queue usage, N+1 on raw query builders, etc.
