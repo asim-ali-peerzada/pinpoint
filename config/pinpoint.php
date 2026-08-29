@@ -9,7 +9,7 @@ return [
     | Enabled in local by default. Recommended: local development only,
     | or limited sampling in staging (see sample_rate below).
     */
-    'enabled' => env('PINPOINT_ENABLED', app()->environment('local')),
+    'enabled' => env('PINPOINT_ENABLED', env('APP_ENV', 'production') === 'local'),
 
     /*
     |--------------------------------------------------------------------------
