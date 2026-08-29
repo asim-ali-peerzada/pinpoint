@@ -1,0 +1,44 @@
+<?php
+
+use Illuminate\Support\Facades\DB;
+
+beforeEach(function () {
+    DB::table('pinpoint_requests')->truncate();
+    DB::table('pinpoint_queries')->truncate();
+    DB::table('pinpoint_summaries')->truncate();
+});
+
+test('prune deletes requests and queries older than the retention window', function () {
+    $old = DB::table('pinpoint_requests')->insertGetId([
+        'route_name' => 'api.old', 'method' => 'GET', 'path' => 'api/old',
+        'duration_ms' => 100, 'query_count' => 1, 'query_time_ms' => 10,
+        'has_n_plus_one' => false, 'created_at' => now()->subDays(60),
+    ]);
+    $new = DB::table('pinpoint_requests')->insertGetId([
+        'route_name' => 'api.new', 'method' => 'GET', 'path' => 'api/new',
+        'duration_ms' => 100, 'query_count' => 1, 'query_time_ms' => 10,
+        'has_n_plus_one' => false, 'created_at' => now(),
+    ]);
+
+    DB::table('pinpoint_queries')->insert([
+        ['request_id' => $old, 'sql_fingerprint' => 'a', 'sql' => 'select 1', 'time_ms' => 1, 'caller_file' => null, 'caller_line' => null, 'created_at' => now()->subDays(60)],
+        ['request_id' => $new, 'sql_fingerprint' => 'b', 'sql' => 'select 2', 'time_ms' => 1, 'caller_file' => null, 'caller_line' => null, 'created_at' => now()],
+    ]);
+
+    $this->artisan('pinpoint:prune')->assertSuccessful();
+
+    $this->assertDatabaseMissing('pinpoint_requests', ['id' => $old]);
+    $this->assertDatabaseHas('pinpoint_requests', ['id' => $new]);
+    $this->assertDatabaseMissing('pinpoint_queries', ['request_id' => $old]);
+    $this->assertDatabaseHas('pinpoint_queries', ['request_id' => $new]);
+});
+
+test('prune respects the days override', function () {
+    DB::table('pinpoint_requests')->insert([
+        ['route_name' => 'api.mid', 'method' => 'GET', 'path' => 'api/mid', 'duration_ms' => 100, 'query_count' => 1, 'query_time_ms' => 10, 'has_n_plus_one' => false, 'created_at' => now()->subDays(10)],
+    ]);
+
+    $this->artisan('pinpoint:prune --days=5')->assertSuccessful();
+
+    $this->assertDatabaseCount('pinpoint_requests', 0);
+});

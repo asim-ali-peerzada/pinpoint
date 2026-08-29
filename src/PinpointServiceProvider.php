@@ -3,6 +3,7 @@
 namespace AsimAli\Pinpoint;
 
 use AsimAli\Pinpoint\Commands\AggregateCommand;
+use AsimAli\Pinpoint\Commands\PruneCommand;
 use AsimAli\Pinpoint\Commands\ReportCommand;
 use AsimAli\Pinpoint\Internal\Recorder;
 use Illuminate\Database\Eloquent\Model;
@@ -27,6 +28,7 @@ class PinpointServiceProvider extends PackageServiceProvider
             ->hasConfigFile()
             ->hasCommand(AggregateCommand::class)
             ->hasCommand(ReportCommand::class)
+            ->hasCommand(PruneCommand::class)
             ->hasMigration('2026_01_01_000001_create_pinpoint_requests_table')
             ->hasMigration('2026_01_01_000002_create_pinpoint_queries_table')
             ->hasMigration('2026_01_01_000003_create_pinpoint_summaries_table');
@@ -95,7 +97,11 @@ class PinpointServiceProvider extends PackageServiceProvider
             } catch (\Throwable $e) {
                 // Fail silently: the host app must never break because Pinpoint
                 // couldn't write its own tables (e.g. migrations not run yet).
-                Log::warning('Pinpoint: failed to flush request', ['exception' => $e->getMessage()]);
+                if (str_contains($e->getMessage(), 'no such table')) {
+                    Log::warning('Pinpoint: tables missing — run `php artisan vendor:publish --tag=pinpoint-migrations` then `php artisan migrate`.');
+                } else {
+                    Log::warning('Pinpoint: failed to flush request', ['exception' => $e->getMessage()]);
+                }
 
                 $recorder->reset();
             }

@@ -37,17 +37,18 @@ class AggregateCommand extends Command
     protected function aggregate(): void
     {
         $rows = DB::table('pinpoint_requests')
-            ->select('route_name')
+            ->select('route_name', 'method', 'path')
             ->selectRaw('COUNT(*) as sample_count')
             ->selectRaw('AVG(duration_ms) as avg_ms')
-            ->groupBy('route_name')
+            ->groupBy('route_name', 'method', 'path')
             ->get();
 
         foreach ($rows as $row) {
-            $durations = $this->durationsFor($row->route_name);
+            $label = $row->route_name ?? sprintf('%s %s', $row->method, $row->path);
+            $durations = $this->durationsFor($label);
 
             DB::table('pinpoint_summaries')->updateOrInsert(
-                ['route_name' => $row->route_name],
+                ['route_name' => $label],
                 [
                     'p50_ms' => Statistics::percentile($durations, 50),
                     'p95_ms' => Statistics::percentile($durations, 95),
@@ -63,11 +64,11 @@ class AggregateCommand extends Command
         $this->info(sprintf('Aggregated %d route(s).', count($rows)));
     }
 
-    protected function durationsFor(?string $routeName): array
+    protected function durationsFor(string $label): array
     {
         return DB::table('pinpoint_requests')
-            ->where('route_name', $routeName)
-            ->orderBy('duration_ms')
+            ->get(['route_name', 'method', 'path', 'duration_ms'])
+            ->filter(fn ($row) => ($row->route_name ?? sprintf('%s %s', $row->method, $row->path)) === $label)
             ->pluck('duration_ms')
             ->map(fn ($ms) => (int) $ms)
             ->all();

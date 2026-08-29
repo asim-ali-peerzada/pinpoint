@@ -58,13 +58,13 @@ class ReportCommand extends Command
             return;
         }
 
-        $routeNames = $rows->pluck('route_name')->all();
-        $counts = $this->maxRepeatCounts($routeNames);
+        $counts = $this->maxRepeatCounts();
 
         $table = [];
 
         foreach ($rows as $row) {
-            $durations = $this->durationsFor($row->route_name);
+            $label = $row->route_name ?? sprintf('%s %s', $row->method, $row->path);
+            $durations = $this->durationsFor($label);
             $p95 = Statistics::percentile($durations, 95);
             $tier = $this->tiers->classify($p95, $row->route_name);
 
@@ -72,8 +72,7 @@ class ReportCommand extends Command
                 continue;
             }
 
-            $label = $row->route_name ?? sprintf('%s %s', $row->method, $row->path);
-            $repeat = $counts[$row->route_name] ?? 0;
+            $repeat = $counts[$label] ?? 0;
 
             $table[] = [
                 'route' => $label,
@@ -146,32 +145,33 @@ class ReportCommand extends Command
         );
     }
 
-    protected function maxRepeatCounts(array $routeNames): array
+    protected function maxRepeatCounts(): array
     {
-        if ($routeNames === []) {
-            return [];
-        }
-
         $perRequest = DB::table('pinpoint_queries')
             ->select('request_id', 'sql_fingerprint')
             ->selectRaw('COUNT(*) as repeat_count')
             ->groupBy('request_id', 'sql_fingerprint');
 
-        return DB::table('pinpoint_requests as r')
+        $rows = DB::table('pinpoint_requests as r')
             ->joinSub($perRequest, 'rc', 'rc.request_id', '=', 'r.id')
-            ->whereIn('r.route_name', $routeNames)
-            ->select('r.route_name')
-            ->selectRaw('MAX(rc.repeat_count) as max_repeat')
-            ->groupBy('r.route_name')
-            ->pluck('max_repeat', 'route_name')
-            ->map(fn ($v) => (int) $v)
-            ->all();
+            ->select('r.route_name', 'r.method', 'r.path', 'rc.repeat_count')
+            ->get();
+
+        $counts = [];
+
+        foreach ($rows as $row) {
+            $label = $row->route_name ?? sprintf('%s %s', $row->method, $row->path);
+            $counts[$label] = max($counts[$label] ?? 0, (int) $row->repeat_count);
+        }
+
+        return $counts;
     }
 
-    protected function durationsFor(?string $routeName): array
+    protected function durationsFor(string $label): array
     {
         return DB::table('pinpoint_requests')
-            ->where('route_name', $routeName)
+            ->get(['route_name', 'method', 'path', 'duration_ms'])
+            ->filter(fn ($row) => ($row->route_name ?? sprintf('%s %s', $row->method, $row->path)) === $label)
             ->pluck('duration_ms')
             ->map(fn ($ms) => (int) $ms)
             ->all();

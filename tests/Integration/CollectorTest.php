@@ -74,3 +74,16 @@ test('lazy loading violation is recorded for apps with their own handler', funct
 
     expect(app(Recorder::class)->lazyLoads())->toHaveCount(1);
 });
+
+test('caller capture is disabled outside local environments', function () {
+    $recorder = app(Recorder::class);
+    $app = app();
+    $original = $app->environment();
+
+    try {
+        $app->detectEnvironment(fn () => 'production');
+        expect($recorder->capturesCaller())->toBeFalse();
+    } finally {
+        $app->detectEnvironment(fn () => $original);
+    }
+});

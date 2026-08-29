@@ -68,6 +68,31 @@ test('report handles empty data', function () {
     expect($output)->toContain('No requests recorded yet.');
 });
 
+test('report groups unlabeled routes by method and path', function () {
+    DB::table('pinpoint_requests')->insert([
+        ['route_name' => null, 'method' => 'GET', 'path' => 'api/fast', 'duration_ms' => 10, 'query_count' => 1, 'query_time_ms' => 1, 'has_n_plus_one' => false, 'created_at' => now()],
+        ['route_name' => null, 'method' => 'GET', 'path' => 'api/slow', 'duration_ms' => 9000, 'query_count' => 1, 'query_time_ms' => 1, 'has_n_plus_one' => false, 'created_at' => now()],
+    ]);
+
+    $output = runReport();
+
+    expect($output)
+        ->toContain('GET api/fast')
+        ->toContain('GET api/slow');
+});
+
+test('aggregate groups unlabeled routes by method and path', function () {
+    DB::table('pinpoint_requests')->insert([
+        ['route_name' => null, 'method' => 'GET', 'path' => 'api/fast', 'duration_ms' => 10, 'query_count' => 1, 'query_time_ms' => 1, 'has_n_plus_one' => false, 'created_at' => now()],
+        ['route_name' => null, 'method' => 'POST', 'path' => 'api/fast', 'duration_ms' => 9000, 'query_count' => 1, 'query_time_ms' => 1, 'has_n_plus_one' => false, 'created_at' => now()],
+    ]);
+
+    $this->artisan('pinpoint:aggregate')->assertSuccessful();
+
+    $this->assertDatabaseHas('pinpoint_summaries', ['route_name' => 'GET api/fast']);
+    $this->assertDatabaseHas('pinpoint_summaries', ['route_name' => 'POST api/fast']);
+});
+
 test('report handles missing tables without breaking', function () {
     Schema::drop('pinpoint_requests');
     Schema::drop('pinpoint_queries');
