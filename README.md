@@ -80,6 +80,18 @@ Two signals:
 
 Both signals set `has_n_plus_one`; the report shows the repeat count as `Yes (xN)`.
 
+## Performance
+
+Measured with `composer benchmark` (in-memory SQLite, 10 queries/request, 200 requests, Testbench skeleton app):
+
+| Scenario | Mean request time | Overhead |
+|---|---|---|
+| Pinpoint disabled | ~1.0 ms | — |
+| Enabled, no caller capture | ~1.8 ms | ~0.9 ms |
+| Enabled, local + caller capture | ~2.4 ms | ~1.5 ms |
+
+The worst case (caller capture via `debug_backtrace`) only runs in local environments — production never pays it. The remaining overhead is one fingerprint hash per query plus the final request/query row inserts. Re-run on your own hardware: `composer benchmark`.
+
 ## Production guidance
 
 - **Recommended use:** local development, and staging at `sample_rate` 0.1–0.2.
