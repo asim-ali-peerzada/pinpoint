@@ -16,6 +16,9 @@
 require __DIR__.'/../vendor/autoload.php';
 
 use AsimAli\Pinpoint\PinpointServiceProvider;
+use Illuminate\Database\Migrations\DatabaseMigrationRepository;
+use Illuminate\Database\Migrations\Migrator;
+use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Http\Kernel as HttpKernel;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -24,7 +27,7 @@ use Orchestra\Testbench\Foundation\Application as Testbench;
 const REQUESTS = 200;
 const QUERIES_PER_REQUEST = 10;
 const WARMUP = 20;
-function makeApp(bool $enabled, bool $captureCaller = true): \Illuminate\Foundation\Application
+function makeApp(bool $enabled, bool $captureCaller = true): Application
 {
     $app = Testbench::create(
         basePath: realpath(__DIR__.'/../vendor/orchestra/testbench-core/laravel')
@@ -53,10 +56,10 @@ function makeApp(bool $enabled, bool $captureCaller = true): \Illuminate\Foundat
         return response('ok');
     });
 
-    $repository = new Illuminate\Database\Migrations\DatabaseMigrationRepository($app['db'], 'migrations');
+    $repository = new DatabaseMigrationRepository($app['db'], 'migrations');
     $repository->createRepository();
 
-    $migrator = new Illuminate\Database\Migrations\Migrator($repository, $app['db'], $app->make('files'), $app->make('events'));
+    $migrator = new Migrator($repository, $app['db'], $app->make('files'), $app->make('events'));
     $migrator->run([__DIR__.'/../database/migrations']);
 
     return $app;
