@@ -2,6 +2,8 @@
 
 namespace AsimAli\Pinpoint;
 
+use AsimAli\Pinpoint\Commands\AggregateCommand;
+use AsimAli\Pinpoint\Commands\ReportCommand;
 use AsimAli\Pinpoint\Internal\Recorder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Events\QueryExecuted;
@@ -23,6 +25,8 @@ class PinpointServiceProvider extends PackageServiceProvider
         $package
             ->name('pinpoint')
             ->hasConfigFile()
+            ->hasCommand(AggregateCommand::class)
+            ->hasCommand(ReportCommand::class)
             ->hasMigration('2026_01_01_000001_create_pinpoint_requests_table')
             ->hasMigration('2026_01_01_000002_create_pinpoint_queries_table')
             ->hasMigration('2026_01_01_000003_create_pinpoint_summaries_table');
