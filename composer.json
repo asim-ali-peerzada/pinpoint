@@ -1,0 +1,44 @@
+{
+    "name": "asimali/pinpoint",
+    "description": "Pinpoint: Laravel request performance collector, N+1 detection, tiering and CLI report",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Asim Ali",
+            "email": "asimalipeerzada@gmail.com"
+        }
+    ],
+    "require": {
+        "illuminate/console": "^12.68",
+        "illuminate/database": "^12.68",
+        "illuminate/events": "^12.68",
+        "illuminate/http": "^12.68",
+        "illuminate/support": "^12.68",
+        "laravel/framework": "^12.68"
+    },
+    "require-dev": {
+        "orchestra/testbench": "^10.11"
+    },
+    "autoload": {
+        "psr-4": {
+            "AsimAli\\Pinpoint\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "AsimAli\\Pinpoint\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "AsimAli\\Pinpoint\\PinpointServiceProvider"
+            ]
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true,
+    "config": {
+        "sort-packages": true
+    }
+}
