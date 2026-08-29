@@ -32,9 +32,9 @@ class PinpointServiceProvider extends PackageServiceProvider
             ->hasCommand(CheckCommand::class)
             ->hasCommand(ReportCommand::class)
             ->hasCommand(PruneCommand::class)
-            ->hasMigration('2026_01_01_000001_create_pinpoint_requests_table')
-            ->hasMigration('2026_01_01_000002_create_pinpoint_queries_table')
-            ->hasMigration('2026_01_01_000003_create_pinpoint_summaries_table');
+            ->hasMigration('create_pinpoint_requests_table')
+            ->hasMigration('create_pinpoint_queries_table')
+            ->hasMigration('create_pinpoint_summaries_table');
     }
 
     public function registeringPackage(): void

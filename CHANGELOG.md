@@ -30,6 +30,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Summary computation chunks the requests table (bounded memory on large datasets).
 - New `pinpoint:check` CI gate: `--fail-on-n1`, `--max-queries`, `--max-duration-ms`, `--since` window, `--json` output for PR-comment automation. Catches both Eloquent lazy-load N+1s (via `has_n_plus_one`) and raw fingerprint repeats, and reports the exact SQL + caller file:line.
 - Caller capture now also runs in `testing` environments so CI reports include file:line.
+- Migration sources renamed to timestamp-free filenames (`create_pinpoint_*_table.php`); package-tools generates the publish timestamp on `vendor:publish`, so published migrations always carry the current date instead of a hardcoded one.
 - Summaries and drill-downs compute from a single pass over the requests table instead of re-scanning per route.
 - Caller capture excludes `vendor/` frames so file:line points at app code, not the package.
 - `pinpoint:prune` validates the retention window (`--days=0` or garbage no longer deletes everything).
