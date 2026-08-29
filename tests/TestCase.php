@@ -17,6 +17,10 @@ abstract class TestCase extends Orchestra
     protected function defineEnvironment($app)
     {
         $app['config']->set('pinpoint.enabled', true);
+        // Tests exercise the API, which the LocalOnly middleware allows in
+        // local or debug mode — neither is true for Testbench's default
+        // 'testing' env, so enable debug for the shared base TestCase.
+        $app['config']->set('app.debug', true);
     }
 
     protected function defineDatabaseMigrations()

@@ -11,8 +11,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Phase 1: request/query collector, N+1 detection (lazy-loading violations + fingerprint repeats), `sentinel_requests`/`sentinel_queries` tables.
 - Phase 2: `pinpoint:aggregate` command rolling raw requests into per-route p50/p95/p99 summaries with tiers.
 - Phase 3: `pinpoint:report` CLI with `--tier` filter and `--route` drill-down showing top queries with caller file:line.
+- Phase 4: versioned local read API at `/_pinpoint/api/v1/` (`summaries` + `summaries/{route}/queries`), gated by `LocalOnly` middleware (local or debug mode, config-gated).
 - `pinpoint:prune` command with `pinpoint.retention_days` config (default 30).
 - CI matrix (PHP 8.3–8.5, Laravel 12–13, Windows + Ubuntu, prefer-lowest/prefer-stable), Pest test suite, Pint + Larastan tooling.
+- Overhead benchmark harness (`composer benchmark`) with published numbers in the README.
 
 ### Changed
 

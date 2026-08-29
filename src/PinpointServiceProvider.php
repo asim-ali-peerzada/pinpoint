@@ -26,6 +26,7 @@ class PinpointServiceProvider extends PackageServiceProvider
         $package
             ->name('pinpoint')
             ->hasConfigFile()
+            ->hasRoute('api')
             ->hasCommand(AggregateCommand::class)
             ->hasCommand(ReportCommand::class)
             ->hasCommand(PruneCommand::class)
