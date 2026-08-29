@@ -2,117 +2,22 @@
 
 namespace AsimAli\Pinpoint;
 
-use Illuminate\Contracts\Config\Repository as Config;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
+use AsimAli\Pinpoint\Internal\Recorder;
 
+/**
+ * Pinpoint's public API surface. Everything else lives in Internal\.
+ *
+ * The one documented use for host apps: if you register your own
+ * handleLazyLoadingViolationUsing() in a provider that boots AFTER this
+ * package, call Pinpoint::observeLazyLoad() inside your own handler so
+ * Pinpoint's N+1 signal keeps working.
+ */
 class Pinpoint
 {
-    /** @var array<int, array{sql: string, fingerprint: string, time_ms: float, caller: array{file: string, line: int}|null}> */
-    protected array $queries = [];
+    public function __construct(protected Recorder $recorder) {}
 
-    /** @var array<int, array{model: string, relation: string}> */
-    protected array $lazyLoads = [];
-
-    public function __construct(protected Config $config)
+    public function observeLazyLoad(string $model, string $relation): void
     {
-    }
-
-    public function isRecording(): bool
-    {
-        return (bool) $this->config->get('pinpoint.enabled', false);
-    }
-
-    public function capturesCaller(): bool
-    {
-        return app()->isLocal() || (bool) $this->config->get('pinpoint.capture_caller', true);
-    }
-
-    public function shouldRecord(Request $request): bool
-    {
-        if (! $this->isRecording()) {
-            return false;
-        }
-
-        return mt_rand() / mt_getrandmax() < (float) $this->config->get('pinpoint.sample_rate', 1.0);
-    }
-
-    public function recordQuery(array $query): void
-    {
-        $this->queries[] = $query;
-    }
-
-    public function recordLazyLoad(string $model, string $relation): void
-    {
-        $this->lazyLoads[] = ['model' => $model, 'relation' => $relation];
-    }
-
-    public function flush(array $request): void
-    {
-        $id = DB::table('pinpoint_requests')->insertGetId([
-            'route_name' => $request['route_name'],
-            'method' => $request['method'],
-            'path' => $request['path'],
-            'duration_ms' => (int) round($request['duration_ms']),
-            'query_count' => count($this->queries),
-            'query_time_ms' => (int) round(array_sum(array_column($this->queries, 'time_ms'))),
-            'has_n_plus_one' => $this->hasNPlusOne(),
-            'created_at' => now(),
-        ]);
-
-        if ($this->queries !== []) {
-            DB::table('pinpoint_queries')->insert(array_map(
-                fn (array $query) => [
-                    'request_id' => $id,
-                    'sql_fingerprint' => $query['fingerprint'],
-                    'sql' => $query['sql'],
-                    'time_ms' => (int) round($query['time_ms']),
-                    'caller_file' => $query['caller']['file'] ?? null,
-                    'caller_line' => $query['caller']['line'] ?? null,
-                    'created_at' => now(),
-                ],
-                $this->queries
-            ));
-        }
-
-        $this->reset();
-    }
-
-    public function reset(): void
-    {
-        $this->queries = [];
-        $this->lazyLoads = [];
-    }
-
-    public function hasNPlusOne(): bool
-    {
-        if ($this->lazyLoads !== []) {
-            return true;
-        }
-
-        $repeatThreshold = (int) $this->config->get('pinpoint.n_plus_one_repeat_threshold', 3);
-
-        $counts = array_count_values(array_column($this->queries, 'fingerprint'));
-
-        return $counts !== [] && max($counts) >= $repeatThreshold;
-    }
-
-    public function repeatCounts(): array
-    {
-        $counts = array_count_values(array_column($this->queries, 'fingerprint'));
-
-        $threshold = (int) $this->config->get('pinpoint.n_plus_one_repeat_threshold', 3);
-
-        return array_filter($counts, fn (int $count) => $count >= $threshold);
-    }
-
-    public function lazyLoads(): array
-    {
-        return $this->lazyLoads;
-    }
-
-    public function queries(): array
-    {
-        return $this->queries;
+        $this->recorder->recordLazyLoad($model, $relation);
     }
 }

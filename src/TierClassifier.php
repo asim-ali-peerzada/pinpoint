@@ -7,13 +7,14 @@ use Illuminate\Contracts\Config\Repository as Config;
 class TierClassifier
 {
     public const GOOD = 'good';
+
     public const ACCEPTABLE = 'acceptable';
+
     public const NEEDS_IMPROVEMENT = 'needs_improvement';
+
     public const CRITICAL = 'critical';
 
-    public function __construct(protected Config $config)
-    {
-    }
+    public function __construct(protected Config $config) {}
 
     public function classify(float $ms, ?string $routeName): string
     {

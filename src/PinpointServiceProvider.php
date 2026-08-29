@@ -2,37 +2,41 @@
 
 namespace AsimAli\Pinpoint;
 
-use Illuminate\Contracts\Foundation\Application;
+use AsimAli\Pinpoint\Internal\Recorder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Foundation\Http\Events\RequestHandled;
-use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Facades\Log;
 use ReflectionClass;
 use ReflectionException;
+use Spatie\LaravelPackageTools\Package;
+use Spatie\LaravelPackageTools\PackageServiceProvider;
 
-class PinpointServiceProvider extends ServiceProvider
+class PinpointServiceProvider extends PackageServiceProvider
 {
     protected float $startedAt;
 
-    public function register(): void
+    public function configurePackage(Package $package): void
     {
-        $this->mergeConfigFrom(__DIR__.'/../config/pinpoint.php', 'pinpoint');
-
         $this->startedAt = microtime(true);
 
-        $this->app->singleton(Pinpoint::class, fn (Application $app) => new Pinpoint($app->make('config')));
+        $package
+            ->name('pinpoint')
+            ->hasConfigFile()
+            ->hasMigration('2026_01_01_000001_create_pinpoint_requests_table')
+            ->hasMigration('2026_01_01_000002_create_pinpoint_queries_table')
+            ->hasMigration('2026_01_01_000003_create_pinpoint_summaries_table');
     }
 
-    public function boot(): void
+    public function registeringPackage(): void
     {
-        $this->publishes([
-            __DIR__.'/../config/pinpoint.php' => config_path('pinpoint.php'),
-        ], 'pinpoint-config');
+        $this->app->singleton(Recorder::class, fn () => new Recorder($this->app->make('config')));
 
-        $this->publishes([
-            __DIR__.'/../database/migrations' => database_path('migrations'),
-        ], 'pinpoint-migrations');
+        $this->app->singleton(Pinpoint::class, fn () => new Pinpoint($this->app->make(Recorder::class)));
+    }
 
+    public function bootingPackage(): void
+    {
         $this->registerQueryListener();
         $this->registerRequestListener();
         $this->registerLazyLoadingObserver();
@@ -40,49 +44,57 @@ class PinpointServiceProvider extends ServiceProvider
 
     protected function registerQueryListener(): void
     {
-        if (! $this->app->make(Pinpoint::class)->isRecording()) {
+        $recorder = $this->app->make(Recorder::class);
+
+        if (! $recorder->isRecording()) {
             return;
         }
 
-        $pinpoint = $this->app->make(Pinpoint::class);
-
-        $this->app['events']->listen(QueryExecuted::class, function (QueryExecuted $query) use ($pinpoint) {
-            if (! $pinpoint->isRecording()) {
-                return;
+        $this->app['events']->listen(QueryExecuted::class, function (QueryExecuted $query) use ($recorder) {
+            try {
+                $recorder->recordQuery([
+                    'sql' => $query->sql,
+                    'fingerprint' => QueryFingerprinter::hash($query->sql),
+                    'time_ms' => $query->time,
+                    'caller' => $recorder->capturesCaller() ? Caller::capture(base_path()) : null,
+                ]);
+            } catch (\Throwable $e) {
+                Log::warning('Pinpoint: failed to record query', ['exception' => $e->getMessage()]);
             }
-
-            $pinpoint->recordQuery([
-                'sql' => $query->sql,
-                'fingerprint' => QueryFingerprinter::hash($query->sql),
-                'time_ms' => $query->time,
-                'caller' => $pinpoint->capturesCaller() ? Caller::capture(base_path()) : null,
-            ]);
         });
     }
 
     protected function registerRequestListener(): void
     {
-        if (! $this->app->make(Pinpoint::class)->isRecording()) {
+        $recorder = $this->app->make(Recorder::class);
+
+        if (! $recorder->isRecording()) {
             return;
         }
 
-        $pinpoint = $this->app->make(Pinpoint::class);
+        $this->app['events']->listen(RequestHandled::class, function (RequestHandled $event) use ($recorder) {
+            try {
+                $request = $event->request;
 
-        $this->app['events']->listen(RequestHandled::class, function (RequestHandled $event) use ($pinpoint) {
-            $request = $event->request;
+                if (! $recorder->shouldRecord($request)) {
+                    $recorder->reset();
 
-            if (! $pinpoint->shouldRecord($request)) {
-                $pinpoint->reset();
+                    return;
+                }
 
-                return;
+                $recorder->flush([
+                    'route_name' => $request->route()?->getName(),
+                    'method' => $request->method(),
+                    'path' => $request->path(),
+                    'duration_ms' => (microtime(true) - $this->requestStart()) * 1000,
+                ]);
+            } catch (\Throwable $e) {
+                // Fail silently: the host app must never break because Pinpoint
+                // couldn't write its own tables (e.g. migrations not run yet).
+                Log::warning('Pinpoint: failed to flush request', ['exception' => $e->getMessage()]);
+
+                $recorder->reset();
             }
-
-            $pinpoint->flush([
-                'route_name' => $request->route()?->getName(),
-                'method' => $request->method(),
-                'path' => $request->path(),
-                'duration_ms' => (microtime(true) - $this->requestStart()) * 1000,
-            ]);
         });
     }
 
@@ -90,31 +102,35 @@ class PinpointServiceProvider extends ServiceProvider
      * Auto-chain: captures whatever handler already exists at boot time via
      * Reflection (there's no public getter for this property) and calls it
      * after recording. Reflection can't fix the reverse direction (a handler
-     * registered in a provider booting *after* ours overwrites us) — the
-     * README documents Pinpoint::recordLazyLoad() for that case.
+     * registered in a provider booting *after* ours overwrites us) — apps in
+     * that situation should call Pinpoint::observeLazyLoad() in their handler.
      */
-    protected function requestStart(): float
-    {
-        return defined('LARAVEL_START') ? LARAVEL_START : $this->startedAt;
-    }
-
     protected function registerLazyLoadingObserver(): void
     {
         if (! config('pinpoint.capture_lazy_loading_violations', true)) {
             return;
         }
 
-        $pinpoint = $this->app->make(Pinpoint::class);
+        $recorder = $this->app->make(Recorder::class);
         $existing = $this->currentLazyLoadingCallback();
 
         Model::preventLazyLoading(! app()->isProduction());
-        Model::handleLazyLoadingViolationUsing(function ($model, $relation) use ($existing, $pinpoint) {
-            $pinpoint->recordLazyLoad(get_class($model), $relation);
+        Model::handleLazyLoadingViolationUsing(function ($model, $relation) use ($existing, $recorder) {
+            try {
+                $recorder->recordLazyLoad(get_class($model), $relation);
+            } catch (\Throwable $e) {
+                Log::warning('Pinpoint: failed to record lazy load', ['exception' => $e->getMessage()]);
+            }
 
             if ($existing) {
                 $existing($model, $relation);
             }
         });
+    }
+
+    protected function requestStart(): float
+    {
+        return defined('LARAVEL_START') ? LARAVEL_START : $this->startedAt;
     }
 
     protected function currentLazyLoadingCallback(): ?callable
