@@ -63,6 +63,20 @@ At scale, compute percentiles offline instead of per-request:
 $schedule->command('pinpoint:aggregate')->hourly();
 ```
 
+```bash
+php artisan pinpoint:report --route=api.packages
+```
+
+Drilling into a route with lazy-load violations also prints **actionable fixes**, not just warnings:
+
+```text
+N+1 detected — suggested eager loads:
+  App\Models\CloseoutPackage -> stages.photos at app/Services/ApprovalReadinessService.php:124
+  Suggested fix: App\Models\CloseoutPackage::with('stages.photos')
+```
+
+Pinpoint persists the model + relation of every lazy-loading violation, chains nested relations (`stages.photos` when `stages` itself is lazily loaded), and shows the exact caller — so the fix is copy-paste ready.
+
 ### CI / GitHub Actions — fail the merge on N+1s and query bloat
 
 Pinpoint doubles as a regression gate: run your test suite (requests get recorded), then `pinpoint:check` fails the job when a PR introduces an N+1 or blows a query/duration budget — with the exact offending SQL and `file:line` in the output.

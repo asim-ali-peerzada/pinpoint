@@ -12,7 +12,7 @@ test('published migrations get a current timestamp, not a hardcoded one', functi
 
     $published = collect(File::glob($target.'/*pinpoint*'))->map(fn ($f) => basename($f))->sort()->values();
 
-    expect($published)->toHaveCount(3);
+    expect($published)->toHaveCount(4);
 
     foreach ($published as $name) {
         // Timestamp prefix must be "now", not a hardcoded 2026_01_01.

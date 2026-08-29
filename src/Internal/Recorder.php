@@ -14,7 +14,7 @@ class Recorder
     /** @var array<int, array{sql: string, fingerprint: string, time_ms: float, caller: array{file: string, line: int}|null}> */
     protected array $queries = [];
 
-    /** @var array<int, array{model: string, relation: string}> */
+    /** @var array<int, array{model: string, relation: string, caller: array{file: string, line: int}|null}> */
     protected array $lazyLoads = [];
 
     public function __construct(protected Config $config) {}
@@ -48,9 +48,9 @@ class Recorder
         $this->queries[] = $query;
     }
 
-    public function recordLazyLoad(string $model, string $relation): void
+    public function recordLazyLoad(string $model, string $relation, ?array $caller = null): void
     {
-        $this->lazyLoads[] = ['model' => $model, 'relation' => $relation];
+        $this->lazyLoads[] = ['model' => $model, 'relation' => $relation, 'caller' => $caller];
     }
 
     public function flush(array $request): void
@@ -78,6 +78,20 @@ class Recorder
                     'created_at' => now(),
                 ],
                 $this->queries
+            ));
+        }
+
+        if ($this->lazyLoads !== []) {
+            DB::table('pinpoint_lazy_loads')->insert(array_map(
+                fn (array $lazyLoad) => [
+                    'request_id' => $id,
+                    'model' => $lazyLoad['model'],
+                    'relation' => $lazyLoad['relation'],
+                    'caller_file' => $lazyLoad['caller']['file'] ?? null,
+                    'caller_line' => $lazyLoad['caller']['line'] ?? null,
+                    'created_at' => now(),
+                ],
+                $this->lazyLoads
             ));
         }
 

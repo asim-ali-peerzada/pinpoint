@@ -34,7 +34,8 @@ class PinpointServiceProvider extends PackageServiceProvider
             ->hasCommand(PruneCommand::class)
             ->hasMigration('create_pinpoint_requests_table')
             ->hasMigration('create_pinpoint_queries_table')
-            ->hasMigration('create_pinpoint_summaries_table');
+            ->hasMigration('create_pinpoint_summaries_table')
+            ->hasMigration('create_pinpoint_lazy_loads_table');
     }
 
     public function registeringPackage(): void
@@ -155,7 +156,13 @@ class PinpointServiceProvider extends PackageServiceProvider
             try {
                 // Resolve per call (never capture) — same scoped-instance
                 // rationale as the query listener, for Octane/queue workers.
-                $this->app->make(Recorder::class)->recordLazyLoad(get_class($model), $relation);
+                $recorder = $this->app->make(Recorder::class);
+
+                $recorder->recordLazyLoad(
+                    get_class($model),
+                    $relation,
+                    $recorder->capturesCaller() ? Caller::capture(base_path()) : null
+                );
             } catch (\Throwable $e) {
                 Log::warning('Pinpoint: failed to record lazy load', ['exception' => $e->getMessage()]);
             }

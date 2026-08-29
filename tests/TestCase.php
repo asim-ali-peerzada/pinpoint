@@ -3,6 +3,7 @@
 namespace AsimAli\Pinpoint\Tests;
 
 use AsimAli\Pinpoint\PinpointServiceProvider;
+use AsimAli\Pinpoint\Tests\Fixtures\CloseoutPackage;
 use AsimAli\Pinpoint\Tests\Fixtures\User;
 use Illuminate\Support\Facades\DB;
 use Orchestra\Testbench\TestCase as Orchestra;
@@ -39,5 +40,8 @@ abstract class TestCase extends Orchestra
 
             return response('ok');
         });
+        $router->get('/pinpoint-suggestion', fn () => response(
+            CloseoutPackage::all()->each->stages
+        ));
     }
 }

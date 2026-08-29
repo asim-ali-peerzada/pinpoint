@@ -2,6 +2,7 @@
 
 namespace AsimAli\Pinpoint\Commands;
 
+use AsimAli\Pinpoint\Internal\SuggestionBuilder;
 use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -19,6 +20,11 @@ class CheckCommand extends Command
         {--limit=20 : Max violations to report}';
 
     protected $description = 'CI gate: fail when recorded requests violate N+1 or performance budgets';
+
+    public function __construct(protected SuggestionBuilder $suggestions)
+    {
+        parent::__construct();
+    }
 
     public function handle(): int
     {
@@ -157,7 +163,54 @@ class CheckCommand extends Command
             }
         }
 
+        // Attach actionable eager-load suggestions for lazy-load violations.
+        $suggestions = $this->buildSuggestions($ids);
+
+        foreach ($violations as &$violation) {
+            $violation['suggestions'] = $suggestions[$violation['request_id']] ?? [];
+        }
+
         return $violations;
+    }
+
+    protected function buildSuggestions($requestIds): array
+    {
+        if ($requestIds->isEmpty()) {
+            return [];
+        }
+
+        $violations = DB::table('pinpoint_lazy_loads')
+            ->whereIn('request_id', $requestIds)
+            ->select('request_id', 'model', 'relation', 'caller_file', 'caller_line')
+            ->get()
+            ->map(fn ($row) => [
+                'request_id' => $row->request_id,
+                'model' => $row->model,
+                'relation' => $row->relation,
+                'caller_file' => $row->caller_file,
+                'caller_line' => $row->caller_line,
+            ])
+            ->unique(fn ($row) => $row['request_id'].'|'.$row['model'].'->'.$row['relation'])
+            ->groupBy('request_id');
+
+        $suggestions = [];
+
+        foreach ($violations as $requestId => $rows) {
+            $chains = $this->suggestions->build($rows->values()->all());
+
+            $suggestions[$requestId] = array_map(
+                fn ($chain) => [
+                    'model' => $chain['model'],
+                    'relations' => $chain['relations'],
+                    'caller_file' => $chain['caller_file'],
+                    'caller_line' => $chain['caller_line'],
+                    'suggested' => sprintf('%s::with(%s)', $chain['model'], var_export($chain['relations'], true)),
+                ],
+                $chains
+            );
+        }
+
+        return $suggestions;
     }
 
     protected function label(object $request): string
@@ -200,6 +253,10 @@ class CheckCommand extends Command
                     $row['repeats'] = $v['repeat_count'] !== null ? 'x'.$v['repeat_count'] : '-';
                     $row['caller'] = $v['caller_file'] ? $v['caller_file'].':'.$v['caller_line'] : '-';
                     $row['sql'] = str_replace("\n", ' ', mb_strimwidth($v['sql'], 0, 70, '…'));
+
+                    if (($v['suggestions'][0]['suggested'] ?? null) !== null) {
+                        $row['sql'] .= ' | '.$v['suggestions'][0]['suggested'];
+                    }
                 } elseif ($v['type'] === 'query_budget') {
                     $row['repeats'] = $v['query_count'].' > '.$v['budget'];
                 } else {

@@ -3,8 +3,10 @@
 namespace AsimAli\Pinpoint\Commands;
 
 use AsimAli\Pinpoint\Internal\QueryReader;
+use AsimAli\Pinpoint\Internal\SuggestionBuilder;
 use AsimAli\Pinpoint\Internal\SummaryReader;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
@@ -20,6 +22,7 @@ class ReportCommand extends Command
     public function __construct(
         protected SummaryReader $summaries,
         protected QueryReader $queries,
+        protected SuggestionBuilder $suggestions,
     ) {
         parent::__construct();
     }
@@ -97,20 +100,74 @@ class ReportCommand extends Command
 
         if ($queries->isEmpty()) {
             $this->info('No queries captured for this route.');
+        } else {
+            $this->table(
+                ['Fingerprint', 'SQL', 'Repeats', 'Avg ms', 'Max ms', 'Caller'],
+                $queries->map(fn ($q) => [
+                    substr($q->sql_fingerprint, 0, 8),
+                    str_replace("\n", ' ', mb_strimwidth($q->sql, 0, 70, '…')),
+                    $q->repeat_count,
+                    (int) round($q->avg_ms),
+                    $q->max_ms,
+                    $q->caller_file ? $q->caller_file.':'.$q->caller_line : '-',
+                ])->all()
+            );
+        }
 
+        $this->printSuggestions($routeLabel);
+    }
+
+    protected function printSuggestions(string $routeLabel): void
+    {
+        $query = DB::table('pinpoint_requests')->select('id')
+            ->where('route_name', $routeLabel);
+
+        // "METHOD path" fallback labels: match at the SQL level.
+        if (str_contains($routeLabel, ' ')) {
+            [$method, $path] = explode(' ', $routeLabel, 2);
+
+            $query->orWhere(fn ($q) => $q
+                ->whereNull('route_name')
+                ->where('method', $method)
+                ->where('path', $path));
+        }
+
+        $requestIds = $query->pluck('id');
+
+        if ($requestIds->isEmpty()) {
             return;
         }
 
-        $this->table(
-            ['Fingerprint', 'SQL', 'Repeats', 'Avg ms', 'Max ms', 'Caller'],
-            $queries->map(fn ($q) => [
-                substr($q->sql_fingerprint, 0, 8),
-                str_replace("\n", ' ', mb_strimwidth($q->sql, 0, 70, '…')),
-                $q->repeat_count,
-                (int) round($q->avg_ms),
-                $q->max_ms,
-                $q->caller_file ? $q->caller_file.':'.$q->caller_line : '-',
-            ])->all()
-        );
+        $violations = DB::table('pinpoint_lazy_loads')
+            ->whereIn('request_id', $requestIds)
+            ->select('model', 'relation', 'caller_file', 'caller_line')
+            ->get()
+            ->map(fn ($row) => [
+                'model' => $row->model,
+                'relation' => $row->relation,
+                'caller_file' => $row->caller_file,
+                'caller_line' => $row->caller_line,
+            ])
+            ->unique(fn ($row) => $row['model'].'->'.$row['relation'])
+            ->values()
+            ->all();
+
+        $chains = $this->suggestions->build($violations);
+
+        if ($chains === []) {
+            return;
+        }
+
+        $this->newLine();
+        $this->warn('N+1 detected — suggested eager loads:');
+
+        foreach ($chains as $chain) {
+            $caller = $chain['caller_file'] ? sprintf(' at %s:%d', $chain['caller_file'], $chain['caller_line']) : '';
+
+            $this->line(sprintf('  %s -> %s%s', $chain['model'], $chain['relations'], $caller));
+            $this->line(sprintf('  Suggested fix: %s::with(%s)', $chain['model'], var_export($chain['relations'], true)));
+        }
+
+        $this->newLine();
     }
 }
