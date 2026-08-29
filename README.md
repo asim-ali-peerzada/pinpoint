@@ -63,7 +63,46 @@ At scale, compute percentiles offline instead of per-request:
 $schedule->command('pinpoint:aggregate')->hourly();
 ```
 
-### Retention
+### CI / GitHub Actions — fail the merge on N+1s and query bloat
+
+Pinpoint doubles as a regression gate: run your test suite (requests get recorded), then `pinpoint:check` fails the job when a PR introduces an N+1 or blows a query/duration budget — with the exact offending SQL and `file:line` in the output.
+
+```bash
+php artisan pinpoint:check --fail-on-n1 --max-queries=20 --max-duration-ms=1000
+```
+
+Exit code is `0` (pass) or `1` (fail) — drop it straight into a workflow:
+
+```yaml
+steps:
+  - run: php artisan test
+  - run: php artisan pinpoint:check --fail-on-n1 --max-queries=20 --json > pinpoint-report.json
+  - if: failure()
+    uses: actions/github-script@v7
+    with:
+      script: |
+        const fs = require('fs');
+        const report = JSON.parse(fs.readFileSync('pinpoint-report.json', 'utf8'));
+        core.setFailed(report.violations.map(v =>
+          `N+1 in ${v.route}: ${v.sql} at ${v.caller_file}:${v.caller_line} (x${v.repeat_count})`
+        ).join('\n'));
+```
+
+Options:
+
+- `--fail-on-n1` — fail when any request repeats the same SQL ≥ `pinpoint.n_plus_one_repeat_threshold` times (Eloquent lazy loads are included via the violation callback).
+- `--max-queries=N` — fail when any request exceeds N queries.
+- `--max-duration-ms=N` — fail when any request exceeds N ms.
+- `--since=MINUTES` (default 30) — only inspect recent requests; stale rows from previous runs can't false-fail a PR.
+- `--json` — machine-readable `{passed, meta, violations[]}` for PR-comment automation.
+
+Notes for CI:
+
+- **Callers are captured in `testing` and `local` environments** — in CI, run tests with `APP_ENV=testing` so the report includes the exact file:line.
+- The check reads raw tables, so it's meant for the **same job that just ran the tests** (fresh data, `--since` guards the window). Use `sample_rate = 1.0` in the CI environment so the gate is deterministic — the command warns if sampling is on.
+- No data in the window → passes with a warning (an empty test run shouldn't fail a PR).
+
+## Retention
 
 Raw tables grow. Prune old data on a schedule (default retention: 30 days, configurable via `pinpoint.retention_days`):
 

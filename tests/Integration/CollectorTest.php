@@ -81,7 +81,7 @@ test('facade provides static observeLazyLoad access', function () {
     expect(app(Recorder::class)->lazyLoads())->toHaveCount(1);
 });
 
-test('caller capture is disabled outside local environments', function () {
+test('caller capture is disabled outside local and testing environments', function () {
     $recorder = app(Recorder::class);
     $app = app();
     $original = $app->environment();
@@ -92,4 +92,11 @@ test('caller capture is disabled outside local environments', function () {
     } finally {
         $app->detectEnvironment(fn () => $original);
     }
+
+    // CI runs with APP_ENV=testing — callers must be captured there so
+    // pinpoint:check can report the exact file:line of an N+1.
+    $app->detectEnvironment(fn () => 'testing');
+    expect($recorder->capturesCaller())->toBeTrue();
+
+    $app->detectEnvironment(fn () => $original);
 });

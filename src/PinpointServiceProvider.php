@@ -3,6 +3,7 @@
 namespace AsimAli\Pinpoint;
 
 use AsimAli\Pinpoint\Commands\AggregateCommand;
+use AsimAli\Pinpoint\Commands\CheckCommand;
 use AsimAli\Pinpoint\Commands\PruneCommand;
 use AsimAli\Pinpoint\Commands\ReportCommand;
 use AsimAli\Pinpoint\Internal\Recorder;
@@ -28,6 +29,7 @@ class PinpointServiceProvider extends PackageServiceProvider
             ->hasConfigFile()
             ->hasRoute('api')
             ->hasCommand(AggregateCommand::class)
+            ->hasCommand(CheckCommand::class)
             ->hasCommand(ReportCommand::class)
             ->hasCommand(PruneCommand::class)
             ->hasMigration('2026_01_01_000001_create_pinpoint_requests_table')
