@@ -4,3 +4,4 @@ composer.lock
 .phpunit.cache/
 .phpstan.cache/
 pinpoint.zip
+/web/

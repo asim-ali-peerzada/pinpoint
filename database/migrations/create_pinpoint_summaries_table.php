@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::create('pinpoint_summaries', function (Blueprint $table) {
             $table->id();
-            $table->string('route_name')->index();
+            $table->string('route_name')->unique();
             $table->unsignedInteger('p50_ms');
             $table->unsignedInteger('p95_ms');
             $table->unsignedInteger('p99_ms');

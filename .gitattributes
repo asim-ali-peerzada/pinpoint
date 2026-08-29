@@ -6,3 +6,4 @@ pint.json export-ignore
 phpstan.neon export-ignore
 phpunit.xml export-ignore
 CONTRIBUTING.md export-ignore
+/web export-ignore

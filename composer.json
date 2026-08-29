@@ -1,6 +1,15 @@
 {
     "name": "asimali/pinpoint",
-    "description": "Pinpoint: Laravel request performance collector, N+1 detection, tiering and CLI report",
+    "description": "Pinpoint: local-first Laravel request performance profiler with N+1 detection, tiering, CLI report and CI regression gate",
+    "keywords": [
+        "laravel",
+        "performance",
+        "profiler",
+        "n1",
+        "queries",
+        "telescope-alternative",
+        "debugging"
+    ],
     "license": "MIT",
     "authors": [
         {
@@ -8,6 +17,11 @@
             "email": "asimalipeerzada@gmail.com"
         }
     ],
+    "homepage": "https://github.com/asim-ali-peerzada/pinpoint",
+    "support": {
+        "issues": "https://github.com/asim-ali-peerzada/pinpoint/issues",
+        "source": "https://github.com/asim-ali-peerzada/pinpoint"
+    },
     "require": {
         "php": "^8.2",
         "laravel/framework": "^12.0|^13.0",
