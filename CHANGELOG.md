@@ -22,7 +22,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Route summaries fall back to `METHOD path` when `route_name` is null instead of collapsing into one bucket.
 - `Pinpoint` facade added; `Pinpoint::observeLazyLoad()` is now a real static call (was instance-only despite docs).
 - Lazy-loading observer is gated by the `pinpoint.enabled` master switch and no longer overrides the host app's strict-mode choice in production.
-- `Recorder`/`Pinpoint` bound as `scoped()` instead of `singleton()` — safe under Octane.
+- `Recorder`/`Pinpoint` bound as `scoped()` instead of `singleton()` — safe under Octane, and listeners resolve the recorder per event so queue workers don't leak buffered queries across jobs (verified against the worker's `forgetScopedInstances()` cycle).
+- Request flush deferred to `app()->terminating()` — DB writes happen after the response is sent; measured overhead dropped from ~1.5ms to ~0.3ms per request.
+- Caller capture stack depth raised 15 → 50 (a real query's stack is ~33 frames deep at `QueryExecuted`); vendor frames excluded so file:line points at app code.
+- Request duration uses `$_SERVER['REQUEST_TIME_FLOAT']` when present — correct per-request timing under Octane/RoadRunner (where `LARAVEL_START` is worker-boot time).
+- SQL fingerprint switched from crc32 to md5 to eliminate collision-based false N+1 groupings.
+- Summary computation chunks the requests table (bounded memory on large datasets).
 - Summaries and drill-downs compute from a single pass over the requests table instead of re-scanning per route.
 - Caller capture excludes `vendor/` frames so file:line points at app code, not the package.
 - `pinpoint:prune` validates the retention window (`--days=0` or garbage no longer deletes everything).

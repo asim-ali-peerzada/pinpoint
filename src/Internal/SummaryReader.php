@@ -23,20 +23,23 @@ class SummaryReader
      */
     public function fromRaw(): array
     {
-        $requests = DB::table('pinpoint_requests')
-            ->get(['route_name', 'method', 'path', 'duration_ms']);
-
-        if ($requests->isEmpty()) {
-            return [];
-        }
-
         $counts = $this->maxRepeatCounts();
 
         $durationsByLabel = [];
 
-        foreach ($requests as $row) {
-            $label = $row->route_name ?? sprintf('%s %s', $row->method, $row->path);
-            $durationsByLabel[$label][] = (int) $row->duration_ms;
+        // chunkById keeps memory bounded for large datasets (cursor() would
+        // hold open a connection and skip late rows under concurrent writes).
+        DB::table('pinpoint_requests')
+            ->orderBy('id')
+            ->chunkById(1000, function ($rows) use (&$durationsByLabel) {
+                foreach ($rows as $row) {
+                    $label = $row->route_name ?? sprintf('%s %s', $row->method, $row->path);
+                    $durationsByLabel[$label][] = (int) $row->duration_ms;
+                }
+            });
+
+        if ($durationsByLabel === []) {
+            return [];
         }
 
         $summaries = [];

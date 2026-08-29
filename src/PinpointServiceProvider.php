@@ -53,14 +53,18 @@ class PinpointServiceProvider extends PackageServiceProvider
 
     protected function registerQueryListener(): void
     {
-        $recorder = $this->app->make(Recorder::class);
-
-        if (! $recorder->isRecording()) {
+        if (! $this->app->make(Recorder::class)->isRecording()) {
             return;
         }
 
-        $this->app['events']->listen(QueryExecuted::class, function (QueryExecuted $query) use ($recorder) {
+        $this->app['events']->listen(QueryExecuted::class, function (QueryExecuted $query) {
             try {
+                // Resolve per event, never capture: under Octane/queue workers
+                // the container clears scoped instances between jobs/requests,
+                // and a captured reference would keep writing to a stale
+                // instance forever (unbounded memory growth).
+                $recorder = $this->app->make(Recorder::class);
+
                 $recorder->recordQuery([
                     'sql' => $query->sql,
                     'fingerprint' => QueryFingerprinter::hash($query->sql),
@@ -75,14 +79,14 @@ class PinpointServiceProvider extends PackageServiceProvider
 
     protected function registerRequestListener(): void
     {
-        $recorder = $this->app->make(Recorder::class);
-
-        if (! $recorder->isRecording()) {
+        if (! $this->app->make(Recorder::class)->isRecording()) {
             return;
         }
 
-        $this->app['events']->listen(RequestHandled::class, function (RequestHandled $event) use ($recorder) {
+        $this->app['events']->listen(RequestHandled::class, function (RequestHandled $event) {
             try {
+                // Same per-event resolution as the query listener (see above).
+                $recorder = $this->app->make(Recorder::class);
                 $request = $event->request;
 
                 if (! $recorder->shouldRecord($request)) {
@@ -91,22 +95,32 @@ class PinpointServiceProvider extends PackageServiceProvider
                     return;
                 }
 
-                $recorder->flush([
+                // Capture the request metadata now, defer the DB writes until
+                // the response is sent (app()->terminating runs after send()).
+                // Keeps the flush off the user-facing response path.
+                $payload = [
                     'route_name' => $request->route()?->getName(),
                     'method' => $request->method(),
                     'path' => $request->path(),
                     'duration_ms' => (microtime(true) - $this->requestStart()) * 1000,
-                ]);
-            } catch (\Throwable $e) {
-                // Fail silently: the host app must never break because Pinpoint
-                // couldn't write its own tables (e.g. migrations not run yet).
-                if (str_contains($e->getMessage(), 'no such table')) {
-                    Log::warning('Pinpoint: tables missing — run `php artisan vendor:publish --tag=pinpoint-migrations` then `php artisan migrate`.');
-                } else {
-                    Log::warning('Pinpoint: failed to flush request', ['exception' => $e->getMessage()]);
-                }
+                ];
 
-                $recorder->reset();
+                $this->app->terminating(function () use ($recorder, $payload) {
+                    try {
+                        $recorder->flush($payload);
+                    } catch (\Throwable $e) {
+                        // Fail silently: the host app must never break because
+                        // Pinpoint couldn't write its own tables (e.g.
+                        // migrations not run yet).
+                        if (str_contains($e->getMessage(), 'no such table')) {
+                            Log::warning('Pinpoint: tables missing — run `php artisan vendor:publish --tag=pinpoint-migrations` then `php artisan migrate`.');
+                        } else {
+                            Log::warning('Pinpoint: failed to flush request', ['exception' => $e->getMessage()]);
+                        }
+                    }
+                });
+            } catch (\Throwable $e) {
+                Log::warning('Pinpoint: failed to prepare flush', ['exception' => $e->getMessage()]);
             }
         });
     }
@@ -122,9 +136,7 @@ class PinpointServiceProvider extends PackageServiceProvider
     {
         // The master switch must fully disable the package: no Eloquent
         // global state changes, no handler chaining, when disabled.
-        $recorder = $this->app->make(Recorder::class);
-
-        if (! $recorder->isRecording() || ! config('pinpoint.capture_lazy_loading_violations', true)) {
+        if (! $this->app->make(Recorder::class)->isRecording() || ! config('pinpoint.capture_lazy_loading_violations', true)) {
             return;
         }
 
@@ -137,9 +149,11 @@ class PinpointServiceProvider extends PackageServiceProvider
             Model::preventLazyLoading(true);
         }
 
-        Model::handleLazyLoadingViolationUsing(function ($model, $relation) use ($existing, $recorder) {
+        Model::handleLazyLoadingViolationUsing(function ($model, $relation) use ($existing) {
             try {
-                $recorder->recordLazyLoad(get_class($model), $relation);
+                // Resolve per call (never capture) — same scoped-instance
+                // rationale as the query listener, for Octane/queue workers.
+                $this->app->make(Recorder::class)->recordLazyLoad(get_class($model), $relation);
             } catch (\Throwable $e) {
                 Log::warning('Pinpoint: failed to record lazy load', ['exception' => $e->getMessage()]);
             }
@@ -152,6 +166,13 @@ class PinpointServiceProvider extends PackageServiceProvider
 
     protected function requestStart(): float
     {
+        // REQUEST_TIME_FLOAT is set per request by PHP-FPM and Octane —
+        // prefer it over LARAVEL_START, which is worker-boot time under
+        // Octane (a request would otherwise appear millions of ms long).
+        if (isset($_SERVER['REQUEST_TIME_FLOAT'])) {
+            return (float) $_SERVER['REQUEST_TIME_FLOAT'];
+        }
+
         return defined('LARAVEL_START') ? LARAVEL_START : $this->startedAt;
     }
 

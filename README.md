@@ -82,15 +82,15 @@ Both signals set `has_n_plus_one`; the report shows the repeat count as `Yes (xN
 
 ## Performance
 
-Measured with `composer benchmark` (in-memory SQLite, 10 queries/request, 200 requests, Testbench skeleton app):
+Measured with `composer benchmark` (in-memory SQLite, 10 queries/request, 200 requests, Testbench skeleton app). DB writes are deferred to the application's `terminating` callbacks — after the response is sent — so the request path only pays for in-memory capture:
 
 | Scenario | Mean request time | Overhead |
 |---|---|---|
-| Pinpoint disabled | ~1.0 ms | — |
-| Enabled, no caller capture | ~1.8 ms | ~0.9 ms |
-| Enabled, local + caller capture | ~2.4 ms | ~1.5 ms |
+| Pinpoint disabled | ~0.84 ms | — |
+| Enabled, no caller capture | ~1.13 ms | ~0.29 ms |
+| Enabled, local + caller capture | ~1.13 ms | ~0.29 ms |
 
-The worst case (caller capture via `debug_backtrace`) only runs in local environments — production never pays it. The remaining overhead is one fingerprint hash per query plus the final request/query row inserts. Re-run on your own hardware: `composer benchmark`.
+The worst case (caller capture via `debug_backtrace`) only runs in local environments — production never pays it. The remaining overhead is one fingerprint hash per query plus the deferred request/query row inserts. Re-run on your own hardware: `composer benchmark`.
 
 ## Production guidance
 
@@ -99,6 +99,8 @@ The worst case (caller capture via `debug_backtrace`) only runs in local environ
 - **Caller capture** (`debug_backtrace`, the most expensive part) only runs in local environments. Disable it everywhere with `pinpoint.capture_caller = false`.
 - **Retention:** schedule `pinpoint:prune` (default 30 days) or raw tables grow unbounded.
 - **Route grouping:** requests are grouped by `route_name`; requests without a route name fall back to `METHOD path`. If many endpoints share a route name, the summary flattens them — name your routes for useful grouping.
+- **Stored SQL is parameterized** — bound values are never persisted (Laravel sends them as `?` placeholders, and Pinpoint stores only the SQL string). The exception is *unparameterized* SQL (`DB::select("... where x = '$value'")`, `whereRaw` with interpolated values): those literals are stored verbatim, so don't pass secrets through string interpolation into raw queries.
+- **Local summary computation is in-memory** — `pinpoint:report` and the API read all raw rows to compute percentiles on demand. This is instant at local-dev volumes; for large staging/prod datasets use `pinpoint:aggregate` on a schedule and keep retention tight.
 
 ## Testing
 
