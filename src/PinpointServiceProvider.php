@@ -6,6 +6,7 @@ use AsimAli\Pinpoint\Commands\AggregateCommand;
 use AsimAli\Pinpoint\Commands\CheckCommand;
 use AsimAli\Pinpoint\Commands\PruneCommand;
 use AsimAli\Pinpoint\Commands\ReportCommand;
+use AsimAli\Pinpoint\Commands\ResetCommand;
 use AsimAli\Pinpoint\Internal\Recorder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Events\QueryExecuted;
@@ -32,6 +33,7 @@ class PinpointServiceProvider extends PackageServiceProvider
             ->hasCommand(CheckCommand::class)
             ->hasCommand(ReportCommand::class)
             ->hasCommand(PruneCommand::class)
+            ->hasCommand(ResetCommand::class)
             ->hasMigration('create_pinpoint_requests_table')
             ->hasMigration('create_pinpoint_queries_table')
             ->hasMigration('create_pinpoint_summaries_table')

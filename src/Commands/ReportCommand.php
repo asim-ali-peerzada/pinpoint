@@ -4,11 +4,13 @@ namespace AsimAli\Pinpoint\Commands;
 
 use AsimAli\Pinpoint\Internal\CliRenderer;
 use AsimAli\Pinpoint\Internal\QueryReader;
+use AsimAli\Pinpoint\Internal\SinceParser;
 use AsimAli\Pinpoint\Internal\SuggestionBuilder;
 use AsimAli\Pinpoint\Internal\SummaryReader;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use InvalidArgumentException;
 use Throwable;
 
 class ReportCommand extends Command
@@ -16,6 +18,7 @@ class ReportCommand extends Command
     protected $signature = 'pinpoint:report
         {--tier= : Only show routes in this tier (good|acceptable|needs_improvement|critical)}
         {--route= : Drill into one route and show its top offending queries}
+        {--since= : Only consider requests from the last N (e.g. 5m, 1h, 2d; bare number = minutes)}
         {--limit=20 : Max rows in the summary table}';
 
     protected $description = 'Show per-route performance tiers computed from raw requests';
@@ -51,7 +54,19 @@ class ReportCommand extends Command
 
     protected function summary(): void
     {
-        $rows = $this->summaries->fromRaw();
+        $sinceMinutes = null;
+
+        if ($this->option('since') !== null) {
+            try {
+                $sinceMinutes = SinceParser::toMinutes($this->option('since'));
+            } catch (InvalidArgumentException $e) {
+                $this->cli->info($e->getMessage());
+
+                return;
+            }
+        }
+
+        $rows = $this->summaries->fromRaw($sinceMinutes);
 
         if ($rows === []) {
             $this->cli->info('No requests recorded yet. Run some requests, then re-run this command.');

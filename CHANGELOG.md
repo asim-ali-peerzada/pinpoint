@@ -33,6 +33,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Migration sources renamed to timestamp-free filenames (`create_pinpoint_*_table.php`); package-tools generates the publish timestamp on `vendor:publish`, so published migrations always carry the current date instead of a hardcoded one.
 - Actionable code suggestions: lazy-loading violations are persisted (`pinpoint_lazy_loads` table with model, relation, caller), nested relations are chained (`stages.photos`), and `pinpoint:report --route=` plus `pinpoint:check --json` output a ready-to-paste eager-load fix (`Model::with('stages.photos')`).
 - CLI visuals overhauled: all command output now renders through Termwind (bundled with laravel/framework — no new dependency) via a shared `Internal\CliRenderer` — color-coded tier pills, right-aligned numbers, dimmed units, red/bold N+1 flags, and a branded header. Human output is ANSI-rendered; `pinpoint:check --json` stays plain JSON for CI.
+- `pinpoint:report --since=N` filters samples to the last N — accepts natural durations (`5m`, `1h`, `2d`, bare number = minutes) so post-fix verification works minutes later without waiting on retention or computing a window.
+- New `pinpoint:reset` command clears all recorded data (with confirmation, `--force` to skip) so fixes take effect immediately without waiting on retention.
 - Summaries and drill-downs compute from a single pass over the requests table instead of re-scanning per route.
 - Caller capture excludes `vendor/` frames so file:line points at app code, not the package.
 - `pinpoint:prune` validates the retention window (`--days=0` or garbage no longer deletes everything).

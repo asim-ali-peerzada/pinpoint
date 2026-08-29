@@ -19,24 +19,29 @@ class SummaryReader
      * PHP instead of re-querying per route (the previous version was an
      * N+1-shaped scan inside the very tool that detects N+1s).
      *
+     * @param  int|null  $sinceMinutes  only consider requests from the last N minutes
      * @return array<int, array{route: string, p50: int, p95: int, p99: int, avg: int, samples: int, tier: string, n1_repeat: int}>
      */
-    public function fromRaw(): array
+    public function fromRaw(?int $sinceMinutes = null): array
     {
-        $counts = $this->maxRepeatCounts();
+        $counts = $this->maxRepeatCounts($sinceMinutes);
 
         $durationsByLabel = [];
 
+        $query = DB::table('pinpoint_requests')->orderBy('id');
+
+        if ($sinceMinutes !== null) {
+            $query->where('created_at', '>=', now()->subMinutes($sinceMinutes));
+        }
+
         // chunkById keeps memory bounded for large datasets (cursor() would
         // hold open a connection and skip late rows under concurrent writes).
-        DB::table('pinpoint_requests')
-            ->orderBy('id')
-            ->chunkById(1000, function ($rows) use (&$durationsByLabel) {
-                foreach ($rows as $row) {
-                    $label = $row->route_name ?? sprintf('%s %s', $row->method, $row->path);
-                    $durationsByLabel[$label][] = (int) $row->duration_ms;
-                }
-            });
+        $query->chunkById(1000, function ($rows) use (&$durationsByLabel) {
+            foreach ($rows as $row) {
+                $label = $row->route_name ?? sprintf('%s %s', $row->method, $row->path);
+                $durationsByLabel[$label][] = (int) $row->duration_ms;
+            }
+        });
 
         if ($durationsByLabel === []) {
             return [];
@@ -62,17 +67,22 @@ class SummaryReader
         return $summaries;
     }
 
-    protected function maxRepeatCounts(): array
+    protected function maxRepeatCounts(?int $sinceMinutes = null): array
     {
         $perRequest = DB::table('pinpoint_queries')
             ->select('request_id', 'sql_fingerprint')
             ->selectRaw('COUNT(*) as repeat_count')
             ->groupBy('request_id', 'sql_fingerprint');
 
-        $rows = DB::table('pinpoint_requests as r')
+        $query = DB::table('pinpoint_requests as r')
             ->joinSub($perRequest, 'rc', 'rc.request_id', '=', 'r.id')
-            ->select('r.route_name', 'r.method', 'r.path', 'rc.repeat_count')
-            ->get();
+            ->select('r.route_name', 'r.method', 'r.path', 'rc.repeat_count');
+
+        if ($sinceMinutes !== null) {
+            $query->where('r.created_at', '>=', now()->subMinutes($sinceMinutes));
+        }
+
+        $rows = $query->get();
 
         $counts = [];
 

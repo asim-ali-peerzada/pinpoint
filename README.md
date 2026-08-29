@@ -56,7 +56,18 @@ Pinpoint starts recording automatically when enabled. It's **enabled in local by
 php artisan pinpoint:report                      # summary table for all routes
 php artisan pinpoint:report --tier=critical      # only critical routes
 php artisan pinpoint:report --route=api.orders   # drill into a route: top queries + caller file:line
+php artisan pinpoint:report --since=1h           # only consider recent samples
+php artisan pinpoint:report --since=5m           # ...or just the last 5 minutes
 ```
+
+**Iterating on a fix?** The report reads **historical samples** — after you fix an N+1 or a slow route, the old pre-fix rows still skew the tiers until they age out of the window or are pruned. `--since` accepts any natural duration (`5`, `5m`, `5min`, `1h`, `2d`; bare number = minutes), so you see your fix's effect immediately:
+
+```bash
+php artisan pinpoint:report --since=5m           # post-fix verification, minutes later
+php artisan pinpoint:reset                       # or: clear all recorded data entirely
+```
+
+`pinpoint:reset` wipes every recorded request/query/lazy-load/summary (asks for confirmation; use `--force` in scripts).
 
 ### Aggregation (staging/production)
 

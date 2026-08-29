@@ -3,11 +3,13 @@
 namespace AsimAli\Pinpoint\Commands;
 
 use AsimAli\Pinpoint\Internal\CliRenderer;
+use AsimAli\Pinpoint\Internal\SinceParser;
 use AsimAli\Pinpoint\Internal\SuggestionBuilder;
 use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use InvalidArgumentException;
 use Throwable;
 
 class CheckCommand extends Command
@@ -16,7 +18,7 @@ class CheckCommand extends Command
         {--fail-on-n1 : Fail when N+1 patterns are detected}
         {--max-queries= : Fail when any request exceeds this query count}
         {--max-duration-ms= : Fail when any request exceeds this duration in ms}
-        {--since=30 : Only check requests from the last N minutes}
+        {--since=30 : Only check requests from the last N (e.g. 5m, 1h, 2d; bare number = minutes)}
         {--json : Output machine-readable JSON (for CI / PR comment automation)}
         {--limit=20 : Max violations to report}';
 
@@ -43,17 +45,18 @@ class CheckCommand extends Command
 
     protected function check(): int
     {
-        $sinceMinutes = (int) $this->option('since');
+        try {
+            $sinceMinutes = SinceParser::toMinutes((string) $this->option('since'));
+        } catch (InvalidArgumentException $e) {
+            $this->error($e->getMessage());
+
+            return self::FAILURE;
+        }
+
         $maxQueries = $this->option('max-queries') !== null ? (int) $this->option('max-queries') : null;
         $maxDurationMs = $this->option('max-duration-ms') !== null ? (int) $this->option('max-duration-ms') : null;
         $failOnN1 = (bool) $this->option('fail-on-n1');
         $limit = (int) $this->option('limit');
-
-        if ($sinceMinutes < 1) {
-            $this->error('--since must be a positive number of minutes.');
-
-            return self::FAILURE;
-        }
 
         $cutoff = now()->subMinutes($sinceMinutes);
 
