@@ -6,6 +6,17 @@ use Illuminate\Database\Eloquent\Model;
 
 class DisabledSwitchTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        // Eloquent's strict-mode flag is a static that leaks across tests in
+        // the same process: earlier tests (booted with Pinpoint enabled) flip
+        // it on. Reset before the disabled app boots so this test asserts
+        // what it intends, regardless of test order.
+        Model::preventLazyLoading(false);
+
+        parent::setUp();
+    }
+
     protected function defineEnvironment($app)
     {
         parent::defineEnvironment($app);
