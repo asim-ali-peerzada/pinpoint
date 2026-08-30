@@ -80,13 +80,45 @@ class CliRenderer
             return '<span class="text-gray-600">-</span>';
         }
 
-        $scheme = $this->editorScheme($file, $line);
+        $label = e($this->relativeCaller($file).':'.$line);
+        $token = $this->linkToken($label);
 
-        $token = '__PINPOINT_LINK_'.count($this->hyperlinks).'__';
+        if ($token === null) {
+            return $label;
+        }
 
-        $this->hyperlinks[$token] = sprintf('<href=%s>%s</>', $scheme, e($this->relativeCaller($file).':'.$line));
+        $this->hyperlinks[$token] = sprintf('<href=%s>%s</>', $this->editorScheme($file, $line), $label);
 
         return $token;
+    }
+
+    /**
+     * Unique placeholder token whose DISPLAY WIDTH equals the visible label.
+     *
+     * Termwind sizes table columns from the raw cell text — a 19-char
+     * "__PINPOINT_LINK_n__" token would make columns 19 wide around a 5-char
+     * label, breaking the table geometry (text overlapping borders). A
+     * same-width token keeps columns correct, then the swap replaces it with
+     * the same-width visible text.
+     *
+     * Returns null when the label is too short to embed a unique index —
+     * the caller then falls back to a plain label (no link).
+     */
+    protected function linkToken(string $label): ?string
+    {
+        $width = mb_strlen($label);
+
+        if ($width < 9) {
+            return null;
+        }
+
+        $token = '__PP_L_'.count($this->hyperlinks).'_';
+
+        while (mb_strlen($token) < $width) {
+            $token .= '_';
+        }
+
+        return mb_substr($token, 0, $width);
     }
 
     protected function editorScheme(string $file, int $line): string
@@ -134,18 +166,20 @@ class CliRenderer
 
     public function routeLink(string $route, int $max = 40): string
     {
-        $label = $this->routeLabel($route, $max);
+        $label = e($this->routeLabel($route, $max));
         $location = $this->routeActionLocation($route);
 
         if ($location && $location['file'] && $location['line'] !== null) {
-            $scheme = $this->editorScheme($location['file'], $location['line']);
-            $token = '__PINPOINT_LINK_'.count($this->hyperlinks).'__';
-            $this->hyperlinks[$token] = sprintf('<href=%s>%s</>', $scheme, e($label));
+            $token = $this->linkToken($label);
 
-            return $token;
+            if ($token !== null) {
+                $this->hyperlinks[$token] = sprintf('<href=%s>%s</>', $this->editorScheme($location['file'], $location['line']), $label);
+
+                return $token;
+            }
         }
 
-        return e($label);
+        return $label;
     }
 
     public function routeActionLocation(string $routeLabel): ?array
