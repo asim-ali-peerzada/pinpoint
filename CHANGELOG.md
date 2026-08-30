@@ -16,6 +16,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - `pinpoint:aggregate` command for offline percentile computation, `pinpoint:prune` for retention, and `pinpoint:reset` to clear recorded data.
 - Versioned local read API at `/_pinpoint/api/v1/` (summaries + per-route queries), gated to local/debug environments.
 - Termwind-rendered CLI output with tier pills, right-aligned metrics, and N+1 emphasis.
+- Clickable IDE links: every caller `file:line` is an OSC 8 terminal hyperlink (VS Code default, PhpStorm via `pinpoint.editor`), and the summary prints a "Locate" block for the top 5 worst offenders.
+- Caller capture can be force-enabled on staging with `PINPOINT_CAPTURE_CALLER=true`.
 
 ### Changed
 

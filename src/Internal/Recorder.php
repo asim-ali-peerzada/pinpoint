@@ -26,12 +26,16 @@ class Recorder
 
     public function capturesCaller(): bool
     {
-        // debug_backtrace is expensive: local + CI (testing env) only, and
-        // the config flag lets you turn it off entirely. CI needs callers so
-        // pinpoint:check can report the exact file:line that caused an N+1.
+        // debug_backtrace is expensive: local + CI (testing env) by default.
+        // Staging can opt in explicitly with PINPOINT_CAPTURE_CALLER=true —
+        // keep the frame limit tight so load tests can't OOM (see Caller.php).
         $inTestEnv = app()->environment() === 'testing';
 
-        return (app()->isLocal() || $inTestEnv) && (bool) $this->config->get('pinpoint.capture_caller', true);
+        $default = app()->isLocal() || $inTestEnv;
+
+        $configured = $this->config->get('pinpoint.capture_caller');
+
+        return $configured === null ? $default : (bool) $configured;
     }
 
     public function shouldRecord(Request $request): bool

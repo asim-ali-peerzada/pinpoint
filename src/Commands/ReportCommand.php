@@ -97,6 +97,87 @@ class ReportCommand extends Command
         }
 
         $this->cli->reportTable('Performance Report', array_slice($table, 0, (int) $this->option('limit')));
+
+        $this->printLocate($rows);
+    }
+
+    /**
+     * Collect the worst offenders (N+1 or critical routes) with their
+     * highest-repeat caller, for the summary "Locate" block.
+     *
+     * @param  array<int, array{route: string, p95: int, n1_repeat: int, tier: string}>  $summaries
+     */
+    protected function printLocate(array $summaries): void
+    {
+        $offenders = [];
+
+        foreach ($summaries as $row) {
+            if ($row['n1_repeat'] < (int) config('pinpoint.n_plus_one_repeat_threshold', 3) && $row['tier'] !== CliRenderer::CRITICAL) {
+                continue;
+            }
+
+            $caller = $this->worstCaller($row['route']);
+
+            $offenders[] = [
+                'route' => $row['route'],
+                'reason' => $row['n1_repeat'] > 0
+                    ? 'N+1 x'.$row['n1_repeat']
+                    : 'critical tier (p95 '.$row['p95'].'ms)',
+                'repeat' => $row['n1_repeat'],
+                'caller_file' => $caller['file'] ?? null,
+                'caller_line' => $caller['line'] ?? null,
+            ];
+        }
+
+        $this->cli->locate($offenders);
+    }
+
+    /**
+     * Worst (highest-repeat) caller for a route label, from lazy loads first
+     * then query repeats.
+     *
+     * @return array{file: string, line: int}|null
+     */
+    protected function worstCaller(string $routeLabel): ?array
+    {
+        $query = DB::table('pinpoint_requests')->select('id')
+            ->where('route_name', $routeLabel);
+
+        if (str_contains($routeLabel, ' ')) {
+            [$method, $path] = explode(' ', $routeLabel, 2);
+
+            $query->orWhere(fn ($q) => $q
+                ->whereNull('route_name')
+                ->where('method', $method)
+                ->where('path', $path));
+        }
+
+        $requestIds = $query->orderByDesc('id')->limit(100)->pluck('id');
+
+        if ($requestIds->isEmpty()) {
+            return null;
+        }
+
+        $lazyLoad = DB::table('pinpoint_lazy_loads')
+            ->whereIn('request_id', $requestIds)
+            ->whereNotNull('caller_file')
+            ->orderByDesc('id')
+            ->first(['caller_file', 'caller_line']);
+
+        if ($lazyLoad) {
+            return ['file' => $lazyLoad->caller_file, 'line' => (int) $lazyLoad->caller_line];
+        }
+
+        $query = DB::table('pinpoint_queries')
+            ->whereIn('request_id', $requestIds)
+            ->whereNotNull('caller_file')
+            ->select('caller_file', 'caller_line')
+            ->selectRaw('COUNT(*) as c')
+            ->groupBy('caller_file', 'caller_line')
+            ->orderByDesc('c')
+            ->first();
+
+        return $query ? ['file' => $query->caller_file, 'line' => (int) $query->caller_line] : null;
     }
 
     protected function drillInto(string $routeLabel): void

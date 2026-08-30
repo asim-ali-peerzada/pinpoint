@@ -35,13 +35,26 @@ return [
     | Caller capture
     |--------------------------------------------------------------------------
     |
-    | debug_backtrace is the most expensive thing Pinpoint does. It only
-    | runs in local environments regardless of this flag; set to false to
-    | disable it locally too.
+    | debug_backtrace is the most expensive thing Pinpoint does. It runs by
+    | default in local and testing (CI) environments. To capture callers on
+    | staging, set PINPOINT_CAPTURE_CALLER=true explicitly; set it to false
+    | to disable even in local.
     */
-    'capture_caller' => env('PINPOINT_CAPTURE_CALLER', true),
+    'capture_caller' => env('PINPOINT_CAPTURE_CALLER'),
 
     'capture_lazy_loading_violations' => true,
+
+    /*
+    |--------------------------------------------------------------------------
+    | Editor hyperlinks
+    |--------------------------------------------------------------------------
+    |
+    | URI scheme used for clickable file:line links in CLI output (OSC 8
+    | hyperlinks — works from inside Docker/Sail/WSL because the host
+    | terminal resolves the scheme, not the container).
+    | Supported: vscode, phpstorm. Custom schemes allowed.
+    */
+    'editor' => env('PINPOINT_EDITOR', 'vscode'),
 
     /*
     |--------------------------------------------------------------------------

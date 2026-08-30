@@ -4,8 +4,9 @@ namespace AsimAli\Pinpoint\Internal;
 
 use Illuminate\Console\OutputStyle;
 use Illuminate\Support\Collection;
+use Termwind\Termwind;
 
-use function Termwind\render;
+use function Termwind\parse;
 
 /**
  * @internal Central CLI visual language for all Pinpoint command output.
@@ -23,11 +24,75 @@ class CliRenderer
 
     public const CRITICAL = 'critical';
 
+    /** @var array<string, string> token => OSC 8 sequence */
+    protected array $hyperlinks = [];
+
     protected function render(string $html): void
     {
         // Termwind's Laravel provider wires render() to the running command's
         // OutputStyle, so output stays testable and verbosity-aware.
-        render($html);
+        //
+        // Parse first, then swap hyperlink tokens: Termwind's own render()
+        // would strip the raw OSC 8 bytes if they were in the HTML, and its
+        // table component re-renders cells after HTML parsing.
+        $rendered = parse($html);
+
+        Termwind::getRenderer()->writeln($this->replaceHyperlinks($rendered));
+    }
+
+    /**
+     * Replace hyperlink tokens (inserted by callerLink) with raw OSC 8
+     * sequences AFTER Termwind has rendered — raw ESC bytes don't survive
+     * Termwind's HTML/DOM parsing, so links are injected at the last step.
+     */
+    protected function replaceHyperlinks(string $html): string
+    {
+        foreach ($this->hyperlinks as $token => $osc8) {
+            $html = str_replace($token, $osc8, $html);
+        }
+
+        return $html;
+    }
+
+    /**
+     * Render a caller as a clickable OSC 8 terminal hyperlink.
+     *
+     * Termwind stores <a href> as a property but never emits the OSC 8
+     * sequence (verified in its Styles implementation), so links are
+     * injected as tokens before rendering and swapped for raw OSC 8
+     * sequences afterwards.
+     *
+     * Never spawns a shell command — the host terminal resolves the URI
+     * scheme, so it works from inside Docker/Sail/WSL.
+     */
+    protected function callerLink(?string $file, ?int $line): string
+    {
+        if (! $file) {
+            return '<span class="text-gray-600">-</span>';
+        }
+
+        $scheme = $this->editorScheme($file, $line);
+
+        $token = '__PINPOINT_LINK_'.count($this->hyperlinks).'__';
+
+        $this->hyperlinks[$token] = sprintf(
+            "\033]8;;%s\033\\\033[4m%s:%d\033[0m\033]8;;\033\\",
+            $scheme,
+            $file,
+            $line
+        );
+
+        return $token;
+    }
+
+    protected function editorScheme(string $file, int $line): string
+    {
+        $editor = config('pinpoint.editor', 'vscode');
+
+        return match ($editor) {
+            'phpstorm' => sprintf('phpstorm://open?file=%s&line=%d', rawurlencode($file), $line),
+            default => sprintf('vscode://file/%s:%d', rawurlencode($file), $line),
+        };
     }
 
     /**
@@ -37,7 +102,7 @@ class CliRenderer
     {
         if ($rows === []) {
             if ($emptyMessage) {
-                render(sprintf('<div class="mx-2 my-1 text-gray-500">%s</div>', e($emptyMessage)));
+                $this->render(sprintf('<div class="mx-2 my-1 text-gray-500">%s</div>', e($emptyMessage)));
             }
 
             return;
@@ -67,7 +132,7 @@ class CliRenderer
 
         $html .= '</tbody></table>';
 
-        render($html);
+        $this->render($html);
     }
 
     /**
@@ -100,7 +165,7 @@ class CliRenderer
             $windowMinutes
         );
 
-        render($html);
+        $this->render($html);
     }
 
     /**
@@ -117,7 +182,7 @@ class CliRenderer
 
         foreach ($chains as $chain) {
             $caller = $chain['caller_file']
-                ? sprintf(' at <span class="text-blue-400">%s:%d</span>', e($chain['caller_file']), $chain['caller_line'])
+                ? ' at '.$this->callerLink($chain['caller_file'], $chain['caller_line'])
                 : '';
 
             $html .= '<div class="mt-1 text-white">'.e($chain['model']).' -> '.e($chain['relations']).$caller.'</div>';
@@ -126,12 +191,52 @@ class CliRenderer
 
         $html .= '</div>';
 
-        render($html);
+        $this->render($html);
     }
 
     public function info(string $message): void
     {
-        render('<div class="mx-2 my-1 text-gray-300">'.e($message).'</div>');
+        $this->render('<div class="mx-2 my-1 text-gray-300">'.e($message).'</div>');
+    }
+
+    /**
+     * Compact "locate" block printed under the summary table for the worst
+     * offenders (N+1 or critical routes). Capped so a long list of bad
+     * routes can't flood the terminal.
+     *
+     * @param  array<int, array{route: string, reason: string, repeat: int, caller_file: string|null, caller_line: int|null}>  $offenders
+     */
+    public function locate(array $offenders, int $cap = 5): void
+    {
+        if ($offenders === []) {
+            return;
+        }
+
+        usort($offenders, fn ($a, $b) => $b['repeat'] <=> $a['repeat']);
+
+        $html = $this->header('Locate');
+
+        $shown = array_slice($offenders, 0, $cap);
+
+        foreach ($shown as $offender) {
+            $caller = $offender['caller_file']
+                ? $this->callerLink($offender['caller_file'], $offender['caller_line'])
+                : '<span class="text-gray-600">run --route for caller</span>';
+
+            $html .= '<div class="mt-1">'
+                .'<span class="text-white">'.e($offender['route']).'</span> '
+                .'<span class="text-gray-400">— '.e($offender['reason']).'</span>'
+                .'<div class="text-gray-400">'.$caller.'</div>'
+                .'</div>';
+        }
+
+        if (count($offenders) > $cap) {
+            $html .= '<div class="mt-1 text-gray-500">'.(count($offenders) - $cap).' more route(s) — run <span class="text-blue-400">pinpoint:report --route=&lt;name&gt;</span> for exact file and line.</div>';
+        }
+
+        $html .= '</div>';
+
+        $this->render($html);
     }
 
     /**
@@ -152,7 +257,7 @@ class CliRenderer
         foreach ($queries as $query) {
             $isN1 = $query->repeat_count >= $n1Threshold;
             $caller = $query->caller_file
-                ? '<span class="text-blue-400">'.e($query->caller_file).':'.$query->caller_line.'</span>'
+                ? $this->callerLink($query->caller_file, $query->caller_line)
                 : '<span class="text-gray-600">-</span>';
 
             $html .= '<tr>'
@@ -166,7 +271,7 @@ class CliRenderer
 
         $html .= '</tbody></table>';
 
-        render($html);
+        $this->render($html);
     }
 
     protected function header(string $title): string

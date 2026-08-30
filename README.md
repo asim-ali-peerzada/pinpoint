@@ -79,6 +79,15 @@ N+1 detected — suggested eager loads:
   Suggested fix: App\Models\CloseoutPackage::with('stages.photos')
 ```
 
+**Click to jump to the exact line:** every `file:line` in the report is an OSC 8 terminal hyperlink. ⌘-click (macOS) / Ctrl-click (Windows/Linux) it in your terminal to open your editor directly — works from inside Docker/Sail/WSL because the host terminal resolves the URI scheme, not the container. Default is VS Code (`vscode://file/path:line`); switch to PhpStorm via config:
+
+```php
+// config/pinpoint.php
+'editor' => 'phpstorm', // or env PINPOINT_EDITOR=phpstorm
+```
+
+The summary table is followed by a **Locate** block showing the top 5 worst offenders (N+1 or critical routes) with their caller line; the rest are listed with a hint to drill in.
+
 Pinpoint persists the model + relation of every lazy-loading violation, chains nested relations (`stages.photos` when `stages` itself is lazily loaded), and shows the exact caller — so the fix is copy-paste ready.
 
 ### CI / GitHub Actions — fail the merge on N+1s and query bloat
