@@ -12,5 +12,9 @@
         <env name="APP_ENV" value="testing"/>
         <env name="DB_CONNECTION" value="sqlite"/>
         <env name="DB_DATABASE" value=":memory:"/>
+        <!-- Testbench bakes DB_FOREIGN_KEYS=false into its default config; real
+             Laravel apps default to true. Enforce FKs so tests exercise the
+             same cascadeOnDelete behavior production runs on. -->
+        <env name="DB_FOREIGN_KEYS" value="true"/>
     </php>
 </phpunit>

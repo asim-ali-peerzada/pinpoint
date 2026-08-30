@@ -2,7 +2,7 @@
 
 namespace AsimAli\Pinpoint\Internal;
 
-use Illuminate\Console\OutputStyle;
+use AsimAli\Pinpoint\TierClassifier;
 use Illuminate\Support\Collection;
 use Termwind\Termwind;
 
@@ -16,14 +16,6 @@ use function Termwind\parse;
  */
 class CliRenderer
 {
-    public const GOOD = 'good';
-
-    public const ACCEPTABLE = 'acceptable';
-
-    public const NEEDS_IMPROVEMENT = 'needs_improvement';
-
-    public const CRITICAL = 'critical';
-
     /** @var array<string, string> token => OSC 8 sequence */
     protected array $hyperlinks = [];
 
@@ -37,7 +29,20 @@ class CliRenderer
         // table component re-renders cells after HTML parsing.
         $rendered = parse($html);
 
+        // Termwind::getRenderer() is NOT public API — the whole Termwind class
+        // is marked @internal in its source (nunomaduro/termwind, src/Termwind.php).
+        // It's used because render()/parse() strip OSC 8 bytes during their HTML
+        // parse phase, so the sequences can only be injected after parsing.
+        // Revisit if Termwind ever adds native OSC 8 hyperlink support; spec:
+        // https://gist.github.com/egmontkob/eb114294efbcd5adb1944c9f3cb5feda
         Termwind::getRenderer()->writeln($this->replaceHyperlinks($rendered));
+
+        // Clear after the swap (not before render): callerLink() populates the
+        // map during HTML construction, before render() runs — clearing first
+        // would drop the tokens and leak literal "__PINPOINT_LINK_n__" strings.
+        // Clearing after keeps the map from growing unbounded when one renderer
+        // instance serves multiple renders (Octane workers, test suites).
+        $this->hyperlinks = [];
     }
 
     /**
@@ -67,7 +72,9 @@ class CliRenderer
      */
     protected function callerLink(?string $file, ?int $line): string
     {
-        if (! $file) {
+        // Without a line number the OSC 8 target would be "file:0" (%d casts
+        // null) — no link is better than a link that jumps nowhere.
+        if (! $file || $line === null) {
             return '<span class="text-gray-600">-</span>';
         }
 
@@ -91,7 +98,9 @@ class CliRenderer
 
         return match ($editor) {
             'phpstorm' => sprintf('phpstorm://open?file=%s&line=%d', rawurlencode($file), $line),
-            default => sprintf('vscode://file/%s:%d', rawurlencode($file), $line),
+            // Path separators must stay literal — VSCode's URI handler cannot
+            // resolve %2F-encoded slashes (only other chars may be encoded).
+            default => sprintf('vscode://file/%s:%d', str_replace('%2F', '/', rawurlencode($file)), $line),
         };
     }
 
@@ -108,7 +117,13 @@ class CliRenderer
             return;
         }
 
-        $html = $this->header($title);
+        // Scannable summary first — the actionable numbers land before the
+        // table, same convention as Horizon/Octane/Pest output.
+        $critical = count(array_filter($rows, fn ($r) => $r['tier'] === TierClassifier::CRITICAL));
+        $n1 = count(array_filter($rows, fn ($r) => str_starts_with($r['n1'], 'Yes')));
+
+        $html = $this->header($title)
+            .sprintf('<div class="mt-1 mb-1 text-gray-400">%d route(s) · <span class="text-white">%d</span> critical · <span class="text-white">%d</span> with N+1</div>', count($rows), $critical, $n1);
 
         $html .= '<table class="w-full"><thead><tr class="text-gray-500 border-b border-gray-600">'
             .'<th class="text-left">Route</th>'
@@ -121,7 +136,7 @@ class CliRenderer
 
         foreach ($rows as $row) {
             $html .= '<tr>'
-                .'<td class="text-left text-white">'.e($row['route']).'</td>'
+                .'<td class="text-left text-white">'.e($this->routeLabel($row['route'])).'</td>'
                 .'<td class="text-right text-white">'.$row['p95'].'<span class="text-gray-500">ms</span></td>'
                 .'<td class="text-right text-white">'.$row['avg'].'<span class="text-gray-500">ms</span></td>'
                 .'<td class="text-right text-gray-300">'.$row['samples'].'</td>'
@@ -274,6 +289,15 @@ class CliRenderer
         $this->render($html);
     }
 
+    /**
+     * Cap route labels so long names can't push the p95/avg columns off
+     * narrow terminals (Termwind sizes columns to content).
+     */
+    protected function routeLabel(string $route, int $max = 40): string
+    {
+        return mb_strimwidth($route, 0, $max, '…');
+    }
+
     protected function header(string $title): string
     {
         return '<div class="mx-2 my-1">'
@@ -288,10 +312,10 @@ class CliRenderer
         $label = strtoupper($tier);
 
         return match ($tier) {
-            self::GOOD => '<span class="px-1 bg-green-600 text-white font-bold">'.$label.'</span>',
-            self::ACCEPTABLE => '<span class="px-1 bg-yellow-600 text-black font-bold">'.$label.'</span>',
-            self::NEEDS_IMPROVEMENT => '<span class="px-1 bg-orange-600 text-white font-bold">'.$label.'</span>',
-            self::CRITICAL => '<span class="px-1 bg-red-600 text-white font-bold">'.$label.'</span>',
+            TierClassifier::GOOD => '<span class="px-1 bg-green-600 text-white font-bold">'.$label.'</span>',
+            TierClassifier::ACCEPTABLE => '<span class="px-1 bg-yellow-600 text-black font-bold">'.$label.'</span>',
+            TierClassifier::NEEDS_IMPROVEMENT => '<span class="px-1 bg-orange-600 text-white font-bold">'.$label.'</span>',
+            TierClassifier::CRITICAL => '<span class="px-1 bg-red-600 text-white font-bold">'.$label.'</span>',
             default => '<span class="text-gray-400">'.$label.'</span>',
         };
     }

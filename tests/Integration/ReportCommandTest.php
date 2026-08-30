@@ -1,5 +1,6 @@
 <?php
 
+use AsimAli\Pinpoint\Internal\QueryReader;
 use Illuminate\Support\Facades\DB;
 
 beforeEach(function () {
@@ -66,6 +67,130 @@ test('report handles empty data', function () {
     expect($output)->toContain('No requests recorded yet.');
 });
 
+test('report prints a summary line with route, critical and N+1 counts', function () {
+    $criticalId = DB::table('pinpoint_requests')->insertGetId([
+        'route_name' => 'api.slow', 'method' => 'GET', 'path' => 'api/slow',
+        'duration_ms' => 9000, 'query_count' => 3, 'query_time_ms' => 100,
+        'has_n_plus_one' => false, 'created_at' => now(),
+    ]);
+    DB::table('pinpoint_requests')->insert([
+        ['route_name' => 'api.critical2', 'method' => 'GET', 'path' => 'api/critical2', 'duration_ms' => 9500, 'query_count' => 1, 'query_time_ms' => 10, 'has_n_plus_one' => false, 'created_at' => now()],
+        ['route_name' => 'api.fast', 'method' => 'GET', 'path' => 'api/fast', 'duration_ms' => 10, 'query_count' => 1, 'query_time_ms' => 1, 'has_n_plus_one' => false, 'created_at' => now()],
+    ]);
+
+    for ($i = 0; $i < 3; $i++) {
+        DB::table('pinpoint_queries')->insert([
+            'request_id' => $criticalId, 'sql_fingerprint' => 'fp1', 'sql' => 'select * from orders',
+            'time_ms' => 5, 'caller_file' => null, 'caller_line' => null, 'created_at' => now(),
+        ]);
+    }
+
+    $output = runReport();
+
+    expect($output)
+        ->toContain('3 route(s) · 2 critical · 1 with N+1')
+        ->toContain('Performance Report');
+});
+
+test('report shows the since window in the title', function () {
+    DB::table('pinpoint_requests')->insert([
+        ['route_name' => 'api.orders', 'method' => 'GET', 'path' => 'api/orders', 'duration_ms' => 10, 'query_count' => 1, 'query_time_ms' => 1, 'has_n_plus_one' => false, 'created_at' => now()],
+    ]);
+
+    $output = runReport(['--since' => '30m']);
+
+    expect($output)->toContain('Performance Report · last 30 min');
+});
+
+test('report truncates route labels beyond 40 chars', function () {
+    $long = str_repeat('a', 35).'very-long-suffix';
+
+    DB::table('pinpoint_requests')->insert([
+        ['route_name' => $long, 'method' => 'GET', 'path' => 'api/long', 'duration_ms' => 10, 'query_count' => 1, 'query_time_ms' => 1, 'has_n_plus_one' => false, 'created_at' => now()],
+    ]);
+
+    $output = runReport();
+
+    // 40-column cap incl. the ellipsis: 35 a's + 'very' + '…'.
+    expect($output)
+        ->toContain(str_repeat('a', 35).'very…')
+        ->not->toContain($long)
+        ->not->toContain('long-suffix');
+});
+
+test('report --json emits machine-readable summary', function () {
+    DB::table('pinpoint_requests')->insert([
+        ['route_name' => 'api.orders', 'method' => 'GET', 'path' => 'api/orders', 'duration_ms' => 9000, 'query_count' => 1, 'query_time_ms' => 1, 'has_n_plus_one' => false, 'created_at' => now()],
+    ]);
+
+    $payload = json_decode(runReport(['--json' => true]), true);
+
+    expect($payload['meta']['window_minutes'])->toBeNull()
+        ->and($payload['routes'])->toHaveCount(1)
+        ->and($payload['routes'][0]['route'])->toBe('api.orders')
+        ->and($payload['routes'][0]['tier'])->toBe('critical')
+        ->and($payload['routes'][0]['n1_repeat'])->toBeInt();
+});
+
+test('report --json honors since and tier filters', function () {
+    DB::table('pinpoint_requests')->insert([
+        ['route_name' => 'api.orders', 'method' => 'GET', 'path' => 'api/orders', 'duration_ms' => 9000, 'query_count' => 1, 'query_time_ms' => 1, 'has_n_plus_one' => false, 'created_at' => now()],
+        ['route_name' => 'api.fast', 'method' => 'GET', 'path' => 'api/fast', 'duration_ms' => 10, 'query_count' => 1, 'query_time_ms' => 1, 'has_n_plus_one' => false, 'created_at' => now()],
+        ['route_name' => 'api.stale', 'method' => 'GET', 'path' => 'api/stale', 'duration_ms' => 9500, 'query_count' => 1, 'query_time_ms' => 1, 'has_n_plus_one' => false, 'created_at' => now()->subHours(2)],
+    ]);
+
+    $payload = json_decode(runReport(['--json' => true, '--since' => '30m', '--tier' => 'critical']), true);
+
+    expect($payload['meta']['window_minutes'])->toBe(30)
+        ->and($payload['routes'])->toHaveCount(1)
+        ->and($payload['routes'][0]['route'])->toBe('api.orders');
+});
+
+test('report --json --route emits drill-in queries and suggestions', function () {
+    $id = DB::table('pinpoint_requests')->insertGetId([
+        'route_name' => 'api.orders', 'method' => 'GET', 'path' => 'api/orders',
+        'duration_ms' => 9000, 'query_count' => 3, 'query_time_ms' => 100,
+        'has_n_plus_one' => false, 'created_at' => now(),
+    ]);
+
+    for ($i = 0; $i < 3; $i++) {
+        DB::table('pinpoint_queries')->insert([
+            'request_id' => $id, 'sql_fingerprint' => 'fp1', 'sql' => 'select * from orders',
+            'time_ms' => 5, 'caller_file' => 'app/OrderController.php', 'caller_line' => 12, 'created_at' => now(),
+        ]);
+    }
+
+    $payload = json_decode(runReport(['--json' => true, '--route' => 'api.orders']), true);
+
+    expect($payload['route'])->toBe('api.orders')
+        ->and($payload['queries'])->toHaveCount(1)
+        ->and($payload['queries'][0]['repeat_count'])->toBe(3)
+        ->and($payload['queries'][0]['caller_file'])->toBe('app/OrderController.php')
+        ->and($payload['suggestions'])->toBe([]);
+});
+
+test('report rejects an invalid tier instead of showing an empty table', function () {
+    DB::table('pinpoint_requests')->insert([
+        ['route_name' => 'api.orders', 'method' => 'GET', 'path' => 'api/orders', 'duration_ms' => 10, 'query_count' => 1, 'query_time_ms' => 1, 'has_n_plus_one' => false, 'created_at' => now()],
+    ]);
+
+    $output = runReport(['--tier' => 'bogus']);
+
+    expect($output)
+        ->toContain('Invalid --tier value "bogus"')
+        ->toContain('good, acceptable, needs_improvement, critical');
+});
+
+test('report accepts tier values case-insensitively', function () {
+    DB::table('pinpoint_requests')->insert([
+        ['route_name' => 'api.orders', 'method' => 'GET', 'path' => 'api/orders', 'duration_ms' => 10, 'query_count' => 1, 'query_time_ms' => 1, 'has_n_plus_one' => false, 'created_at' => now()],
+    ]);
+
+    $output = runReport(['--tier' => 'GOOD']);
+
+    expect($output)->toContain('api.orders');
+});
+
 test('report groups unlabeled routes by method and path', function () {
     DB::table('pinpoint_requests')->insert([
         ['route_name' => null, 'method' => 'GET', 'path' => 'api/fast', 'duration_ms' => 10, 'query_count' => 1, 'query_time_ms' => 1, 'has_n_plus_one' => false, 'created_at' => now()],
@@ -89,6 +214,31 @@ test('aggregate groups unlabeled routes by method and path', function () {
 
     $this->assertDatabaseHas('pinpoint_summaries', ['route_name' => 'GET api/fast']);
     $this->assertDatabaseHas('pinpoint_summaries', ['route_name' => 'POST api/fast']);
+});
+
+test('route label scope matches named and fallback rows but not other methods', function () {
+    $named = DB::table('pinpoint_requests')->insertGetId([
+        'route_name' => 'GET api/orders', 'method' => 'GET', 'path' => 'api/orders',
+        'duration_ms' => 10, 'query_count' => 1, 'query_time_ms' => 1,
+        'has_n_plus_one' => false, 'created_at' => now(),
+    ]);
+    $fallback = DB::table('pinpoint_requests')->insertGetId([
+        'route_name' => null, 'method' => 'GET', 'path' => 'api/orders',
+        'duration_ms' => 20, 'query_count' => 1, 'query_time_ms' => 1,
+        'has_n_plus_one' => false, 'created_at' => now(),
+    ]);
+    $otherMethod = DB::table('pinpoint_requests')->insertGetId([
+        'route_name' => null, 'method' => 'POST', 'path' => 'api/orders',
+        'duration_ms' => 30, 'query_count' => 1, 'query_time_ms' => 1,
+        'has_n_plus_one' => false, 'created_at' => now(),
+    ]);
+
+    $ids = QueryReader::scopeRouteLabel(
+        DB::table('pinpoint_requests')->select('id'),
+        'GET api/orders'
+    )->pluck('id')->all();
+
+    expect($ids)->toContain($named)->toContain($fallback)->not->toContain($otherMethod);
 });
 
 test('report handles missing tables without breaking', function () {

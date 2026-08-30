@@ -19,6 +19,7 @@ class CheckCommand extends Command
         {--max-queries= : Fail when any request exceeds this query count}
         {--max-duration-ms= : Fail when any request exceeds this duration in ms}
         {--since=30 : Only check requests from the last N (e.g. 5m, 1h, 2d; bare number = minutes)}
+        {--allow-empty : Pass when the window contains no requests instead of failing}
         {--json : Output machine-readable JSON (for CI / PR comment automation)}
         {--limit=20 : Max violations to report}';
 
@@ -68,10 +69,34 @@ class CheckCommand extends Command
         $violations = [];
 
         if ($requests->isEmpty()) {
-            $this->warn(sprintf('No requests recorded in the last %d minute(s) — nothing to check.', $sinceMinutes));
-            $this->printResult($violations, ['requests' => 0, 'window_minutes' => $sinceMinutes], $limit);
+            // Fail closed: a gate that checked nothing is a false green (e.g.
+            // the suite ran outside --since, or recording was off). --allow-empty
+            // is the explicit opt-out for legitimately empty windows.
+            $message = sprintf(
+                'No requests recorded in the last %d minute(s) — the gate checked nothing. Widen --since, verify Pinpoint recording is on, or pass --allow-empty.',
+                $sinceMinutes
+            );
 
-            return self::SUCCESS;
+            if ($this->option('allow-empty')) {
+                $this->warn(sprintf('No requests recorded in the last %d minute(s) — nothing to check (--allow-empty).', $sinceMinutes));
+                $this->printResult([], ['requests' => 0, 'window_minutes' => $sinceMinutes, 'empty' => true], $limit);
+
+                return self::SUCCESS;
+            }
+
+            if ($this->option('json')) {
+                // Pure JSON on stdout — no interleaved error text.
+                $this->line(json_encode([
+                    'passed' => false,
+                    'meta' => ['requests' => 0, 'window_minutes' => $sinceMinutes, 'empty' => true],
+                    'violations' => [],
+                    'message' => $message,
+                ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+            } else {
+                $this->error($message);
+            }
+
+            return self::FAILURE;
         }
 
         $n1Threshold = (int) config('pinpoint.n_plus_one_repeat_threshold', 3);

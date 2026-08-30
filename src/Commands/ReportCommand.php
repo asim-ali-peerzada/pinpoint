@@ -7,6 +7,7 @@ use AsimAli\Pinpoint\Internal\QueryReader;
 use AsimAli\Pinpoint\Internal\SinceParser;
 use AsimAli\Pinpoint\Internal\SuggestionBuilder;
 use AsimAli\Pinpoint\Internal\SummaryReader;
+use AsimAli\Pinpoint\TierClassifier;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -19,7 +20,8 @@ class ReportCommand extends Command
         {--tier= : Only show routes in this tier (good|acceptable|needs_improvement|critical)}
         {--route= : Drill into one route and show its top offending queries}
         {--since= : Only consider requests from the last N (e.g. 5m, 1h, 2d; bare number = minutes)}
-        {--limit=20 : Max rows in the summary table}';
+        {--limit=20 : Max rows in the summary table}
+        {--json : Output machine-readable JSON (for scripts / webhooks / PR comments)}';
 
     protected $description = 'Show per-route performance tiers computed from raw requests';
 
@@ -41,18 +43,16 @@ class ReportCommand extends Command
                 return self::SUCCESS;
             }
 
-            $this->summary();
+            return $this->summary();
         } catch (Throwable $e) {
             Log::error('Pinpoint: report failed', ['exception' => $e->getMessage()]);
             $this->error('Pinpoint report failed: '.$e->getMessage());
 
             return self::FAILURE;
         }
-
-        return self::SUCCESS;
     }
 
-    protected function summary(): void
+    protected function summary(): int
     {
         $sinceMinutes = null;
 
@@ -62,7 +62,7 @@ class ReportCommand extends Command
             } catch (InvalidArgumentException $e) {
                 $this->cli->info($e->getMessage());
 
-                return;
+                return self::FAILURE;
             }
         }
 
@@ -71,18 +71,53 @@ class ReportCommand extends Command
         if ($rows === []) {
             $this->cli->info('No requests recorded yet. Run some requests, then re-run this command.');
 
-            return;
+            return self::SUCCESS;
         }
 
         $tier = $this->option('tier');
 
-        $table = [];
+        // An unknown tier must fail loudly — silently rendering an empty table
+        // reads as "nothing is slow" when the user typo'd the filter.
+        if ($tier !== null && ! in_array(strtolower($tier), [
+            TierClassifier::GOOD,
+            TierClassifier::ACCEPTABLE,
+            TierClassifier::NEEDS_IMPROVEMENT,
+            TierClassifier::CRITICAL,
+        ], true)) {
+            $this->error(sprintf(
+                'Invalid --tier value "%s". Valid tiers: %s.',
+                $tier,
+                implode(', ', [TierClassifier::GOOD, TierClassifier::ACCEPTABLE, TierClassifier::NEEDS_IMPROVEMENT, TierClassifier::CRITICAL])
+            ));
+
+            return self::FAILURE;
+        }
+
+        $filtered = [];
 
         foreach ($rows as $row) {
             if ($tier && $row['tier'] !== strtolower($tier)) {
                 continue;
             }
 
+            $filtered[] = $row;
+        }
+
+        $filtered = array_slice($filtered, 0, (int) $this->option('limit'));
+
+        if ($this->option('json')) {
+            // CI contract: plain JSON on stdout, no ANSI/HTML markup.
+            $this->line(json_encode([
+                'meta' => ['window_minutes' => $sinceMinutes],
+                'routes' => $filtered,
+            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+
+            return self::SUCCESS;
+        }
+
+        $table = [];
+
+        foreach ($filtered as $row) {
             $repeat = $row['n1_repeat'];
             $n1 = $repeat >= (int) config('pinpoint.n_plus_one_repeat_threshold', 3) ? "Yes (x{$repeat})" : 'No';
 
@@ -96,9 +131,17 @@ class ReportCommand extends Command
             ];
         }
 
-        $this->cli->reportTable('Performance Report', array_slice($table, 0, (int) $this->option('limit')));
+        $title = 'Performance Report';
+
+        if ($sinceMinutes !== null) {
+            $title .= ' · last '.$sinceMinutes.' min';
+        }
+
+        $this->cli->reportTable($title, $table);
 
         $this->printLocate($rows);
+
+        return self::SUCCESS;
     }
 
     /**
@@ -112,7 +155,7 @@ class ReportCommand extends Command
         $offenders = [];
 
         foreach ($summaries as $row) {
-            if ($row['n1_repeat'] < (int) config('pinpoint.n_plus_one_repeat_threshold', 3) && $row['tier'] !== CliRenderer::CRITICAL) {
+            if ($row['n1_repeat'] < (int) config('pinpoint.n_plus_one_repeat_threshold', 3) && $row['tier'] !== TierClassifier::CRITICAL) {
                 continue;
             }
 
@@ -140,19 +183,10 @@ class ReportCommand extends Command
      */
     protected function worstCaller(string $routeLabel): ?array
     {
-        $query = DB::table('pinpoint_requests')->select('id')
-            ->where('route_name', $routeLabel);
-
-        if (str_contains($routeLabel, ' ')) {
-            [$method, $path] = explode(' ', $routeLabel, 2);
-
-            $query->orWhere(fn ($q) => $q
-                ->whereNull('route_name')
-                ->where('method', $method)
-                ->where('path', $path));
-        }
-
-        $requestIds = $query->orderByDesc('id')->limit(100)->pluck('id');
+        $requestIds = QueryReader::scopeRouteLabel(
+            DB::table('pinpoint_requests')->select('id'),
+            $routeLabel
+        )->orderByDesc('id')->limit(100)->pluck('id');
 
         if ($requestIds->isEmpty()) {
             return null;
@@ -184,6 +218,17 @@ class ReportCommand extends Command
     {
         $queries = $this->queries->topQueries($routeLabel, (int) $this->option('limit'));
 
+        if ($this->option('json')) {
+            // CI contract: plain JSON on stdout, no ANSI/HTML markup.
+            $this->line(json_encode([
+                'route' => $routeLabel,
+                'queries' => $queries->all(),
+                'suggestions' => $this->buildChains($routeLabel),
+            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+
+            return;
+        }
+
         $this->cli->info("Route: {$routeLabel}");
 
         if ($queries->isNotEmpty()) {
@@ -192,35 +237,32 @@ class ReportCommand extends Command
             $this->cli->info('No queries captured for this route.');
         }
 
-        $this->printSuggestions($routeLabel);
+        $this->cli->suggestions($this->buildChains($routeLabel));
     }
 
-    protected function printSuggestions(string $routeLabel): void
+    /**
+     * Eager-loading suggestion chains for a route label (deduped across the
+     * most recent requests).
+     */
+    protected function buildChains(string $routeLabel): array
     {
-        $query = DB::table('pinpoint_requests')->select('id')
-            ->where('route_name', $routeLabel);
-
-        // "METHOD path" fallback labels: match at the SQL level.
-        if (str_contains($routeLabel, ' ')) {
-            [$method, $path] = explode(' ', $routeLabel, 2);
-
-            $query->orWhere(fn ($q) => $q
-                ->whereNull('route_name')
-                ->where('method', $method)
-                ->where('path', $path));
-        }
-
+        // "METHOD path" fallback labels: match at the SQL level (grouped —
+        // see QueryReader::scopeRouteLabel).
+        //
         // Bound the request set to the most recent ones: the whereIn lookup
         // below would otherwise grow without bound on frequently recorded
         // routes (SQLite bind limit / MySQL packet limit / memory), and
         // chaining violations from different requests would fabricate chains
         // that never occurred in a single request.
-        $requestIds = $query->orderByDesc('id')
+        $requestIds = QueryReader::scopeRouteLabel(
+            DB::table('pinpoint_requests')->select('id'),
+            $routeLabel
+        )->orderByDesc('id')
             ->limit((int) $this->option('limit'))
             ->pluck('id');
 
         if ($requestIds->isEmpty()) {
-            return;
+            return [];
         }
 
         // Build chains per request, then merge: a suggestion must reflect a
@@ -251,6 +293,6 @@ class ReportCommand extends Command
             }
         }
 
-        $this->cli->suggestions(array_values($chains));
+        return array_values($chains);
     }
 }

@@ -26,11 +26,9 @@ class PruneCommand extends Command
 
             $cutoff = now()->subDays($days);
 
-            $queries = DB::table('pinpoint_queries')->where('created_at', '<', $cutoff)->delete();
-            $lazyLoads = DB::table('pinpoint_lazy_loads')->where('created_at', '<', $cutoff)->delete();
             $requests = DB::table('pinpoint_requests')->where('created_at', '<', $cutoff)->delete();
 
-            $this->info(sprintf('Pruned %d request(s), %d query(ies), %d lazy load(s) older than %d day(s).', $requests, $queries, $lazyLoads, $days));
+            $this->info(sprintf('Pruned %d request(s) and their associated queries/lazy loads older than %d day(s).', $requests, $days));
         } catch (Throwable $e) {
             Log::error('Pinpoint: prune failed', ['exception' => $e->getMessage()]);
             $this->error('Pinpoint prune failed: '.$e->getMessage());

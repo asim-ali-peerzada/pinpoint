@@ -29,8 +29,26 @@ test('prune deletes requests and queries older than the retention window', funct
 
     $this->assertDatabaseMissing('pinpoint_requests', ['id' => $old]);
     $this->assertDatabaseHas('pinpoint_requests', ['id' => $new]);
+    // Children are removed by the FK cascade, not a direct delete.
     $this->assertDatabaseMissing('pinpoint_queries', ['request_id' => $old]);
     $this->assertDatabaseHas('pinpoint_queries', ['request_id' => $new]);
+    $this->assertDatabaseMissing('pinpoint_lazy_loads', ['request_id' => $old]);
+});
+
+test('prune removes child rows of pruned requests via cascade', function () {
+    $old = DB::table('pinpoint_requests')->insertGetId([
+        'route_name' => 'api.legacy', 'method' => 'GET', 'path' => 'api/legacy',
+        'duration_ms' => 100, 'query_count' => 1, 'query_time_ms' => 10,
+        'has_n_plus_one' => false, 'created_at' => now()->subDays(60),
+    ]);
+
+    DB::table('pinpoint_lazy_loads')->insert([
+        ['request_id' => $old, 'model' => 'App\Models\User', 'relation' => 'posts', 'caller_file' => null, 'caller_line' => null, 'created_at' => now()->subDays(60)],
+    ]);
+
+    $this->artisan('pinpoint:prune')->assertSuccessful();
+
+    $this->assertDatabaseCount('pinpoint_lazy_loads', 0);
 });
 
 test('prune rejects invalid retention windows', function () {

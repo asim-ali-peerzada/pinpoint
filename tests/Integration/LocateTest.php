@@ -64,6 +64,26 @@ test('caller link renders the editor URI scheme', function () {
     expect($output)->toContain('phpstorm://open?file');
 });
 
+test('vscode URI keeps path separators literal', function () {
+    config()->set('pinpoint.editor', 'vscode');
+
+    $id = DB::table('pinpoint_requests')->insertGetId([
+        'route_name' => 'api.orders', 'method' => 'GET', 'path' => 'api/orders',
+        'duration_ms' => 9000, 'query_count' => 3, 'query_time_ms' => 100,
+        'has_n_plus_one' => true, 'created_at' => now(),
+    ]);
+    DB::table('pinpoint_lazy_loads')->insert([
+        ['request_id' => $id, 'model' => CloseoutPackage::class, 'relation' => 'stages', 'caller_file' => 'app/Http/Controllers/OrderController.php', 'caller_line' => 41, 'created_at' => now()],
+    ]);
+
+    $output = runArtisanCaptured('pinpoint:report --route=api.orders');
+
+    // %2F-encoded slashes break VSCode's URI handler — separators must be literal.
+    expect($output)
+        ->toContain('vscode://file/app/Http/Controllers/OrderController.php:41')
+        ->not->toContain('%2F');
+});
+
 test('capturesCaller honors explicit staging opt-in', function () {
     $recorder = app(Recorder::class);
     $app = app();

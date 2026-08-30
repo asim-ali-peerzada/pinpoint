@@ -11,8 +11,8 @@ return new class extends Migration
         Schema::create('pinpoint_queries', function (Blueprint $table) {
             $table->id();
             $table->foreignId('request_id')->constrained('pinpoint_requests')->cascadeOnDelete();
-            $table->index('request_id');
             $table->string('sql_fingerprint', 64);
+            $table->index(['request_id', 'sql_fingerprint']);
             $table->text('sql');
             $table->unsignedInteger('time_ms');
             $table->string('caller_file')->nullable();

@@ -39,6 +39,49 @@ php artisan vendor:publish --tag=pinpoint-config
 
 Pinpoint starts recording automatically when enabled. It's **enabled in local by default** (`PINPOINT_ENABLED` env, or `pinpoint.enabled` config) and captures caller file:line only when the app is local.
 
+## Command reference
+
+| Command | What it does | Options | Exit codes |
+|---|---|---|---|
+| `pinpoint:report` | Per-route summary (p50/p95/p99/avg, tier, N+1) + a "Locate" block for the worst offenders | `--tier=`, `--route=`, `--since=`, `--limit=`, `--json` | `0` normal, `1` invalid input / DB error |
+| `pinpoint:check` | CI gate: fail the build on N+1s or query/duration budget violations | `--fail-on-n1`, `--max-queries=`, `--max-duration-ms=`, `--since=`, `--allow-empty`, `--json`, `--limit=` | `0` pass, `1` fail |
+| `pinpoint:aggregate` | Roll recent raw requests into the `pinpoint_summaries` table (offline percentiles, all-or-nothing per run) | — | `0` success, `1` failure |
+| `pinpoint:prune` | Delete recorded data older than the retention window (`pinpoint.retention_days`, default 30) | `--days=` | `0` success, `1` failure |
+| `pinpoint:reset` | Wipe ALL recorded data (requests, queries, lazy loads, summaries) | `--force` (skip the confirmation prompt) | `0` success, `1` failure |
+
+Local read API (local/debug environments only — blocked by the `LocalOnly` middleware otherwise):
+
+| Endpoint | Returns |
+|---|---|
+| `GET /_pinpoint/api/v1/summaries` | Per-route tiers as JSON |
+| `GET /_pinpoint/api/v1/summaries/{route}/queries` | Top offending queries for one route (URL-encode the route name; `METHOD path` labels work too) |
+
+### Try it on your project
+
+```bash
+# 1. Start clean
+php artisan pinpoint:reset --force
+
+# 2. Exercise the app — hit endpoints in the browser/curl, or run your test suite
+curl http://localhost:8000/api/orders
+
+# 3. Inspect what was recorded
+php artisan pinpoint:report                              # summary table
+php artisan pinpoint:report --since=1h                   # only the last hour
+php artisan pinpoint:report --tier=critical              # only critical routes
+php artisan pinpoint:report --route=api.orders           # drill into a route
+php artisan pinpoint:report --limit=5                    # top 5 routes only
+php artisan pinpoint:report --json | jq .                # machine-readable summary
+
+# 4. Run the CI gate locally (exit 1 = violation)
+php artisan pinpoint:check --fail-on-n1 --max-queries=20 --max-duration-ms=1000
+php artisan pinpoint:check --json                        # JSON for scripts
+
+# 5. Roll raw rows into summaries (schedule this) and prune old data
+php artisan pinpoint:aggregate
+php artisan pinpoint:prune --days=7
+```
+
 ### The report
 
 ```bash
@@ -47,6 +90,8 @@ php artisan pinpoint:report --tier=critical      # only critical routes
 php artisan pinpoint:report --route=api.orders   # drill into a route: top queries + caller file:line
 php artisan pinpoint:report --since=1h           # only consider recent samples
 php artisan pinpoint:report --since=5m           # ...or just the last 5 minutes
+php artisan pinpoint:report --limit=10           # cap the table (default 20)
+php artisan pinpoint:report --json               # machine-readable summary (scripts / webhooks)
 ```
 
 **Iterating on a fix?** The report reads **historical samples** — after you fix an N+1 or a slow route, the old pre-fix rows still skew the tiers until they age out of the window or are pruned. `--since` accepts any natural duration (`5`, `5m`, `5min`, `1h`, `2d`; bare number = minutes), so you see your fix's effect immediately:
@@ -121,13 +166,14 @@ Options:
 - `--max-queries=N` — fail when any request exceeds N queries.
 - `--max-duration-ms=N` — fail when any request exceeds N ms.
 - `--since=MINUTES` (default 30) — only inspect recent requests; stale rows from previous runs can't false-fail a PR.
+- `--allow-empty` — pass (with a warning) when the window contains no requests.
 - `--json` — machine-readable `{passed, meta, violations[]}` for PR-comment automation.
 
 Notes for CI:
 
 - **Callers are captured in `testing` and `local` environments** — in CI, run tests with `APP_ENV=testing` so the report includes the exact file:line.
 - The check reads raw tables, so it's meant for the **same job that just ran the tests** (fresh data, `--since` guards the window). Use `sample_rate = 1.0` in the CI environment so the gate is deterministic — the command warns if sampling is on.
-- No data in the window → passes with a warning (an empty test run shouldn't fail a PR).
+- **No data in the window → the gate fails closed** (a check that evaluated nothing is a false green). If an empty run is legitimate for your pipeline, add `--allow-empty`.
 
 ## Retention
 

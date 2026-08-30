@@ -81,17 +81,45 @@ test('fails when duration exceeds the budget', function () {
 
 test('only checks requests within the since window', function () {
     insertRequest(['query_count' => 25, 'created_at' => now()->subMinutes(60)]);
+    insertRequest(['query_count' => 5, 'created_at' => now()]);
 
-    // Old violation is outside the window — must not fail.
+    // Old violation is outside the window — must not fail (and the gate has
+    // in-window data, so the empty-window fail-closed rule doesn't apply).
     $this->artisan('pinpoint:check --max-queries=20 --since=30')
         ->assertSuccessful();
 });
 
-test('passes when there is no data in the window', function () {
+test('fails closed when there is no data in the window', function () {
     insertRequest(['created_at' => now()->subHours(2)]);
 
-    $this->artisan('pinpoint:check --fail-on-n1 --since=30')
-        ->assertSuccessful();
+    $output = runCheck(['--fail-on-n1' => true, '--since' => '30']);
+
+    // A gate that checked nothing must not report a green build.
+    expect($output)->toContain('No requests recorded');
+
+    $this->artisan('pinpoint:check --fail-on-n1 --since=30')->assertFailed();
+});
+
+test('allow-empty restores the pass-on-empty behavior explicitly', function () {
+    insertRequest(['created_at' => now()->subHours(2)]);
+
+    $output = runCheck(['--fail-on-n1' => true, '--since' => '30', '--allow-empty' => true]);
+
+    expect($output)->toContain('--allow-empty');
+
+    $this->artisan('pinpoint:check --fail-on-n1 --since=30 --allow-empty')->assertSuccessful();
+});
+
+test('json empty-window failure is machine readable', function () {
+    $buffer = new BufferedOutput;
+    Artisan::call('pinpoint:check --json --since=30', [], $buffer);
+
+    $payload = json_decode($buffer->fetch(), true);
+
+    expect($payload['passed'])->toBeFalse()
+        ->and($payload['meta']['requests'])->toBe(0)
+        ->and($payload['meta']['empty'])->toBeTrue()
+        ->and($payload['violations'])->toBe([]);
 });
 
 test('json output is machine readable', function () {

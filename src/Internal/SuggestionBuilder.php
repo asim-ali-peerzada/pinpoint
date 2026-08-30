@@ -32,17 +32,20 @@ class SuggestionBuilder
             // the model equals the chain's root (self-referential guard).
             $chained = false;
 
-            foreach ($chains as &$chain) {
+            // Index-based mutation, not foreach-by-reference: the & alias +
+            // unset dance is the classic PHP reference trap (remove the
+            // unset in a future refactor and the last element silently
+            // aliases the loop variable).
+            foreach ($chains as $i => $chain) {
                 if ($chain['model'] === $model || $this->relatedClass($chain['model'], $chain['relations']) !== $model) {
                     continue;
                 }
 
-                $chain['relations'] .= '.'.$relation;
+                $chains[$i]['relations'] .= '.'.$relation;
                 $chained = true;
 
                 break;
             }
-            unset($chain);
 
             if (! $chained) {
                 $chains[] = [

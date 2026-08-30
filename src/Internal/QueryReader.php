@@ -2,6 +2,7 @@
 
 namespace AsimAli\Pinpoint\Internal;
 
+use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -11,6 +12,30 @@ use Illuminate\Support\Facades\DB;
 class QueryReader
 {
     /**
+     * Scope a pinpoint_requests query to a route label: either a route name,
+     * or a "METHOD path" fallback label matching unnamed routes.
+     *
+     * Both branches live inside ONE grouped where — an ungrouped top-level
+     * orWhere silently changes meaning the moment another leading filter is
+     * composed onto the query.
+     */
+    public static function scopeRouteLabel(Builder $query, string $routeLabel): Builder
+    {
+        return $query->where(function ($q) use ($routeLabel) {
+            $q->where('route_name', $routeLabel);
+
+            if (str_contains($routeLabel, ' ')) {
+                [$method, $path] = explode(' ', $routeLabel, 2);
+
+                $q->orWhere(fn ($inner) => $inner
+                    ->whereNull('route_name')
+                    ->where('method', $method)
+                    ->where('path', $path));
+            }
+        });
+    }
+
+    /**
      * Top offending queries for a route label (route name, or "METHOD path"),
      * ordered by slowest max time.
      *
@@ -18,19 +43,10 @@ class QueryReader
      */
     public function topQueries(string $routeLabel, int $limit = 20): Collection
     {
-        $query = DB::table('pinpoint_requests')->select('id')
-            ->where('route_name', $routeLabel);
-
-        if (str_contains($routeLabel, ' ')) {
-            [$method, $path] = explode(' ', $routeLabel, 2);
-
-            $query->orWhere(fn ($q) => $q
-                ->whereNull('route_name')
-                ->where('method', $method)
-                ->where('path', $path));
-        }
-
-        $requestIds = $query->pluck('id');
+        $requestIds = self::scopeRouteLabel(
+            DB::table('pinpoint_requests')->select('id'),
+            $routeLabel
+        )->pluck('id');
 
         if ($requestIds->isEmpty()) {
             return collect();
