@@ -1,5 +1,6 @@
 ---
 import { AlertTriangle, Zap, ShieldCheck } from 'lucide-react';
+import cliScreenshot from '../../assets/terminal-cli.png';
 ---
 
 <section id="proof" class="relative py-24 overflow-hidden">
@@ -23,7 +24,7 @@ import { AlertTriangle, Zap, ShieldCheck } from 'lucide-react';
     <!-- Authentic Screenshot Container (Pure, Single Window Frame) -->
     <div class="mx-auto mt-12 max-w-4xl overflow-hidden rounded-2xl border border-white/15 bg-[#08090C] shadow-[0_24px_80px_rgba(0,0,0,0.9)] ring-1 ring-white/5">
       <img
-        src="/terminal-cli.png"
+        src={cliScreenshot.src}
         alt="Authentic Pinpoint CLI Report output from a production Laravel codebase profiling 20 routes"
         width="1200"
         height="750"
