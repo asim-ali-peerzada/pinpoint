@@ -5,12 +5,13 @@ use Symfony\Component\Console\Output\BufferedOutput;
 
 use function Termwind\renderUsing;
 
-test('hyperlink tokens reset between renders on a reused renderer instance', function () {
+test('caller links render consistently across multiple renders on a reused renderer instance', function () {
     $renderer = app(CliRenderer::class);
     $hyperlinks = new ReflectionProperty(CliRenderer::class, 'hyperlinks');
 
     $render = function (callable $fn) use ($renderer): string {
         $buffer = new BufferedOutput;
+        $buffer->setDecorated(true);
 
         renderUsing($buffer);
         $fn($renderer);
@@ -23,10 +24,11 @@ test('hyperlink tokens reset between renders on a reused renderer instance', fun
         ['model' => 'App\Models\User', 'relations' => 'posts', 'caller_file' => 'app/Http/Controllers/FirstController.php', 'caller_line' => 10],
     ]));
 
-    // Tokens must be cleared after each render unit — otherwise the map grows
-    // unbounded across renders on long-lived instances (Octane, test suites).
+    // The token map must be consumed and cleared each render unit — otherwise
+    // it grows unbounded on long-lived instances (Octane, test suites).
     expect($hyperlinks->getValue($renderer))->toBe([])
         ->and($first)->toContain('app/Http/Controllers/FirstController.php:10')
+        ->toContain('vscode://file/')
         ->not->toContain('__PINPOINT_LINK_');
 
     $second = $render(fn ($r) => $r->suggestions([
@@ -35,6 +37,7 @@ test('hyperlink tokens reset between renders on a reused renderer instance', fun
 
     expect($hyperlinks->getValue($renderer))->toBe([])
         ->and($second)->toContain('app/Http/Controllers/SecondController.php:20')
+        ->toContain('vscode://file/')
         ->not->toContain('__PINPOINT_LINK_');
 });
 

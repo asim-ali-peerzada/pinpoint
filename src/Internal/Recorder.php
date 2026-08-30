@@ -26,12 +26,10 @@ class Recorder
 
     public function capturesCaller(): bool
     {
-        // debug_backtrace is expensive: local + CI (testing env) by default.
+        // debug_backtrace is expensive: local/dev + CI (testing env) by default.
         // Staging can opt in explicitly with PINPOINT_CAPTURE_CALLER=true —
         // keep the frame limit tight so load tests can't OOM (see Caller.php).
-        $inTestEnv = app()->environment() === 'testing';
-
-        $default = app()->isLocal() || $inTestEnv;
+        $default = app()->environment('local', 'development', 'dev', 'testing');
 
         $configured = $this->config->get('pinpoint.capture_caller');
 

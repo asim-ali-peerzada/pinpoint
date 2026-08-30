@@ -10,6 +10,7 @@ use AsimAli\Pinpoint\Internal\SummaryReader;
 use AsimAli\Pinpoint\TierClassifier;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
 use Throwable;
@@ -21,7 +22,8 @@ class ReportCommand extends Command
         {--route= : Drill into one route and show its top offending queries}
         {--since= : Only consider requests from the last N (e.g. 5m, 1h, 2d; bare number = minutes)}
         {--limit=20 : Max rows in the summary table}
-        {--json : Output machine-readable JSON (for scripts / webhooks / PR comments)}';
+        {--json : Output machine-readable JSON on stdout (for scripts / webhooks / PR comments)}
+        {--json-to= : Write the JSON output to a file and print the file location (human-friendly alternative; implies --json)}';
 
     protected $description = 'Show per-route performance tiers computed from raw requests';
 
@@ -105,12 +107,11 @@ class ReportCommand extends Command
 
         $filtered = array_slice($filtered, 0, (int) $this->option('limit'));
 
-        if ($this->option('json')) {
-            // CI contract: plain JSON on stdout, no ANSI/HTML markup.
-            $this->line(json_encode([
+        if ($this->option('json') || $this->option('json-to')) {
+            $this->emitJson([
                 'meta' => ['window_minutes' => $sinceMinutes],
                 'routes' => $filtered,
-            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+            ]);
 
             return self::SUCCESS;
         }
@@ -218,13 +219,12 @@ class ReportCommand extends Command
     {
         $queries = $this->queries->topQueries($routeLabel, (int) $this->option('limit'));
 
-        if ($this->option('json')) {
-            // CI contract: plain JSON on stdout, no ANSI/HTML markup.
-            $this->line(json_encode([
+        if ($this->option('json') || $this->option('json-to')) {
+            $this->emitJson([
                 'route' => $routeLabel,
                 'queries' => $queries->all(),
                 'suggestions' => $this->buildChains($routeLabel),
-            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+            ]);
 
             return;
         }
@@ -238,6 +238,37 @@ class ReportCommand extends Command
         }
 
         $this->cli->suggestions($this->buildChains($routeLabel));
+    }
+
+    /**
+     * Emit the JSON payload. Two modes:
+     *
+     * - --json: pure JSON on stdout (the CI contract — scripts pipe it to jq
+     *   or write it to a file themselves).
+     * - --json-to: write to a file (auto-creating directories) and print a
+     *   clear message with the resolved location, for humans.
+     */
+    protected function emitJson(array $payload): void
+    {
+        if ($path = $this->option('json-to')) {
+            $path = $this->resolvePath($path);
+
+            File::ensureDirectoryExists(dirname($path));
+
+            file_put_contents($path, json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+
+            $this->info(sprintf('JSON written to %s', $path));
+
+            return;
+        }
+
+        // CI contract: plain JSON on stdout, no ANSI/HTML markup.
+        $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+    }
+
+    protected function resolvePath(string $path): string
+    {
+        return str_starts_with($path, DIRECTORY_SEPARATOR) ? $path : base_path($path);
     }
 
     /**

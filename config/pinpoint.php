@@ -6,10 +6,10 @@ return [
     | Master switch
     |--------------------------------------------------------------------------
     |
-    | Enabled in local by default. Recommended: local development only,
-    | or limited sampling in staging (see sample_rate below).
+    | Enabled by default in local/development/testing environments.
+    | Recommended: local development only, or limited sampling in staging.
     */
-    'enabled' => env('PINPOINT_ENABLED', env('APP_ENV', 'production') === 'local'),
+    'enabled' => env('PINPOINT_ENABLED', in_array(env('APP_ENV', 'local'), ['local', 'development', 'dev', 'testing'], true)),
 
     /*
     |--------------------------------------------------------------------------

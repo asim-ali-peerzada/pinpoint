@@ -13,6 +13,7 @@ use function Termwind\renderUsing;
 function runArtisanCaptured(string $command, array $parameters = []): string
 {
     $buffer = new BufferedOutput;
+    $buffer->setDecorated(true);
 
     renderUsing($buffer);
     Artisan::call($command, $parameters, $buffer);

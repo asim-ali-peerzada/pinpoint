@@ -3,6 +3,7 @@
 namespace AsimAli\Pinpoint\Internal;
 
 use AsimAli\Pinpoint\TierClassifier;
+use Illuminate\Console\OutputStyle;
 use Illuminate\Support\Collection;
 use Termwind\Termwind;
 
@@ -16,7 +17,7 @@ use function Termwind\parse;
  */
 class CliRenderer
 {
-    /** @var array<string, string> token => OSC 8 sequence */
+    /** @var array<string, string> token => Symfony <href=...> tag */
     protected array $hyperlinks = [];
 
     protected function render(string $html): void
@@ -25,15 +26,17 @@ class CliRenderer
         // OutputStyle, so output stays testable and verbosity-aware.
         //
         // Parse first, then swap hyperlink tokens: Termwind's own render()
-        // would strip the raw OSC 8 bytes if they were in the HTML, and its
-        // table component re-renders cells after HTML parsing.
+        // strips ANY angle-bracket markup during its HTML parse phase —
+        // including <a href> and raw OSC 8 bytes — so links are injected as
+        // Symfony <href=URI>text</> tags afterwards, and the decorated
+        // OutputFormatter turns them into canonical OSC 8 sequences.
         $rendered = parse($html);
 
         // Termwind::getRenderer() is NOT public API — the whole Termwind class
         // is marked @internal in its source (nunomaduro/termwind, src/Termwind.php).
-        // It's used because render()/parse() strip OSC 8 bytes during their HTML
-        // parse phase, so the sequences can only be injected after parsing.
-        // Revisit if Termwind ever adds native OSC 8 hyperlink support; spec:
+        // It's used because render()/parse() strip <a href> / raw OSC 8 bytes
+        // during their HTML parse phase, so links can only be injected after
+        // parsing. Revisit if Termwind ever adds native OSC 8 support; spec:
         // https://gist.github.com/egmontkob/eb114294efbcd5adb1944c9f3cb5feda
         Termwind::getRenderer()->writeln($this->replaceHyperlinks($rendered));
 
@@ -46,14 +49,14 @@ class CliRenderer
     }
 
     /**
-     * Replace hyperlink tokens (inserted by callerLink) with raw OSC 8
-     * sequences AFTER Termwind has rendered — raw ESC bytes don't survive
-     * Termwind's HTML/DOM parsing, so links are injected at the last step.
+     * Replace hyperlink tokens (inserted by callerLink) with Symfony
+     * <href=URI>text</> tags AFTER Termwind has rendered. The decorated
+     * OutputFormatter converts them into real OSC 8 terminal sequences.
      */
     protected function replaceHyperlinks(string $html): string
     {
-        foreach ($this->hyperlinks as $token => $osc8) {
-            $html = str_replace($token, $osc8, $html);
+        foreach ($this->hyperlinks as $token => $hrefTag) {
+            $html = str_replace($token, $hrefTag, $html);
         }
 
         return $html;
@@ -62,18 +65,16 @@ class CliRenderer
     /**
      * Render a caller as a clickable OSC 8 terminal hyperlink.
      *
-     * Termwind stores <a href> as a property but never emits the OSC 8
-     * sequence (verified in its Styles implementation), so links are
-     * injected as tokens before rendering and swapped for raw OSC 8
-     * sequences afterwards.
-     *
      * Never spawns a shell command — the host terminal resolves the URI
      * scheme, so it works from inside Docker/Sail/WSL.
+     *
+     * The URI uses the ABSOLUTE path (VS Code falls back to workspace search
+     * for relative paths); the label shows the workspace-relative path.
      */
     protected function callerLink(?string $file, ?int $line): string
     {
-        // Without a line number the OSC 8 target would be "file:0" (%d casts
-        // null) — no link is better than a link that jumps nowhere.
+        // Without a line number the target would be "file:0" — no link is
+        // better than a link that jumps nowhere.
         if (! $file || $line === null) {
             return '<span class="text-gray-600">-</span>';
         }
@@ -82,12 +83,7 @@ class CliRenderer
 
         $token = '__PINPOINT_LINK_'.count($this->hyperlinks).'__';
 
-        $this->hyperlinks[$token] = sprintf(
-            "\033]8;;%s\033\\\033[4m%s:%d\033[0m\033]8;;\033\\",
-            $scheme,
-            $file,
-            $line
-        );
+        $this->hyperlinks[$token] = sprintf('<href=%s>%s</>', $scheme, e($this->relativeCaller($file).':'.$line));
 
         return $token;
     }
@@ -96,12 +92,39 @@ class CliRenderer
     {
         $editor = config('pinpoint.editor', 'vscode');
 
+        $absolutePath = $this->absolutePath($file);
+
         return match ($editor) {
-            'phpstorm' => sprintf('phpstorm://open?file=%s&line=%d', rawurlencode($file), $line),
+            'phpstorm' => sprintf('phpstorm://open?file=%s&line=%d', rawurlencode($absolutePath), $line),
             // Path separators must stay literal — VSCode's URI handler cannot
             // resolve %2F-encoded slashes (only other chars may be encoded).
-            default => sprintf('vscode://file/%s:%d', str_replace('%2F', '/', rawurlencode($file)), $line),
+            default => sprintf('vscode://file/%s:%d', str_replace('%2F', '/', rawurlencode($absolutePath)), $line),
         };
+    }
+
+    protected function absolutePath(string $file): string
+    {
+        // Caller paths from Caller::capture() are stored workspace-relative
+        // (base_path()-stripped), but URI handlers need absolute paths —
+        // a relative vscode://file path makes VS Code fall back to search.
+        if (str_starts_with($file, DIRECTORY_SEPARATOR) || preg_match('/^[A-Za-z]:[\\\\\/]/', $file)) {
+            return $file;
+        }
+
+        $base = base_path();
+
+        return str_starts_with($file, $base) ? $file : $base.DIRECTORY_SEPARATOR.$file;
+    }
+
+    protected function relativeCaller(string $file): string
+    {
+        $base = base_path();
+
+        if (str_starts_with($file, $base)) {
+            return ltrim(substr($file, strlen($base)), '/\\');
+        }
+
+        return $file;
     }
 
     /**
@@ -145,7 +168,7 @@ class CliRenderer
                 .'</tr>';
         }
 
-        $html .= '</tbody></table>';
+        $html .= '</tbody></table></div>';
 
         $this->render($html);
     }
@@ -179,6 +202,8 @@ class CliRenderer
             $checked,
             $windowMinutes
         );
+
+        $html .= '</div>';
 
         $this->render($html);
     }
@@ -284,18 +309,9 @@ class CliRenderer
                 .'</tr>';
         }
 
-        $html .= '</tbody></table>';
+        $html .= '</tbody></table></div>';
 
         $this->render($html);
-    }
-
-    /**
-     * Cap route labels so long names can't push the p95/avg columns off
-     * narrow terminals (Termwind sizes columns to content).
-     */
-    protected function routeLabel(string $route, int $max = 40): string
-    {
-        return mb_strimwidth($route, 0, $max, '…');
     }
 
     protected function header(string $title): string
@@ -305,6 +321,15 @@ class CliRenderer
             .'<span class="px-2 bg-blue-500 text-white font-bold uppercase">Pinpoint</span>'
             .'<span class="text-gray-400">'.e($title).'</span>'
             .'</div>';
+    }
+
+    /**
+     * Cap route labels so long names can't push the p95/avg columns off
+     * narrow terminals (Termwind sizes columns to content).
+     */
+    protected function routeLabel(string $route, int $max = 40): string
+    {
+        return mb_strimwidth($route, 0, $max, '…');
     }
 
     protected function tierBadge(string $tier): string

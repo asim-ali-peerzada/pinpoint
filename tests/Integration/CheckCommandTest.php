@@ -122,6 +122,26 @@ test('json empty-window failure is machine readable', function () {
         ->and($payload['violations'])->toBe([]);
 });
 
+test('check --json-to writes the payload to a file and prints its location', function () {
+    $relative = 'storage/pinpoint-test/check.json';
+    $absolute = base_path($relative);
+
+    @unlink($absolute);
+
+    $output = runCheck(['--json-to' => $relative]);
+
+    expect($output)->toContain('JSON written to '.$absolute);
+
+    $payload = json_decode((string) file_get_contents($absolute), true);
+
+    // Empty window → the gate fails closed, same payload as --json.
+    expect($payload['passed'])->toBeFalse()
+        ->and($payload['meta']['requests'])->toBe(0)
+        ->and($payload['meta']['empty'])->toBeTrue();
+
+    @unlink($absolute);
+});
+
 test('json output is machine readable', function () {
     $id = insertRequest(['query_count' => 25]);
 

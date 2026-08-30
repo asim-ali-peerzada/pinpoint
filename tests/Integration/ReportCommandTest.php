@@ -181,6 +181,28 @@ test('report rejects an invalid tier instead of showing an empty table', functio
         ->toContain('good, acceptable, needs_improvement, critical');
 });
 
+test('report --json-to writes the payload to a file and prints its location', function () {
+    DB::table('pinpoint_requests')->insert([
+        ['route_name' => 'api.orders', 'method' => 'GET', 'path' => 'api/orders', 'duration_ms' => 9000, 'query_count' => 1, 'query_time_ms' => 1, 'has_n_plus_one' => false, 'created_at' => now()],
+    ]);
+
+    $relative = 'storage/pinpoint-test/report.json';
+    $absolute = base_path($relative);
+
+    @unlink($absolute);
+
+    $output = runReport(['--json-to' => $relative]);
+
+    expect($output)->toContain('JSON written to '.$absolute);
+
+    $payload = json_decode((string) file_get_contents($absolute), true);
+
+    expect($payload['routes'])->toHaveCount(1)
+        ->and($payload['routes'][0]['route'])->toBe('api.orders');
+
+    @unlink($absolute);
+});
+
 test('report accepts tier values case-insensitively', function () {
     DB::table('pinpoint_requests')->insert([
         ['route_name' => 'api.orders', 'method' => 'GET', 'path' => 'api/orders', 'duration_ms' => 10, 'query_count' => 1, 'query_time_ms' => 1, 'has_n_plus_one' => false, 'created_at' => now()],

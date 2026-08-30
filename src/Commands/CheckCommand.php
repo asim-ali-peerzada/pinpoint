@@ -8,6 +8,7 @@ use AsimAli\Pinpoint\Internal\SuggestionBuilder;
 use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
 use Throwable;
@@ -20,7 +21,8 @@ class CheckCommand extends Command
         {--max-duration-ms= : Fail when any request exceeds this duration in ms}
         {--since=30 : Only check requests from the last N (e.g. 5m, 1h, 2d; bare number = minutes)}
         {--allow-empty : Pass when the window contains no requests instead of failing}
-        {--json : Output machine-readable JSON (for CI / PR comment automation)}
+        {--json : Output machine-readable JSON on stdout (for CI / PR comment automation)}
+        {--json-to= : Write the JSON output to a file and print the file location (human-friendly alternative; implies --json)}
         {--limit=20 : Max violations to report}';
 
     protected $description = 'CI gate: fail when recorded requests violate N+1 or performance budgets';
@@ -84,14 +86,14 @@ class CheckCommand extends Command
                 return self::SUCCESS;
             }
 
-            if ($this->option('json')) {
+            if ($this->option('json') || $this->option('json-to')) {
                 // Pure JSON on stdout — no interleaved error text.
-                $this->line(json_encode([
+                $this->emitJson([
                     'passed' => false,
                     'meta' => ['requests' => 0, 'window_minutes' => $sinceMinutes, 'empty' => true],
                     'violations' => [],
                     'message' => $message,
-                ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+                ]);
             } else {
                 $this->error($message);
             }
@@ -251,13 +253,12 @@ class CheckCommand extends Command
 
     protected function printResult(array $violations, array $meta, int $limit): void
     {
-        if ($this->option('json')) {
-            // CI contract: plain JSON on stdout, no ANSI/HTML markup.
-            $this->line(json_encode([
+        if ($this->option('json') || $this->option('json-to')) {
+            $this->emitJson([
                 'passed' => $violations === [],
                 'meta' => $meta,
                 'violations' => array_slice($violations, 0, $limit),
-            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+            ]);
 
             return;
         }
@@ -291,5 +292,36 @@ class CheckCommand extends Command
         );
 
         $this->cli->checkReport($rows, $meta['requests'], $meta['window_minutes'], $violations === []);
+    }
+
+    /**
+     * Emit the JSON payload. Two modes:
+     *
+     * - --json: pure JSON on stdout (the CI contract — scripts pipe it to jq
+     *   or write it to a file themselves).
+     * - --json-to: write to a file (auto-creating directories) and print a
+     *   clear message with the resolved location, for humans.
+     */
+    protected function emitJson(array $payload): void
+    {
+        if ($path = $this->option('json-to')) {
+            $path = $this->resolvePath($path);
+
+            File::ensureDirectoryExists(dirname($path));
+
+            file_put_contents($path, json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+
+            $this->info(sprintf('JSON written to %s', $path));
+
+            return;
+        }
+
+        // CI contract: plain JSON on stdout, no ANSI/HTML markup.
+        $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+    }
+
+    protected function resolvePath(string $path): string
+    {
+        return str_starts_with($path, DIRECTORY_SEPARATOR) ? $path : base_path($path);
     }
 }

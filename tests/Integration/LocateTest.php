@@ -80,7 +80,8 @@ test('vscode URI keeps path separators literal', function () {
 
     // %2F-encoded slashes break VSCode's URI handler — separators must be literal.
     expect($output)
-        ->toContain('vscode://file/app/Http/Controllers/OrderController.php:41')
+        ->toContain('vscode://file/')
+        ->toContain('app/Http/Controllers/OrderController.php:41')
         ->not->toContain('%2F');
 });
 

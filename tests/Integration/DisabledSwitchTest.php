@@ -1,5 +1,6 @@
 <?php
 
+use AsimAli\Pinpoint\Internal\Recorder;
 use AsimAli\Pinpoint\Tests\TestCase;
 use Illuminate\Database\Eloquent\Model;
 
@@ -20,5 +21,12 @@ class DisabledSwitchTest extends TestCase
     public function test_master_switch_off_leaves_eloquent_strict_mode_untouched(): void
     {
         expect(Model::preventsLazyLoading())->toBeFalse();
+    }
+
+    public function test_master_switch_off_stops_recording(): void
+    {
+        $recorder = app(Recorder::class);
+
+        expect($recorder->isRecording())->toBeFalse();
     }
 }

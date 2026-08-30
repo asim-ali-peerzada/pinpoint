@@ -12,7 +12,7 @@ class LocalOnly
     // the Illuminate subclass added nothing but a false choice.
     public function handle(Request $request, Closure $next): SymfonyResponse
     {
-        if (! config('pinpoint.enabled') || ! (app()->isLocal() || app()->hasDebugModeEnabled())) {
+        if (! config('pinpoint.enabled') || ! (app()->environment('local', 'development', 'dev') || app()->hasDebugModeEnabled())) {
             abort(404);
         }
 

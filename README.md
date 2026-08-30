@@ -37,14 +37,14 @@ php artisan vendor:publish --tag=pinpoint-config
 
 ## Usage
 
-Pinpoint starts recording automatically when enabled. It's **enabled in local by default** (`PINPOINT_ENABLED` env, or `pinpoint.enabled` config) and captures caller file:line only when the app is local.
+Pinpoint starts recording automatically when enabled. It's **enabled by default when `APP_ENV` is `local`, `development`, `dev`, or `testing`** — zero config needed. `PINPOINT_ENABLED=false` hard-disables it everywhere (e.g. production); `PINPOINT_ENABLED=true` is only needed for non-standard environments like `staging`. Caller file:line capture (`debug_backtrace`) follows the same default in local/dev/testing and can be turned on/off with `PINPOINT_CAPTURE_CALLER`.
 
 ## Command reference
 
 | Command | What it does | Options | Exit codes |
 |---|---|---|---|
-| `pinpoint:report` | Per-route summary (p50/p95/p99/avg, tier, N+1) + a "Locate" block for the worst offenders | `--tier=`, `--route=`, `--since=`, `--limit=`, `--json` | `0` normal, `1` invalid input / DB error |
-| `pinpoint:check` | CI gate: fail the build on N+1s or query/duration budget violations | `--fail-on-n1`, `--max-queries=`, `--max-duration-ms=`, `--since=`, `--allow-empty`, `--json`, `--limit=` | `0` pass, `1` fail |
+| `pinpoint:report` | Per-route summary (p50/p95/p99/avg, tier, N+1) + a "Locate" block for the worst offenders | `--tier=`, `--route=`, `--since=`, `--limit=`, `--json`, `--json-to=` | `0` normal, `1` invalid input / DB error |
+| `pinpoint:check` | CI gate: fail the build on N+1s or query/duration budget violations | `--fail-on-n1`, `--max-queries=`, `--max-duration-ms=`, `--since=`, `--allow-empty`, `--json`, `--json-to=`, `--limit=` | `0` pass, `1` fail |
 | `pinpoint:aggregate` | Roll recent raw requests into the `pinpoint_summaries` table (offline percentiles, all-or-nothing per run) | — | `0` success, `1` failure |
 | `pinpoint:prune` | Delete recorded data older than the retention window (`pinpoint.retention_days`, default 30) | `--days=` | `0` success, `1` failure |
 | `pinpoint:reset` | Wipe ALL recorded data (requests, queries, lazy loads, summaries) | `--force` (skip the confirmation prompt) | `0` success, `1` failure |
@@ -72,6 +72,7 @@ php artisan pinpoint:report --tier=critical              # only critical routes
 php artisan pinpoint:report --route=api.orders           # drill into a route
 php artisan pinpoint:report --limit=5                    # top 5 routes only
 php artisan pinpoint:report --json | jq .                # machine-readable summary
+php artisan pinpoint:report --json-to=storage/pinpoint/report.json  # same JSON to a file, prints its path
 
 # 4. Run the CI gate locally (exit 1 = violation)
 php artisan pinpoint:check --fail-on-n1 --max-queries=20 --max-duration-ms=1000
@@ -92,6 +93,7 @@ php artisan pinpoint:report --since=1h           # only consider recent samples
 php artisan pinpoint:report --since=5m           # ...or just the last 5 minutes
 php artisan pinpoint:report --limit=10           # cap the table (default 20)
 php artisan pinpoint:report --json               # machine-readable summary (scripts / webhooks)
+php artisan pinpoint:report --json-to=storage/pinpoint/report.json   # same JSON written to a file, path printed
 ```
 
 **Iterating on a fix?** The report reads **historical samples** — after you fix an N+1 or a slow route, the old pre-fix rows still skew the tiers until they age out of the window or are pruned. `--since` accepts any natural duration (`5`, `5m`, `5min`, `1h`, `2d`; bare number = minutes), so you see your fix's effect immediately:

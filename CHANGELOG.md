@@ -4,6 +4,21 @@ All notable changes to Pinpoint will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-08-30
+
+### Fixed
+
+- **Clickable caller links actually open the file again** (both fixes target the same symptom):
+  - URIs now use **absolute paths** — `vscode://file/...` with a workspace-relative path made VS Code fall back to workspace search ("no matching results").
+  - Link transport switched from hand-injected raw OSC 8 bytes to Symfony's canonical `<href=URI>text</>` tags — raw bytes corrupted surrounding glyphs in VS Code's xterm.js (`route(s)` → `ro te`, `Locate` → `ocate`). Termwind's native `<a href>` was confirmed to strip the URI entirely (dropping it silently) and was not used.
+  - All HTML now balanced — `header()`'s outer `<div>` is closed by every renderer.
+- Test captures now use **decorated output**, so the formatter path is exercised — the exact bug class that "all tests passed" while the terminal glitched.
+
+### Added
+
+- `pinpoint:report --json-to=FILE` and `pinpoint:check --json-to=FILE` — write the JSON payload to a file (auto-creating directories) and print the resolved path; `--json` (stdout) remains the CI pipe contract.
+- Auto-enablement for `APP_ENV` in `local`, `development`, `dev`, `testing` — no `PINPOINT_ENABLED` needed; caller capture and the local API gate follow the same default. `PINPOINT_ENABLED=true/false` still overrides everywhere, staging/production stay opt-in.
+
 ## [1.1.0] - 2026-08-30
 
 ### Fixed
