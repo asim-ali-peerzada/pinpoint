@@ -37,15 +37,14 @@ const table = [
 ];
 ---
 
-<section id="diff" class="relative py-24 overflow-hidden">
+<section id="diff" class="relative py-24 overflow-hidden scroll-mt-16">
   <div class="section-ambient pointer-events-none absolute inset-x-0 top-0 -z-10 h-[480px]"></div>
   <div class="relative z-10 mx-auto max-w-5xl px-4 sm:px-6">
     <div class="mx-auto max-w-2xl text-center">
-      <p class="text-sm font-medium uppercase tracking-[0.16em] text-brand-accent">04 / Where Pinpoint Differs</p>
-      <h2 class="mt-4 text-3xl font-semibold tracking-tight text-brand-fg sm:text-4xl">Built around the Laravel runtime.</h2>
-      <p class="mt-4 leading-7 text-gray-300">
-        Pinpoint is for developers who want actionable runtime diagnostics without a heavyweight
-        observability stack.
+      <p class="text-sm font-medium uppercase tracking-[0.16em] text-brand-accent">04 / Comparison</p>
+      <h2 class="mt-4 text-3xl font-semibold tracking-tight text-brand-fg sm:text-4xl text-balance">Built around the Laravel runtime.</h2>
+      <p class="mt-4 leading-relaxed text-gray-300 text-sm sm:text-base max-w-xl mx-auto text-pretty text-balance">
+        Actionable terminal diagnostics and CI regression gates without the overhead of external SaaS observability stacks.
       </p>
     </div>
 
@@ -107,13 +106,15 @@ const table = [
   </div>
 </section>
 
-<section id="docs" class="relative py-24">
+<section id="docs" class="relative py-24 scroll-mt-16">
   <div class="section-ambient pointer-events-none absolute inset-x-0 top-0 -z-10 h-[480px]"></div>
   <div class="relative z-10 mx-auto max-w-4xl px-4 sm:px-6">
     <div class="mx-auto max-w-2xl text-center">
       <p class="text-sm font-medium uppercase tracking-[0.16em] text-brand-accent">05 / Documentation</p>
-      <h2 class="mt-4 text-3xl font-semibold tracking-tight text-brand-fg sm:text-4xl">Get started in minutes.</h2>
-      <p class="mt-4 leading-7 text-gray-300">Install, migrate, run your app. Then one command tells you what's slow.</p>
+      <h2 class="mt-4 text-3xl font-semibold tracking-tight text-brand-fg sm:text-4xl text-balance">Get started in minutes.</h2>
+      <p class="mt-4 leading-relaxed text-gray-300 text-sm sm:text-base max-w-lg mx-auto text-pretty text-balance">
+        Install, migrate, run your app. Then one command tells you what's slow.
+      </p>
     </div>
 
     <!-- Enterprise-grade Clean Commands Cards (Matching Max Width) -->
@@ -151,11 +152,11 @@ const table = [
       ))}
     </div>
 
-    <!-- Complete 5-Command Artisan Toolkit (a sub-section of Documentation) -->
-    <div class="relative mt-24">
-      <div class="relative z-10 text-center max-w-xl mx-auto">
-        <h3 class="text-xl font-bold text-white tracking-tight">Complete Artisan Toolkit</h3>
-        <p class="mt-2 text-xs sm:text-sm text-gray-400">Everything needed to profile locally, gate in CI, and manage retention.</p>
+    <!-- Complete 5-Command Artisan Toolkit -->
+    <div class="mt-16">
+      <div class="text-center max-w-xl mx-auto">
+        <h3 class="text-xl font-bold text-white tracking-tight text-balance">Complete Artisan Toolkit</h3>
+        <p class="mt-2 text-xs sm:text-sm text-gray-400 text-pretty text-balance">Everything needed to profile locally, gate in CI, and manage retention.</p>
       </div>
 
       <div class="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
@@ -254,7 +255,7 @@ const table = [
 </section>
 
 <!-- Animated Benchmark & Final Call to Action Section -->
-<section id="cta" class="relative py-20 overflow-hidden">
+<section id="benchmarks" class="relative py-20 overflow-hidden scroll-mt-16">
   <GlowMesh />
   <div class="relative z-10 mx-auto max-w-4xl px-4 sm:px-6 space-y-12">
     <!-- What Pinpoint adds to each request (Benchmark Card) -->

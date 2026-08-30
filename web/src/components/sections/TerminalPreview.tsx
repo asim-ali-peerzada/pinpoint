@@ -48,7 +48,7 @@ export default function TerminalPreview() {
   const [open, setOpen] = useState<number | null>(null);
 
   return (
-    <div className="mx-auto max-w-4xl overflow-hidden rounded-2xl border border-white/15 bg-[#08090C] shadow-[0_24px_70px_rgba(0,0,0,0.95)] ring-1 ring-white/5">
+    <div className="mx-auto max-w-4xl overflow-hidden rounded-2xl border border-white/15 bg-[#08090C] shadow-[0_24px_70px_rgba(0,0,0,0.95)] ring-1 ring-white/5 text-left">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-white/[0.08] bg-[#0C0E12] px-4 py-3">
         <div className="flex items-center gap-2.5 text-sm">
@@ -128,7 +128,7 @@ export default function TerminalPreview() {
                               )}
                             </span>
                           </div>
-                          <div className="mt-2 flex items-center justify-between text-xs text-gray-400">
+                          <div className="mt-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs text-gray-400">
                             <span className="tabular-nums">p95: <strong className="text-gray-200">{r.p95}</strong></span>
                             <span className="tabular-nums">avg: <strong className="text-gray-200">{r.avg}</strong></span>
                             <span>queries: <strong className="text-gray-200">{r.queries}</strong></span>
@@ -149,8 +149,8 @@ export default function TerminalPreview() {
                             <span
                               className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-medium ${
                                 critical
-                                  ? 'bg-red-500/10 text-red-300 ring-1 ring-red-500/20'
-                                  : 'bg-emerald-500/10 text-emerald-300 ring-1 ring-emerald-500/20'
+                                    ? 'bg-red-500/10 text-red-300 ring-1 ring-red-500/20'
+                                    : 'bg-emerald-500/10 text-emerald-300 ring-1 ring-emerald-500/20'
                               }`}
                             >
                               <span className={`h-1.5 w-1.5 rounded-full ${critical ? 'bg-red-400' : 'bg-emerald-400'}`}></span>
@@ -209,23 +209,39 @@ export default function TerminalPreview() {
         </div>
       ) : (
         /* Source view */
-        <div className="p-4 sm:p-5 font-mono text-xs">
-          <div className="flex items-center justify-between text-gray-400 border-b border-white/[0.06] pb-2">
-            <span>app/Http/Controllers/OrderController.php:84</span>
-            <span className="text-red-400 font-semibold">14× N+1 query trigger</span>
+        <div className="p-4 sm:p-5 font-mono text-xs text-left">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-x-3 gap-y-1.5 border-b border-white/[0.06] pb-3 font-mono text-[11px] sm:text-xs text-gray-400">
+            <span className="truncate text-gray-300">app/Http/Controllers/OrderController.php:84</span>
+            <span className="shrink-0 text-red-400 font-semibold">14× N+1 query trigger</span>
           </div>
-          <pre className="mt-3 overflow-x-auto text-[12px] leading-relaxed text-gray-300">
-            <code>
-              <span className="text-gray-600">82: </span>public function index()<br />
-              <span className="text-gray-600">83: </span>&#123;<br />
-              <span className="text-gray-600">84: </span>    $orders = Order::all();<br />
-              <span className="text-red-300 bg-red-500/10 px-1 py-0.5 rounded">
-                <span className="text-gray-600">85: </span>    foreach ($orders as $order) &#123; $order-&gt;items-&gt;count(); &#125;
-              </span><br />
-              <span className="text-gray-600">86: </span>    return view('orders.index', compact('orders'));<br />
-              <span className="text-gray-600">87: </span>&#125;
-            </code>
-          </pre>
+          <div className="mt-3 overflow-x-auto text-[11.5px] sm:text-[12.5px] leading-relaxed text-gray-300 bg-[#040507] p-3 sm:p-4 rounded-lg border border-white/5">
+            <div className="min-w-max space-y-1 font-mono text-left">
+              <div className="flex items-center">
+                <span className="w-8 select-none text-right text-gray-600 mr-4 shrink-0 font-normal">82:</span>
+                <span className="text-gray-300">public function index()</span>
+              </div>
+              <div className="flex items-center">
+                <span className="w-8 select-none text-right text-gray-600 mr-4 shrink-0 font-normal">83:</span>
+                <span className="text-gray-400">&#123;</span>
+              </div>
+              <div className="flex items-center">
+                <span className="w-8 select-none text-right text-gray-600 mr-4 shrink-0 font-normal">84:</span>
+                <span className="text-gray-300 pl-4">$orders = Order::all();</span>
+              </div>
+              <div className="flex items-center bg-red-500/15 -mx-2 px-2 py-0.5 rounded border-l-2 border-red-500 text-red-200 font-medium">
+                <span className="w-8 select-none text-right text-red-400/80 mr-4 shrink-0 font-normal">85:</span>
+                <span className="pl-4">foreach ($orders as $order) &#123; $order-&gt;items-&gt;count(); &#125;</span>
+              </div>
+              <div className="flex items-center">
+                <span className="w-8 select-none text-right text-gray-600 mr-4 shrink-0 font-normal">86:</span>
+                <span className="text-gray-300 pl-4">return view('orders.index', compact('orders'));</span>
+              </div>
+              <div className="flex items-center">
+                <span className="w-8 select-none text-right text-gray-600 mr-4 shrink-0 font-normal">87:</span>
+                <span className="text-gray-400">&#125;</span>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
