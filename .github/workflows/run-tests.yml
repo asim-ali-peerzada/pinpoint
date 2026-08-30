@@ -37,6 +37,9 @@ jobs:
         with:
           php-version: ${{ matrix.php }}
           coverage: none
+          # Laravel 12 (flysystem-local) requires ext-fileinfo; Windows PHP
+          # builds don't enable it by default. No-op on Ubuntu (compiled in).
+          extensions: fileinfo
 
       - name: Install dependencies
         run: |
