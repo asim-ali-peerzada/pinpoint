@@ -126,7 +126,7 @@ N+1 detected — suggested eager loads:
   Suggested fix: App\Models\CloseoutPackage::with('stages.photos')
 ```
 
-**Click to jump to the exact line:** every `file:line` in the report is an OSC 8 terminal hyperlink. ⌘-click (macOS) / Ctrl-click (Windows/Linux) it in your terminal to open your editor directly — works from inside Docker/Sail/WSL because the host terminal resolves the URI scheme, not the container. Default is VS Code (`vscode://file/path:line`); switch to PhpStorm via config:
+**Click to jump to the exact line:** every `file:line` in the report is an OSC 8 terminal hyperlink. Route names in the summary table and the Locate block are links too — Pinpoint resolves each route to its controller action via reflection, so ⌘-clicking a route name jumps straight to the handler method. ⌘-click (macOS) / Ctrl-click (Windows/Linux) works from inside Docker/Sail/WSL because the host terminal resolves the URI scheme, not the container. Default is VS Code (`vscode://file/path:line`); switch to PhpStorm via config:
 
 ```php
 // config/pinpoint.php

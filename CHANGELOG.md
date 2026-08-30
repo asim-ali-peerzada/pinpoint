@@ -4,6 +4,17 @@ All notable changes to Pinpoint will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-08-30
+
+### Added
+
+- **Clickable route names**: every route in the summary table and Locate block now links to its controller action (`vscode://file/...` via controller reflection — `Class@method`, array-callable, invokable, and closure routes). Clicking a route name jumps straight to the handler instead of falling back to workspace search.
+
+### Fixed
+
+- `routeActionLocation()` refreshes route name lookups before resolving (Laravel 12 doesn't refresh them for runtime-registered routes).
+- Route reflection failures degrade to a plain-text label — never breaks the report.
+
 ## [1.2.0] - 2026-08-30
 
 ### Fixed

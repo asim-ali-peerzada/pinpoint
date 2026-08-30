@@ -4,6 +4,7 @@ namespace AsimAli\Pinpoint\Internal;
 
 use AsimAli\Pinpoint\TierClassifier;
 use Illuminate\Console\OutputStyle;
+use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Termwind\Termwind;
 
@@ -127,6 +128,91 @@ class CliRenderer
         return $file;
     }
 
+    public function routeLink(string $route, int $max = 40): string
+    {
+        $label = $this->routeLabel($route, $max);
+        $location = $this->routeActionLocation($route);
+
+        if ($location && $location['file'] && $location['line'] !== null) {
+            $scheme = $this->editorScheme($location['file'], $location['line']);
+            $token = '__PINPOINT_LINK_'.count($this->hyperlinks).'__';
+            $this->hyperlinks[$token] = sprintf('<href=%s>%s</>', $scheme, e($label));
+
+            return $token;
+        }
+
+        return e($label);
+    }
+
+    public function routeActionLocation(string $routeLabel): ?array
+    {
+        if (! function_exists('app') || ! app()->bound('router')) {
+            return null;
+        }
+
+        try {
+            $router = app('router');
+            $routes = $router->getRoutes();
+
+            // Name lookups are only refreshed when routes are loaded through
+            // the service provider — after runtime registration (tests) they
+            // can be stale. Rebuilding the map is cheap for a dev CLI.
+            $routes->refreshNameLookups();
+
+            $route = $routes->getByName($routeLabel);
+
+            if (! $route && str_contains($routeLabel, ' ')) {
+                [$method, $path] = explode(' ', $routeLabel, 2);
+                try {
+                    $route = $routes->match(Request::create($path, $method));
+                } catch (\Throwable) {
+                    $route = null;
+                }
+            }
+
+            if (! $route) {
+                return null;
+            }
+
+            $uses = $route->getAction('uses');
+
+            if ($uses instanceof \Closure) {
+                $ref = new \ReflectionFunction($uses);
+
+                return ['file' => $ref->getFileName(), 'line' => (int) $ref->getStartLine()];
+            }
+
+            if (is_string($uses) && str_contains($uses, '@')) {
+                [$class, $method] = explode('@', $uses, 2);
+                if (class_exists($class) && method_exists($class, $method)) {
+                    $ref = new \ReflectionMethod($class, $method);
+
+                    return ['file' => $ref->getFileName(), 'line' => (int) $ref->getStartLine()];
+                }
+            }
+
+            // Invokable controller: Route::get('/x', InvokableController::class)
+            // → action 'uses' is the bare class string → __invoke.
+            if (is_string($uses) && ! str_contains($uses, '@') && class_exists($uses) && method_exists($uses, '__invoke')) {
+                $ref = new \ReflectionMethod($uses, '__invoke');
+
+                return ['file' => $ref->getFileName(), 'line' => (int) $ref->getStartLine()];
+            }
+
+            if (is_array($uses) && count($uses) === 2 && is_string($uses[0]) && is_string($uses[1])) {
+                if (class_exists($uses[0]) && method_exists($uses[0], $uses[1])) {
+                    $ref = new \ReflectionMethod($uses[0], $uses[1]);
+
+                    return ['file' => $ref->getFileName(), 'line' => (int) $ref->getStartLine()];
+                }
+            }
+        } catch (\Throwable) {
+            return null;
+        }
+
+        return null;
+    }
+
     /**
      * @param  array<int, array{route: string, p95: int, avg: int, samples: int, tier: string, n1: string}>  $rows
      */
@@ -159,7 +245,7 @@ class CliRenderer
 
         foreach ($rows as $row) {
             $html .= '<tr>'
-                .'<td class="text-left text-white">'.e($this->routeLabel($row['route'])).'</td>'
+                .'<td class="text-left text-white">'.$this->routeLink($row['route']).'</td>'
                 .'<td class="text-right text-white">'.$row['p95'].'<span class="text-gray-500">ms</span></td>'
                 .'<td class="text-right text-white">'.$row['avg'].'<span class="text-gray-500">ms</span></td>'
                 .'<td class="text-right text-gray-300">'.$row['samples'].'</td>'
@@ -264,7 +350,7 @@ class CliRenderer
                 : '<span class="text-gray-600">run --route for caller</span>';
 
             $html .= '<div class="mt-1">'
-                .'<span class="text-white">'.e($offender['route']).'</span> '
+                .'<span class="text-white">'.$this->routeLink($offender['route']).'</span> '
                 .'<span class="text-gray-400">— '.e($offender['reason']).'</span>'
                 .'<div class="text-gray-400">'.$caller.'</div>'
                 .'</div>';
