@@ -4,6 +4,32 @@ All notable changes to Pinpoint will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-08-30
+
+### Fixed
+
+- VSCode OSC 8 links: path separators stay literal (`vscode://file/...`) — percent-encoded slashes broke editor jumps.
+- Hyperlink tokens now reset between render units — no unbounded growth on long-lived renderer instances (Octane, test suites).
+- `pinpoint:prune` deletes by parent request and relies on FK cascade instead of double-deleting child rows.
+- `pinpoint:report --route`/suggestion/worst-caller queries now group both route-label branches in one `where` — safe to compose with other filters.
+- Unknown `--tier` values fail loudly instead of silently rendering an empty table.
+- Aggregation is transactional: a mid-batch failure rolls back everything instead of leaving a mixed snapshot.
+- SQLite FK enforcement is now enabled in the test suite (`DB_FOREIGN_KEYS=true`), so the cascade behavior tested matches real deployments.
+
+### Added
+
+- `pinpoint:report --json` — machine-readable summary and route drill-down (`{meta, routes}` / `{route, queries, suggestions}`).
+- `pinpoint:check --allow-empty` — explicit opt-out of the fail-closed empty-window gate.
+- Summary line before the report table (`N route(s) · N critical · N with N+1`) and `--since` window shown in the header.
+- Compound index `(request_id, sql_fingerprint)` on `pinpoint_queries` for the repeat-count aggregation.
+- Route labels in the summary table capped at 40 columns.
+
+### Changed
+
+- `pinpoint:check` **fails closed** when the `--since` window is empty (a gate that checked nothing is a false green); use `--allow-empty` for legitimately empty runs.
+- `CliRenderer` tier constants removed — single source of truth is `TierClassifier`.
+- Caller links with a missing line render a placeholder instead of `file:0`.
+
 ## [1.0.0] - 2026-08-29
 
 ### Added
