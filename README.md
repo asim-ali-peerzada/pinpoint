@@ -1,9 +1,8 @@
 # Pinpoint
 
-[![run-tests](https://github.com/asim-ali-peerzada/pinpoint/actions/workflows/run-tests.yml/badge.svg)](https://github.com/asim-ali-peerzada/pinpoint/actions/workflows/run-tests.yml)
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/asimali/pinpoint.svg?style=flat-square)](https://packagist.org/packages/asimali/pinpoint)
 
-**[Explore the Documentation & Features ↗](https://asim-ali-peerzada.github.io/pinpoint)**
+**[Explore the Documentation &amp; Features ↗](https://asim-ali-peerzada.github.io/pinpoint)**
 
 Pinpoint is a local-first Laravel request performance profiler. It captures every DB query during a request, detects N+1 patterns, tiers each route (good → critical), and gives you a CLI report that drills from a slow endpoint straight to the offending query and its `caller file:line`.
 
@@ -41,20 +40,20 @@ Pinpoint starts recording automatically when enabled. It's **enabled by default 
 
 ## Command reference
 
-| Command | What it does | Options | Exit codes |
-|---|---|---|---|
-| `pinpoint:report` | Per-route summary (p50/p95/p99/avg, tier, N+1) + a "Locate" block for the worst offenders | `--tier=`, `--route=`, `--since=`, `--limit=`, `--json`, `--json-to=` | `0` normal, `1` invalid input / DB error |
-| `pinpoint:check` | CI gate: fail the build on N+1s or query/duration budget violations | `--fail-on-n1`, `--max-queries=`, `--max-duration-ms=`, `--since=`, `--allow-empty`, `--json`, `--json-to=`, `--limit=` | `0` pass, `1` fail |
-| `pinpoint:aggregate` | Roll recent raw requests into the `pinpoint_summaries` table (offline percentiles, all-or-nothing per run) | — | `0` success, `1` failure |
-| `pinpoint:prune` | Delete recorded data older than the retention window (`pinpoint.retention_days`, default 30) | `--days=` | `0` success, `1` failure |
-| `pinpoint:reset` | Wipe ALL recorded data (requests, queries, lazy loads, summaries) | `--force` (skip the confirmation prompt) | `0` success, `1` failure |
+| Command                | What it does                                                                                                 | Options                                                                                                                                 | Exit codes                                   |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| `pinpoint:report`    | Per-route summary (p50/p95/p99/avg, tier, N+1) + a "Locate" block for the worst offenders                    | `--tier=`, `--route=`, `--since=`, `--limit=`, `--json`, `--json-to=`                                                       | `0` normal, `1` invalid input / DB error |
+| `pinpoint:check`     | CI gate: fail the build on N+1s or query/duration budget violations                                          | `--fail-on-n1`, `--max-queries=`, `--max-duration-ms=`, `--since=`, `--allow-empty`, `--json`, `--json-to=`, `--limit=` | `0` pass, `1` fail                       |
+| `pinpoint:aggregate` | Roll recent raw requests into the `pinpoint_summaries` table (offline percentiles, all-or-nothing per run) | —                                                                                                                                      | `0` success, `1` failure                 |
+| `pinpoint:prune`     | Delete recorded data older than the retention window (`pinpoint.retention_days`, default 30)               | `--days=`                                                                                                                             | `0` success, `1` failure                 |
+| `pinpoint:reset`     | Wipe ALL recorded data (requests, queries, lazy loads, summaries)                                            | `--force` (skip the confirmation prompt)                                                                                              | `0` success, `1` failure                 |
 
 Local read API (local/debug environments only — blocked by the `LocalOnly` middleware otherwise):
 
-| Endpoint | Returns |
-|---|---|
-| `GET /_pinpoint/api/v1/summaries` | Per-route tiers as JSON |
-| `GET /_pinpoint/api/v1/summaries/{route}/queries` | Top offending queries for one route (URL-encode the route name; `METHOD path` labels work too) |
+| Endpoint                                            | Returns                                                                                         |
+| --------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `GET /_pinpoint/api/v1/summaries`                 | Per-route tiers as JSON                                                                         |
+| `GET /_pinpoint/api/v1/summaries/{route}/queries` | Top offending queries for one route (URL-encode the route name;`METHOD path` labels work too) |
 
 ### Try it on your project
 
@@ -200,11 +199,11 @@ Both signals set `has_n_plus_one`; the report shows the repeat count as `Yes (xN
 
 Measured with `composer benchmark` (in-memory SQLite, 10 queries/request, 200 requests, Testbench skeleton app). DB writes are deferred to the application's `terminating` callbacks — after the response is sent — so the request path only pays for in-memory capture:
 
-| Scenario | Mean request time | Overhead |
-|---|---|---|
-| Pinpoint disabled | ~0.84 ms | — |
-| Enabled, no caller capture | ~1.13 ms | ~0.29 ms |
-| Enabled, local + caller capture | ~1.13 ms | ~0.29 ms |
+| Scenario                        | Mean request time | Overhead |
+| ------------------------------- | ----------------- | -------- |
+| Pinpoint disabled               | ~0.84 ms          | —       |
+| Enabled, no caller capture      | ~1.13 ms          | ~0.29 ms |
+| Enabled, local + caller capture | ~1.13 ms          | ~0.29 ms |
 
 The worst case (caller capture via `debug_backtrace`) only runs in local environments — production never pays it. The remaining overhead is one fingerprint hash per query plus the deferred request/query row inserts. Re-run on your own hardware: `composer benchmark`.
 
