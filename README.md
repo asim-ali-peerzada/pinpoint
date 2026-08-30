@@ -2,7 +2,8 @@
 
 [![run-tests](https://github.com/asim-ali-peerzada/pinpoint/actions/workflows/run-tests.yml/badge.svg)](https://github.com/asim-ali-peerzada/pinpoint/actions/workflows/run-tests.yml)
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/asimali/pinpoint.svg?style=flat-square)](https://packagist.org/packages/asimali/pinpoint)
-[![Total Downloads](https://img.shields.io/packagist/dt/asimali/pinpoint.svg?style=flat-square)](https://packagist.org/packages/asimali/pinpoint)
+
+**[Explore the Documentation & Features ↗](https://asim-ali-peerzada.github.io/pinpoint)**
 
 Pinpoint is a local-first Laravel request performance profiler. It captures every DB query during a request, detects N+1 patterns, tiers each route (good → critical), and gives you a CLI report that drills from a slow endpoint straight to the offending query and its `caller file:line`.
 
@@ -10,7 +11,7 @@ Pinpoint is a local-first Laravel request performance profiler. It captures ever
 
 Terminal output is rendered with **Termwind** (ships with Laravel): tier pills are color-coded (green / yellow / red), numbers are right-aligned for quick scanning, units are dimmed, and N+1 flags are red and bold. The design is defined once in `Internal\CliRenderer` and shared by every Pinpoint command.
 
-## What this is / what it is not
+## Scope & Limitations
 
 - **Is:** a local/dev + limited-staging diagnostics tool for request time, query count, query time, and N+1 detection.
 - **Is not:** an APM replacement, a production-wide trace collector, or a memory/CPU profiler (use Blackfire for those).
