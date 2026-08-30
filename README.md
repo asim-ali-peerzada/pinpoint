@@ -6,19 +6,7 @@
 
 Pinpoint is a local-first Laravel request performance profiler. It captures every DB query during a request, detects N+1 patterns, tiers each route (good → critical), and gives you a CLI report that drills from a slow endpoint straight to the offending query and its `caller file:line`.
 
-```bash
-php artisan pinpoint:report
-
-   PINPOINT                              Performance Report
-
-  ┌─────────────┬──────┬──────┬─────────┬──────────────┬───────────┐
-  │ Route       │ p95  │ Avg  │ Samples │ Tier         │ N+1?      │
-  ├─────────────┼──────┼──────┼─────────┼──────────────┼───────────┤
-  │ api.orders  │ 1420 │ 890  │ 340     │ ██ CRITICAL  │ Yes (x14) │
-  │ api.users   │ 210  │ 140  │ 1200    │ ██ ACCEPTABLE│ No        │
-  │ api.ping    │ 95   │ 60   │ 800     │ ██ GOOD      │ No        │
-  └─────────────┴──────┴──────┴─────────┴──────────────┴───────────┘
-```
+![Pinpoint CLI performance report](docs/terminal-cli.png)
 
 Terminal output is rendered with **Termwind** (ships with Laravel): tier pills are color-coded (green / yellow / red), numbers are right-aligned for quick scanning, units are dimmed, and N+1 flags are red and bold. The design is defined once in `Internal\CliRenderer` and shared by every Pinpoint command.
 

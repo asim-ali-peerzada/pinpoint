@@ -5,3 +5,4 @@ composer.lock
 .phpstan.cache/
 pinpoint.zip
 /web/
+node_modules/
