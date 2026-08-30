@@ -6,3 +6,6 @@ composer.lock
 pinpoint.zip
 /web/
 node_modules/
+
+# stray pasted screenshots
+image*.png
