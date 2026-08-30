@@ -44,7 +44,7 @@ jobs:
           composer update --${{ matrix.stability }} --prefer-dist --no-interaction
 
       - name: List installed versions
-        run: composer show -D laravel/framework orchestra/testbench phpunit/phpunit
+        run: composer show -D | grep -E "^laravel/framework|^orchestra/testbench|^phpunit/phpunit"
 
       - name: Execute tests
         run: vendor/bin/pest
