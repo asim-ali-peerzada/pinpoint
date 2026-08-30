@@ -1,0 +1,101 @@
+---
+import GlowMesh from '../ui/GlowMesh.astro';
+import Button from '../ui/Button.astro';
+import TerminalPreview from './TerminalPreview.tsx';
+import InstallSnippet from './InstallSnippet.astro';
+import { ArrowRight, ChevronDown } from 'lucide-react';
+---
+
+<section class="relative overflow-hidden pt-36 pb-12 sm:pt-44 sm:pb-16">
+  <GlowMesh />
+
+  <div class="relative z-10 mx-auto max-w-5xl px-4 text-center">
+    <p class="text-sm font-medium uppercase tracking-[0.16em] text-brand-accent">
+      Laravel performance, in your terminal
+    </p>
+
+    <h1 class="mx-auto mt-5 max-w-4xl text-balance text-4xl font-semibold leading-[1.1] tracking-[-0.03em] text-brand-fg sm:text-5xl md:text-6xl">
+      Find slow routes and N+1 queries
+      <br class="hidden sm:block" />
+      <span class="font-bold text-white sm:whitespace-nowrap">without leaving your IDE.</span>
+    </h1>
+
+    <p class="mx-auto mt-6 max-w-2xl text-base leading-7 text-brand-muted md:text-lg">
+      Execute a single command to reveal route latency, N+1 violations, and the exact line of code causing them. Zero browser context-switching. Zero heavyweight dashboards. Just actionable terminal diagnostics.
+    </p>
+
+    <!-- Focused 2-CTA Row -->
+    <div class="mx-auto mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
+      <Button href="#docs">Get started <span class="transition-transform duration-200 group-hover:translate-x-0.5">→</span></Button>
+      <Button
+        href="https://github.com/asim-ali-peerzada/pinpoint#readme"
+        target="_blank"
+        rel="noopener"
+        variant="secondary"
+      >Read the documentation</Button>
+    </div>
+
+    <!-- Quick install snippet -->
+    <div class="mt-4 flex justify-center">
+      <InstallSnippet />
+    </div>
+
+    <!-- Verified Trust & Status Strip (Linked to live CI & repo) -->
+    <div class="mt-6 flex justify-center px-4">
+      <div class="inline-flex items-center justify-center whitespace-nowrap gap-2 sm:gap-3.5 rounded-full border border-white/10 bg-[#0C0E12]/95 px-3 py-1.5 sm:px-4 shadow-[0_4px_24px_rgba(0,0,0,0.5)] backdrop-blur-md text-[11px] sm:text-xs font-mono">
+        <a
+          href="https://github.com/asim-ali-peerzada/pinpoint/actions/workflows/run-tests.yml"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="flex items-center gap-1.5 text-gray-300 hover:text-white transition-colors"
+        >
+          <span class="h-1.5 w-1.5 rounded-full bg-emerald-400"></span>
+          <span class="hidden sm:inline">Tests </span>Passing
+        </a>
+        <span class="h-1 w-1 rounded-full bg-gray-600/80"></span>
+        <span class="flex items-center gap-1.5 text-gray-300">
+          <span class="h-1.5 w-1.5 rounded-full bg-sky-400"></span>
+          PHPStan <span class="hidden sm:inline">Level </span>5
+        </span>
+        <span class="h-1 w-1 rounded-full bg-gray-600/80"></span>
+        <span class="text-gray-300">Laravel 12–13</span>
+        <span class="h-1 w-1 rounded-full bg-gray-600/80"></span>
+        <a
+          href="https://github.com/asim-ali-peerzada/pinpoint/blob/main/LICENSE"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="text-gray-400 hover:text-gray-200 transition-colors"
+        >
+          MIT<span class="hidden sm:inline"> License</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- Primary Interactive Demo Terminal -->
+    <div class="mx-auto mt-16 max-w-5xl">
+      <TerminalPreview client:load />
+    </div>
+
+    <!-- Overhead Proof Note -->
+    <div class="mx-auto mt-10 max-w-lg text-center">
+      <p class="text-[11px] uppercase tracking-[0.16em] text-gray-400">Measured runtime overhead</p>
+      <p class="mt-1 text-sm leading-6 text-brand-muted">
+        <span class="font-mono font-medium text-brand-fg">+0.29 <span class="text-gray-500">ms</span></span>
+        mean overhead. Telemetry flushes asynchronously
+        <span class="text-gray-200">after your HTTP response is dispatched</span>.
+        <a href="#benchmarks" class="inline-flex items-center gap-1 font-sans font-medium text-brand-accent hover:underline">
+          View benchmark code <ArrowRight class="h-4 w-4" />
+        </a>
+      </p>
+    </div>
+
+    <!-- Directional Scroll Cue (Tightened spacing, clean phrasing) -->
+    <div class="mt-8 flex flex-col items-center justify-center gap-1.5 text-xs font-mono text-gray-400">
+      <a href="#delta" class="inline-flex items-center gap-1 hover:text-white transition-colors">
+        <span>See the fix</span>
+        <ChevronDown class="h-3.5 w-3.5 animate-bounce text-brand-accent" />
+      </a>
+    </div>
+
+  </div>
+</section>

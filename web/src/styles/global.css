@@ -1,0 +1,151 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    background-color: theme('colors.brand.bg');
+    color: theme('colors.brand.fg');
+    font-family: 'DM Sans', 'Inter', ui-sans-serif, system-ui, sans-serif;
+    overflow-x: hidden;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Plus Jakarta Sans', 'Inter', ui-sans-serif, system-ui, sans-serif;
+    letter-spacing: -0.015em;
+  }
+
+  button, .btn {
+    font-family: 'Instrument Sans', InstrumentSans, ui-sans-serif, system-ui, sans-serif;
+  }
+}
+
+.hero-scene {
+  filter: saturate(1.1);
+}
+
+.hero-grid {
+  background-image:
+    linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
+  background-size: 28px 28px;
+  mask-image: radial-gradient(circle at center, black 40%, transparent 100%);
+  animation: gridShift 18s linear infinite alternate;
+}
+
+.hero-radial {
+  background:
+    radial-gradient(circle at center, rgba(227, 52, 47, 0.2), rgba(227, 52, 47, 0.04) 20%, transparent 52%),
+    radial-gradient(circle at 20% 20%, rgba(59, 130, 246, 0.14), transparent 32%),
+    radial-gradient(circle at 80% 30%, rgba(168, 85, 247, 0.12), transparent 26%);
+}
+
+.orb {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(80px);
+  opacity: 0.75;
+  animation: orbDrift 18s ease-in-out infinite alternate;
+}
+
+.orb-1 {
+  left: 18%;
+  top: 50px;
+  width: 340px;
+  height: 340px;
+  background: rgba(59, 130, 246, 0.18);
+}
+
+.orb-2 {
+  right: 16%;
+  top: 120px;
+  width: 420px;
+  height: 420px;
+  background: rgba(227, 52, 47, 0.16);
+  animation-delay: 2s;
+}
+
+.orb-3 {
+  left: 50%;
+  bottom: 10px;
+  width: 520px;
+  height: 220px;
+  transform: translateX(-50%);
+  background: rgba(168, 85, 247, 0.12);
+  animation-delay: 4s;
+}
+
+/* Glassmorphism & Micro-borders */
+.glass-panel {
+  background: rgba(13, 15, 18, 0.7);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.glass-panel-hover:hover {
+  background: rgba(21, 27, 40, 0.85);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.glow-ambient {
+  background: radial-gradient(circle, rgba(255, 45, 32, 0.12) 0%, rgba(79, 70, 229, 0.06) 45%, transparent 70%);
+}
+
+/* Level-2 section ambient: ONE tone, very faint, no grid/orbs/hairlines.
+   The taper system is hero (full GlowMesh) > L2 (this) > flat (utility). */
+.section-ambient {
+  background: radial-gradient(ellipse 70% 55% at 50% 0%, rgba(245, 48, 3, 0.05) 0%, transparent 75%);
+}
+
+.grid-pattern {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 0);
+  background-size: 24px 24px;
+}
+
+/* Custom dark scrollbar to match the deep slate theme */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: theme('colors.brand.bg');
+}
+::-webkit-scrollbar-thumb {
+  background: theme('colors.brand.border');
+  border-radius: 5px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: theme('colors.brand.border-active');
+}
+* {
+  scrollbar-color: theme('colors.brand.border') theme('colors.brand.bg');
+  scrollbar-width: thin;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+@keyframes orbDrift {
+  0% {
+    transform: translate3d(0, 0, 0) scale(0.96);
+  }
+  100% {
+    transform: translate3d(24px, -18px, 0) scale(1.08);
+  }
+}
+
+@keyframes gridShift {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  100% {
+    transform: translate3d(18px, 16px, 0) scale(1.03);
+  }
+}
+

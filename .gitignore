@@ -4,8 +4,9 @@ composer.lock
 .phpunit.cache/
 .phpstan.cache/
 pinpoint.zip
-/web/
 node_modules/
+/web/dist/
+/web/.astro/
 
 # stray pasted screenshots
 image*.png

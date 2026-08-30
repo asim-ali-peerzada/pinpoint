@@ -17,10 +17,11 @@
             "email": "asimalipeerzada@gmail.com"
         }
     ],
-    "homepage": "https://github.com/asim-ali-peerzada/pinpoint",
+    "homepage": "https://asim-ali-peerzada.github.io/pinpoint",
     "support": {
+        "source": "https://github.com/asim-ali-peerzada/pinpoint/tree/main",
         "issues": "https://github.com/asim-ali-peerzada/pinpoint/issues",
-        "source": "https://github.com/asim-ali-peerzada/pinpoint"
+        "docs": "https://asim-ali-peerzada.github.io/pinpoint"
     },
     "require": {
         "php": "^8.2",

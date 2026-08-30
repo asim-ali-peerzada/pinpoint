@@ -1,0 +1,50 @@
+---
+import { Copy } from 'lucide-react';
+import { cn } from '../../lib/cn';
+
+interface Props {
+  command?: string;
+  class?: string;
+}
+
+const { command = 'composer require asimali/pinpoint', class: className } = Astro.props;
+---
+
+<div class={cn('group relative max-w-full', className)}>
+  <button
+    data-install
+    class="inline-flex max-w-full items-center gap-2 rounded-lg border border-brand-border bg-black/40 px-3 sm:px-4 py-2 sm:py-2.5 font-mono text-xs sm:text-sm text-gray-300 transition-colors hover:border-brand-border-active hover:text-white shadow-xl"
+    title="Copy command"
+  >
+    <span class="text-brand-accent select-none font-semibold shrink-0">$</span>
+    <span class="truncate whitespace-nowrap">{command}</span>
+    <Copy data-icon-copy strokeWidth={1.5} class="h-3.5 w-3.5 text-gray-500 transition-colors hover:text-white shrink-0 ml-1" />
+  </button>
+</div>
+
+<style>
+  button[data-install][data-copied='true'] [data-icon-copy] {
+    color: theme('colors.brand.success');
+  }
+</style>
+
+<script>
+  function bindInstall() {
+    document.querySelectorAll<HTMLButtonElement>('[data-install]').forEach((btn) => {
+      if (btn.dataset.bound) return;
+      btn.dataset.bound = 'true';
+      btn.addEventListener('click', async () => {
+        const text = btn.querySelector('span:nth-child(2)')?.textContent?.trim() || '';
+        try {
+          await navigator.clipboard.writeText(text);
+        } catch {}
+        btn.dataset.copied = 'true';
+        setTimeout(() => {
+          btn.dataset.copied = 'false';
+        }, 1600);
+      });
+    });
+  }
+  bindInstall();
+  document.addEventListener('astro:after-swap', bindInstall);
+</script>

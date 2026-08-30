@@ -1,0 +1,68 @@
+---
+import { AlertTriangle, Zap, ShieldCheck } from 'lucide-react';
+---
+
+<section id="proof" class="relative py-24 overflow-hidden">
+  <!-- Unified level-2 ambient (same as Core Capabilities / CI Gate) -->
+  <div class="section-ambient pointer-events-none absolute inset-x-0 top-0 -z-10 h-[480px]"></div>
+  <div class="relative z-10 mx-auto max-w-5xl px-4 sm:px-6">
+    <!-- Header -->
+    <div class="mx-auto max-w-2xl text-center">
+      <div class="inline-flex items-center gap-2 rounded-full border border-brand-accent/20 bg-brand-accent/10 px-3 py-1 text-xs font-mono text-brand-accent mb-4">
+        <span class="h-1.5 w-1.5 rounded-full bg-brand-accent animate-pulse"></span>
+        03 / Tested in the Wild
+      </div>
+      <h2 class="text-3xl font-semibold tracking-tight text-brand-fg sm:text-4xl text-balance">
+        Real output from a real production codebase.
+      </h2>
+      <p class="mt-4 leading-7 text-brand-muted text-base max-w-xl mx-auto text-balance">
+        Pinpoint isn't built for clean <code class="text-gray-300 font-mono text-xs">/users</code> demos. Here is an unedited terminal report profiling a 20-route monolithic Laravel app—spotlighting critical bottlenecks and N+1 query loops in milliseconds.
+      </p>
+    </div>
+
+    <!-- Authentic Screenshot Container (Pure, Single Window Frame) -->
+    <div class="mx-auto mt-12 max-w-4xl overflow-hidden rounded-2xl border border-white/15 bg-[#08090C] shadow-[0_24px_80px_rgba(0,0,0,0.9)] ring-1 ring-white/5">
+      <img
+        src="/terminal-cli.png"
+        alt="Authentic Pinpoint CLI Report output from a production Laravel codebase profiling 20 routes"
+        width="1200"
+        height="750"
+        loading="lazy"
+        class="w-full h-auto block"
+      />
+    </div>
+
+    <!-- Verified Real-World Callouts (Positioned Outside Terminal Container) -->
+    <div class="mx-auto mt-6 max-w-4xl grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div class="rounded-xl border border-white/10 bg-[#0C0E12] p-5 shadow-lg space-y-2">
+        <div class="flex items-center gap-2 text-gray-100 font-semibold text-xs uppercase tracking-wider">
+          <AlertTriangle class="h-4 w-4 shrink-0" />
+          <span>1 Critical Bottleneck</span>
+        </div>
+        <p class="text-xs leading-relaxed text-gray-400">
+          <code class="text-gray-200 font-mono">v1.historical-records.search</code> clocked at <span class="text-red-500 font-bold">4,350ms</span>, flagged instantly in the red tier.
+        </p>
+      </div>
+
+      <div class="rounded-xl border border-white/10 bg-[#0C0E12] p-5 shadow-lg space-y-2">
+        <div class="flex items-center gap-2 text-gray-100 font-semibold text-xs uppercase tracking-wider">
+          <Zap class="h-4 w-4 shrink-0" />
+          <span>5 N+1 Violations</span>
+        </div>
+        <p class="text-xs leading-relaxed text-gray-400">
+          Detected relationship loops with repeat counts up to <span class="text-red-500 font-bold">x11 queries</span> per single HTTP request.
+        </p>
+      </div>
+
+      <div class="rounded-xl border border-white/10 bg-[#0C0E12] p-5 shadow-lg space-y-2">
+        <div class="flex items-center gap-2 text-gray-100 font-semibold text-xs uppercase tracking-wider">
+          <ShieldCheck class="h-4 w-4 shrink-0" />
+          <span>Instant Locate Block</span>
+        </div>
+        <p class="text-xs leading-relaxed text-gray-400">
+          Clickable route labels and caller breadcrumbs jump straight into your IDE to resolve the root cause.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>

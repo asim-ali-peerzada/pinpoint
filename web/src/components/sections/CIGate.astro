@@ -1,0 +1,70 @@
+---
+---
+
+<section id="ci" class="relative py-24 overflow-hidden">
+  <div class="section-ambient pointer-events-none absolute inset-x-0 top-0 -z-10 h-[480px]"></div>
+  <div class="relative z-10 mx-auto max-w-4xl px-4 text-center">
+    <!-- Eyebrow -->
+    <p class="text-sm font-medium uppercase tracking-[0.16em] text-brand-accent">
+      02 / CI Regression Gate
+    </p>
+
+    <!-- Big Headline (Matching Site-Wide H2 Pattern) -->
+    <h2 class="mt-4 text-3xl font-semibold tracking-tight text-brand-fg sm:text-4xl">
+      Fail the merge before an N+1 reaches production.
+    </h2>
+
+    <!-- Subtitle (Clean high-contrast body) -->
+    <p class="mt-4 leading-7 text-brand-muted max-w-2xl mx-auto text-base">
+      Run Pinpoint as a lightweight gate in GitHub Actions or your CI pipeline. Automatically exit with code 1 when lazy-loaded queries are detected.
+    </p>
+
+    <!-- Terminal Failure Block -->
+    <div class="mx-auto mt-10 max-w-2xl overflow-hidden rounded-2xl border border-white/15 bg-[#08090C] shadow-[0_24px_70px_rgba(0,0,0,0.85)] ring-1 ring-white/5 text-left font-mono text-xs sm:text-sm">
+      <div class="flex items-center justify-between gap-2 border-b border-white/[0.08] bg-[#0C0E12] px-3 sm:px-4 py-2.5 sm:py-3">
+        <div class="flex items-center gap-1.5 sm:gap-2 min-w-0">
+          <div class="h-2.5 w-2.5 shrink-0 rounded-full bg-[#EC6A5E]/80"></div>
+          <div class="h-2.5 w-2.5 shrink-0 rounded-full bg-[#F5BF4F]/80"></div>
+          <div class="h-2.5 w-2.5 shrink-0 rounded-full bg-[#62C554]/80"></div>
+          <span class="ml-1 sm:ml-2 text-[11px] sm:text-xs text-gray-400 font-sans truncate whitespace-nowrap">
+            <span class="hidden sm:inline">GitHub Actions • </span>CI Terminal
+          </span>
+        </div>
+
+        <!-- Single Line Status Badge -->
+        <span class="rounded bg-rose-500/20 px-2 py-0.5 font-mono text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-rose-400 border border-rose-500/30 whitespace-nowrap shrink-0">
+          Exit 1<span class="hidden sm:inline"> • Check Blocked</span>
+        </span>
+      </div>
+
+      <div class="p-5 sm:p-6 space-y-3 leading-relaxed">
+        <div class="text-gray-300">
+          <span class="text-gray-500 select-none font-medium">$ </span>
+          <span class="text-brand-accent font-semibold">php artisan</span>
+          <span class="text-white font-medium"> pinpoint:check</span>
+          <span class="text-gray-400"> --fail-on-n1</span>
+        </div>
+
+        <div class="pt-2 text-rose-400 font-bold flex items-center gap-2 text-sm">
+          <span>✗ FAIL</span>
+          <span class="text-white">api.orders.index</span>
+        </div>
+
+        <div class="pl-4 border-l-2 border-rose-500/50 bg-rose-950/20 rounded-r-lg p-3 space-y-1">
+          <div class="text-rose-300 font-medium">
+            <span class="text-rose-400 font-bold">1x N+1</span> · <code class="text-white">Order::items()</code>
+          </div>
+          <div class="text-gray-400 text-xs">
+            Trigger: <span class="text-gray-200">app/Http/Controllers/OrderController.php:34</span>
+          </div>
+        </div>
+
+        <div class="pt-2 text-xs text-gray-500 flex items-center justify-between border-t border-white/5">
+          <span>Process completed with exit code <strong class="text-rose-400">1</strong>.</span>
+          <span class="text-gray-600">0.14s total</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>

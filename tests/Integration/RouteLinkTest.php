@@ -76,7 +76,7 @@ test('route link resolves invokable controllers', function () {
 
 test('route link falls back to plain text for unknown routes', function () {
     $renderer = app(CliRenderer::class);
-    $buffer = new Symfony\Component\Console\Output\BufferedOutput;
+    $buffer = new BufferedOutput;
     $buffer->setDecorated(true);
 
     renderUsing($buffer);
@@ -90,8 +90,8 @@ test('link tokens do not distort table column widths', function () {
     Route::get('/pinpoint-route-source', [RouteSource::class, 'handle'])->name('api.route-source');
 
     $renderer = app(CliRenderer::class);
-    $hyperlinks = new ReflectionProperty(AsimAli\Pinpoint\Internal\CliRenderer::class, 'hyperlinks');
-    $buffer = new Symfony\Component\Console\Output\BufferedOutput;
+    $hyperlinks = new ReflectionProperty(CliRenderer::class, 'hyperlinks');
+    $buffer = new BufferedOutput;
     $buffer->setDecorated(true);
 
     renderUsing($buffer);

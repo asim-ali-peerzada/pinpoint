@@ -1,0 +1,24 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Navbar from '../components/sections/Navbar.astro';
+import Hero from '../components/sections/Hero.astro';
+import ScrollHook from '../components/sections/ScrollHook.astro';
+import FeaturesGrid from '../components/sections/FeaturesGrid.astro';
+import CIGate from '../components/sections/CIGate.astro';
+import RealWorldProof from '../components/sections/RealWorldProof.astro';
+import Quickstart from '../components/sections/Quickstart.astro';
+import Footer from '../components/sections/Footer.astro';
+---
+
+<Layout>
+  <Navbar />
+  <main class="relative">
+    <Hero />
+    <ScrollHook />
+    <FeaturesGrid />
+    <CIGate />
+    <RealWorldProof />
+    <Quickstart />
+  </main>
+  <Footer />
+</Layout>

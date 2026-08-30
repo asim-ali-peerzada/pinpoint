@@ -1,0 +1,198 @@
+---
+import { ArrowUpRight, Github } from 'lucide-react';
+import { execSync } from 'node:child_process';
+
+// Version baked at build time — refreshed live from GitHub tags by the
+// script below. The static value guarantees something correct on first
+// paint / offline; the fetch overwrites it when a newer tag exists.
+let version = 'latest release';
+
+try {
+    // web/ is its own git repo; the package tags live in the parent repo, so
+    // describe from the checkout root (web's parent).
+    version = execSync('git -C ../ describe --tags --abbrev=0').toString().trim();
+} catch {
+    // not in a git checkout — keep the neutral fallback
+}
+
+const navigation = {
+  highlights: [
+    { label: 'Features', href: '#features' },
+    { label: 'Architecture', href: '#features' },
+    { label: 'Benchmarks', href: '#benchmarks' },
+    { label: 'Interactive Terminal', href: '#docs' },
+    { label: 'N+1 Query Detection', href: '#features' },
+  ],
+  resources: [
+    { label: 'Documentation', href: '#docs' },
+    { label: 'Quickstart Guide', href: '#docs' },
+    { label: 'CI Regression Gate', href: '#ci' },
+    { label: 'Releases & Changelog', href: 'https://github.com/asim-ali-peerzada/pinpoint/releases', external: true },
+    { label: 'Packagist Package', href: 'https://packagist.org/packages/asimali/pinpoint', external: true },
+  ],
+  ecosystem: [
+    { label: 'Laravel 12–13', href: '#docs' },
+    { label: 'PHP 8.2+', href: '#docs' },
+    { label: 'MySQL & Postgres', href: '#docs' },
+    { label: 'Local-first Architecture', href: '#features' },
+    { label: 'Comparison Matrix', href: '#diff' },
+  ],
+  community: [
+    { label: 'GitHub Repository', href: 'https://github.com/asim-ali-peerzada/pinpoint', external: true },
+    { label: 'Issue Tracker', href: 'https://github.com/asim-ali-peerzada/pinpoint/issues', external: true },
+    { label: 'Contributing Guide', href: 'https://github.com/asim-ali-peerzada/pinpoint/blob/main/CONTRIBUTING.md', external: true },
+    { label: 'Security Policy', href: 'https://github.com/asim-ali-peerzada/pinpoint/blob/main/SECURITY.md', external: true },
+    { label: 'MIT License', href: 'https://github.com/asim-ali-peerzada/pinpoint/blob/main/LICENSE', external: true },
+  ],
+};
+---
+
+<footer class="relative z-10 mt-32 border-t border-white/[0.08] bg-black/60 backdrop-blur-xl">
+  <!-- Subtle ambient background glow -->
+  <div class="pointer-events-none absolute -top-32 left-1/2 -z-10 h-64 w-full max-w-5xl -translate-x-1/2 bg-brand-accent/[0.05] blur-[120px]"></div>
+
+  <div class="mx-auto max-w-6xl px-4 pt-16 pb-20 sm:px-6 sm:pb-24">
+    <!-- Brand Bio Section -->
+    <div class="flex flex-col items-start gap-4">
+      <div class="flex items-center gap-3">
+        <div class="relative flex h-8 w-8 items-center justify-center rounded-lg bg-brand-accent/15 ring-1 ring-brand-accent/30 shadow-[0_0_16px_rgba(245,48,3,0.3)]">
+          <span class="h-2.5 w-2.5 rounded-sm bg-brand-accent"></span>
+          <span class="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full border border-black bg-brand-accent">
+            <span class="absolute inset-0 animate-ping rounded-full bg-brand-accent/70"></span>
+          </span>
+        </div>
+        <span class="font-display text-xl font-bold tracking-tight text-white">Pinpoint</span>
+        <span
+          id="pinpoint-version"
+          class="rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-0.5 font-mono text-[11px] font-medium text-gray-300"
+        >
+          {version} Stable
+        </span>
+        <a
+          href="https://github.com/asim-ali-peerzada/pinpoint/releases"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="text-[11px] text-gray-500 transition-colors duration-150 hover:text-gray-300"
+        >Releases on GitHub</a>
+      </div>
+
+      <!-- Constrained paragraph block -->
+      <p class="max-w-md text-sm leading-relaxed text-gray-400">
+        Pinpoint finds slow routes and N+1 queries in your Laravel app with one terminal command, pointing directly to the exact file and line to fix. Zero browser context-switching, zero external telemetry.
+      </p>
+    </div>
+
+    <!-- Navigation Columns Grid -->
+    <div class="mt-12 grid grid-cols-2 gap-8 border-t border-white/[0.08] pt-12 sm:grid-cols-2 md:grid-cols-4 lg:gap-10">
+      <!-- Highlights -->
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Highlights</p>
+        <ul class="mt-4 space-y-3 text-sm">
+          {navigation.highlights.map((item) => (
+            <li>
+              <a href={item.href} class="text-gray-400 transition-colors duration-150 hover:text-white">
+                {item.label}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <!-- Resources -->
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Resources</p>
+        <ul class="mt-4 space-y-3 text-sm">
+          {navigation.resources.map((item) => (
+            <li>
+              <a
+                href={item.href}
+                target={item.external ? '_blank' : undefined}
+                rel={item.external ? 'noopener noreferrer' : undefined}
+                class="group inline-flex items-center gap-1.5 text-gray-400 transition-colors duration-150 hover:text-white"
+              >
+                <span>{item.label}</span>
+                {item.external && (
+                  <ArrowUpRight strokeWidth={1.25} class="h-3.5 w-3.5 text-gray-500 opacity-70 transition-all duration-150 group-hover:text-white group-hover:opacity-100" />
+                )}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <!-- Ecosystem -->
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Ecosystem</p>
+        <ul class="mt-4 space-y-3 text-sm">
+          {navigation.ecosystem.map((item) => (
+            <li>
+              <a href={item.href} class="text-gray-400 transition-colors duration-150 hover:text-white">
+                {item.label}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <!-- Community -->
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Community</p>
+        <ul class="mt-4 space-y-3 text-sm">
+          {navigation.community.map((item) => (
+            <li>
+              <a
+                href={item.href}
+                target={item.external ? '_blank' : undefined}
+                rel={item.external ? 'noopener noreferrer' : undefined}
+                class="group inline-flex items-center gap-1.5 text-gray-400 transition-colors duration-150 hover:text-white"
+              >
+                <span>{item.label}</span>
+                {item.external && (
+                  <ArrowUpRight strokeWidth={1.25} class="h-3.5 w-3.5 text-gray-500 opacity-70 transition-all duration-150 group-hover:text-white group-hover:opacity-100" />
+                )}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+
+    <!-- Bottom Attribution Bar -->
+    <div class="mt-14 flex flex-col items-center justify-between gap-4 border-t border-white/[0.08] pt-8 text-xs text-gray-500 sm:flex-row">
+      <p>
+        Pinpoint is open-sourced software licensed under the <a href="https://github.com/asim-ali-peerzada/pinpoint/blob/main/LICENSE" class="text-gray-300 hover:text-white underline">MIT license</a>. Laravel is a registered trademark of Taylor Otwell.
+      </p>
+
+      <a
+        href="https://github.com/asim-ali-peerzada/pinpoint"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="inline-flex items-center gap-1.5 text-gray-400 transition-colors duration-150 hover:text-white"
+      >
+        <Github class="h-4 w-4" />
+        <span>View source on GitHub</span>
+      </a>
+    </div>
+  </div>
+</footer>
+
+<script>
+  // Live version from GitHub tags — if a newer tag exists than the one baked
+  // into the build, overwrite it. No GitHub Releases are created (only tags),
+  // so /releases/latest would 404 — the tags endpoint always works.
+  const el = document.getElementById('pinpoint-version');
+
+  if (el) {
+    const cooked = el.textContent.trim();
+
+    fetch('https://api.github.com/repos/asim-ali-peerzada/pinpoint/tags?per_page=1')
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((tags) => {
+        if (Array.isArray(tags) && tags[0]?.name) {
+          const latest = tags[0].name + ' Stable';
+          if (latest !== cooked) el.textContent = latest;
+        }
+      })
+      .catch(() => {});
+  }
+</script>

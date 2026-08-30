@@ -1,0 +1,351 @@
+---
+import { ArrowRight, Terminal } from 'lucide-react';
+---
+
+<section id="features" class="relative py-24">
+  <div class="section-ambient pointer-events-none absolute inset-x-0 top-0 -z-10 h-[480px]"></div>
+  <div class="relative z-10 mx-auto max-w-6xl px-4 sm:px-6">
+    <div class="mx-auto max-w-2xl text-center">
+      <p class="text-sm font-medium uppercase tracking-[0.16em] text-brand-accent">01 / Core Capabilities</p>
+      <h2 class="mt-4 text-3xl font-semibold tracking-tight text-brand-fg sm:text-4xl">
+        Runtime visibility without the runtime tax.
+      </h2>
+      <p class="mt-4 leading-7 text-brand-muted">
+        Pinpoint connects runtime signals directly to the source lines responsible for them.
+      </p>
+    </div>
+
+    <!-- Scrollytelling Container -->
+    <div class="mt-16 grid grid-cols-1 gap-12 lg:grid-cols-12 lg:gap-10 items-start">
+      <!-- Left Column: Scroll Triggers (5 cols on lg) -->
+      <div class="space-y-6 lg:col-span-5 lg:py-4" id="scrolly-steps">
+        
+        <!-- Step 01: Detect (Active by default) -->
+        <div class="scrolly-step active group cursor-pointer rounded-2xl border border-white/20 border-l-2 border-l-brand-accent bg-[#111418] p-6 sm:p-8 transition-all duration-300 opacity-100 shadow-xl" data-step="1">
+          <div class="flex items-center gap-3">
+            <span class="step-num flex h-7 w-7 items-center justify-center rounded-md bg-brand-accent/20 font-mono text-xs font-bold text-brand-accent">01</span>
+            <span class="text-xs font-semibold uppercase tracking-[0.14em] text-gray-300">Detect</span>
+          </div>
+          <h3 class="mt-4 text-xl font-bold tracking-tight text-white">
+            N+1 and query anomalies
+          </h3>
+          <p class="mt-3 text-sm leading-relaxed text-gray-400">
+            Find repeated relationship queries before they become production bottlenecks. Uses Laravel's native lazy-loading signals, with SQL fingerprinting as a fallback.
+          </p>
+          <div class="mt-5 flex flex-wrap gap-2 text-xs font-medium">
+            <span class="rounded border border-white/10 bg-white/[0.03] px-2.5 py-1 text-gray-300">Eloquent signal</span>
+            <span class="rounded border border-white/10 bg-white/[0.03] px-2.5 py-1 text-gray-300">SQL fingerprint</span>
+          </div>
+
+          <!-- Mobile Inline View (only visible on mobile) -->
+          <div class="mt-6 block lg:hidden">
+            <div class="rounded-lg border border-white/10 bg-[#08090C] p-4 font-mono text-xs text-gray-300">
+              <div class="flex items-center justify-between border-b border-white/[0.06] pb-2">
+                <span class="text-[11px] uppercase tracking-wider text-gray-500">Query pattern</span>
+                <span class="rounded bg-rose-500/15 px-2 py-0.5 text-[10px] font-bold uppercase text-rose-400">14× Duplicate</span>
+              </div>
+              <div class="mt-3 text-white font-medium">Order → items</div>
+              <div class="mt-2 text-gray-400 text-[11px]">SELECT * FROM `items` WHERE `order_id` = ?</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 02: Measure -->
+        <div class="scrolly-step group cursor-pointer rounded-2xl border border-white/[0.08] border-l-2 border-l-transparent bg-[#0D0F12] p-6 sm:p-8 transition-all duration-300 opacity-60 hover:opacity-100" data-step="2">
+          <div class="flex items-center gap-3">
+            <span class="step-num flex h-7 w-7 items-center justify-center rounded-md bg-white/[0.05] font-mono text-xs font-bold text-gray-400">02</span>
+            <span class="text-xs font-semibold uppercase tracking-[0.14em] text-gray-400">Measure</span>
+          </div>
+          <h3 class="mt-4 text-xl font-bold tracking-tight text-white">
+            Route latency & percentile rollups
+          </h3>
+          <p class="mt-3 text-sm leading-relaxed text-gray-400">
+            Understand request performance with p95/avg latency and sample counts. Rollups compute on-demand via a single indexed SQL pass, or batched via <code class="text-gray-300">pinpoint:aggregate</code>.
+          </p>
+          <div class="mt-5">
+            <a href="#benchmarks" class="inline-flex items-center gap-1 text-xs font-medium text-brand-accent hover:underline">
+              Overhead methodology (0.29ms mean) <ArrowRight class="h-3 w-3" />
+            </a>
+          </div>
+
+          <!-- Mobile Inline View -->
+          <div class="mt-6 block lg:hidden">
+            <div class="rounded-lg border border-white/10 bg-[#08090C] p-4 font-mono text-xs text-gray-300">
+              <div class="uppercase tracking-wider text-gray-500 text-[11px] border-b border-white/[0.06] pb-2">Request Diagnostics</div>
+              <div class="mt-3 grid grid-cols-3 gap-3">
+                <div>
+                  <div class="text-[10px] text-gray-500 uppercase">P95</div>
+                  <div class="text-white font-bold">1.42s</div>
+                </div>
+                <div>
+                  <div class="text-[10px] text-gray-500 uppercase">Avg</div>
+                  <div class="text-gray-300">890ms</div>
+                </div>
+                <div>
+                  <div class="text-[10px] text-gray-500 uppercase">Queries</div>
+                  <div class="text-gray-300">42</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 03: Locate -->
+        <div class="scrolly-step group cursor-pointer rounded-2xl border border-white/[0.08] border-l-2 border-l-transparent bg-[#0D0F12] p-6 sm:p-8 transition-all duration-300 opacity-60 hover:opacity-100" data-step="3">
+          <div class="flex items-center gap-3">
+            <span class="step-num flex h-7 w-7 items-center justify-center rounded-md bg-white/[0.05] font-mono text-xs font-bold text-gray-400">03</span>
+            <span class="text-xs font-semibold uppercase tracking-[0.14em] text-gray-400">Locate</span>
+          </div>
+          <h3 class="mt-4 text-xl font-bold tracking-tight text-white">
+            Source-level context & IDE jump
+          </h3>
+          <p class="mt-3 text-sm leading-relaxed text-gray-400">
+            Ctrl/⌘-click any route or caller in your terminal to jump directly to the controller method and offending line in VS Code or PhpStorm. Zero telemetry, 100% local.
+          </p>
+          <div class="mt-5 flex items-center gap-2 text-xs font-mono text-brand-accent">
+            <span>vscode:// · phpstorm:// terminal links</span>
+          </div>
+
+          <!-- Mobile Inline View -->
+          <div class="mt-6 block lg:hidden">
+            <div class="rounded-lg border border-white/10 bg-[#08090C] p-4 font-mono text-xs text-gray-300">
+              <div class="uppercase tracking-wider text-gray-500 text-[11px] border-b border-white/[0.06] pb-2">Source Origin</div>
+              <div class="mt-3 text-white font-medium">OrderController.php:84</div>
+              <div class="mt-1 text-emerald-400">Suggested: Order::with('items')</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Right Column: Sticky Terminal Panel (7 cols on lg, Desktop Only) -->
+      <div class="hidden lg:block lg:col-span-7 lg:sticky lg:top-24">
+        <div class="overflow-hidden rounded-2xl border border-white/15 bg-[#08090C] shadow-[0_24px_70px_rgba(0,0,0,0.85)] ring-1 ring-white/5">
+          <!-- Window Chrome Top Bar -->
+          <div class="flex items-center justify-between border-b border-white/[0.08] bg-[#0C0E12] px-4 py-3">
+            <div class="flex items-center gap-3">
+              <div class="flex items-center gap-1.5">
+                <div class="h-2.5 w-2.5 rounded-full bg-[#EC6A5E]/80"></div>
+                <div class="h-2.5 w-2.5 rounded-full bg-[#F5BF4F]/80"></div>
+                <div class="h-2.5 w-2.5 rounded-full bg-[#62C554]/80"></div>
+              </div>
+              <span class="ml-2 font-mono text-xs font-medium text-gray-400 flex items-center gap-1.5">
+                <Terminal class="h-3.5 w-3.5 text-brand-accent" />
+                <span id="terminal-step-badge">pinpoint:report --tier=critical</span>
+              </span>
+            </div>
+            
+            <div class="flex items-center gap-1.5 font-mono text-[11px]">
+              <button class="step-tab-btn rounded px-2 py-0.5 text-white bg-white/10" data-target-step="1">01 Detect</button>
+              <button class="step-tab-btn rounded px-2 py-0.5 text-gray-400 hover:text-white" data-target-step="2">02 Measure</button>
+              <button class="step-tab-btn rounded px-2 py-0.5 text-gray-400 hover:text-white" data-target-step="3">03 Locate</button>
+            </div>
+          </div>
+
+          <!-- Dynamic Panel Content Container -->
+          <div class="p-6 font-mono text-xs leading-relaxed min-h-[340px] flex flex-col justify-center">
+            
+            <!-- Panel View 1: Detect State -->
+            <div id="panel-view-1" class="panel-view space-y-4 transition-opacity duration-300">
+              <div class="flex items-center justify-between border-b border-white/[0.06] pb-3">
+                <div class="flex items-center gap-2">
+                  <span class="h-2 w-2 rounded-full bg-rose-500 animate-pulse"></span>
+                  <span class="font-bold text-white text-sm">api.orders.index</span>
+                </div>
+                <span class="rounded bg-rose-500/20 px-2 py-0.5 text-[10px] font-bold text-rose-400 uppercase tracking-wider">
+                  N+1 Violation Detected
+                </span>
+              </div>
+
+              <div class="rounded-xl border border-rose-500/25 bg-rose-950/20 p-4 space-y-2">
+                <div class="text-rose-300 font-semibold text-xs flex items-center justify-between">
+                  <span>Relationship: Order → items</span>
+                  <span class="font-mono text-white">14 executions</span>
+                </div>
+                <div class="pt-1 text-gray-300 text-[11px] break-all bg-black/40 p-2.5 rounded border border-white/5">
+                  <span class="text-gray-500">SQL: </span>
+                  <span class="text-gray-200">SELECT * FROM `items` WHERE `order_id` = ?</span>
+                </div>
+                <div class="text-gray-400 text-[11px] pt-1">
+                  Trigger: <span class="text-white">Eloquent Lazy Load</span> detected during iteration
+                </div>
+              </div>
+            </div>
+
+            <!-- Panel View 2: Measure State -->
+            <div id="panel-view-2" class="panel-view hidden space-y-4 transition-opacity duration-300">
+              <div class="flex items-center justify-between border-b border-white/[0.06] pb-3">
+                <div class="flex items-center gap-2">
+                  <span class="h-2 w-2 rounded-full bg-amber-400"></span>
+                  <span class="font-bold text-white text-sm">api.orders.index • Latency Rollup</span>
+                </div>
+                <span class="rounded bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold text-amber-400 uppercase tracking-wider">
+                  42 Queries
+                </span>
+              </div>
+
+              <div class="grid grid-cols-3 gap-3 text-center">
+                <div class="rounded-xl border border-white/[0.08] bg-black/30 p-3.5">
+                  <div class="text-[10px] text-gray-500 uppercase font-semibold">P95 Latency</div>
+                  <div class="mt-1 text-lg font-bold text-rose-400 tabular-nums">1.42s</div>
+                </div>
+                <div class="rounded-xl border border-white/[0.08] bg-black/30 p-3.5">
+                  <div class="text-[10px] text-gray-500 uppercase font-semibold">Average</div>
+                  <div class="mt-1 text-lg font-bold text-gray-200 tabular-nums">890ms</div>
+                </div>
+                <div class="rounded-xl border border-white/[0.08] bg-black/30 p-3.5">
+                  <div class="text-[10px] text-gray-500 uppercase font-semibold">Overhead</div>
+                  <div class="mt-1 text-lg font-bold text-emerald-400 tabular-nums">+0.29ms</div>
+                </div>
+              </div>
+
+              <div class="rounded-lg border border-white/5 bg-white/[0.02] p-3 text-[11px] text-gray-400 flex items-center justify-between">
+                <span>Telemetry flush: <span class="text-gray-200">app()->terminating()</span> (post-response)</span>
+                <span class="text-brand-accent font-medium">0ms TTFB impact</span>
+              </div>
+            </div>
+
+            <!-- Panel View 3: Locate State -->
+            <div id="panel-view-3" class="panel-view hidden space-y-4 transition-opacity duration-300">
+              <div class="flex items-center justify-between border-b border-white/[0.06] pb-3">
+                <div class="flex items-center gap-2">
+                  <span class="h-2 w-2 rounded-full bg-emerald-400"></span>
+                  <span class="font-bold text-white text-sm">Source Origin & Deterministic Fix</span>
+                </div>
+                <span class="rounded bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-400 uppercase tracking-wider">
+                  Resolved
+                </span>
+              </div>
+
+              <div class="rounded-xl border border-white/10 bg-black/40 p-4 space-y-2">
+                <div class="flex items-center justify-between text-xs">
+                  <span class="text-gray-300 font-mono">app/Http/Controllers/OrderController.php:<span class="text-white font-bold">84</span></span>
+                  <span class="rounded bg-sky-500/10 text-sky-300 border border-sky-500/20 px-2 py-0.5 text-[10px] font-mono">vscode:// jump</span>
+                </div>
+                
+                <div class="rounded bg-[#050608] p-3 border border-white/5 text-[11px] space-y-1">
+                  <div class="text-gray-600">82: public function index() {</div>
+                  <div class="text-gray-600">83:     $orders = Order::all();</div>
+                  <div class="bg-rose-500/15 text-rose-300 px-2 py-0.5 rounded border-l-2 border-rose-500 font-semibold">
+                    84:     foreach ($orders as $order) &#123; echo $order-&gt;items-&gt;count(); &#125;
+                  </div>
+                  <div class="text-gray-600">85:     return view('orders.index');</div>
+                  <div class="text-gray-600">86: }</div>
+                </div>
+
+                <div class="pt-2 flex items-center justify-between text-[11px]">
+                  <span class="text-gray-300">Suggested fix: <code class="text-emerald-400 font-bold">Order::with('items')</code></span>
+                  <span class="text-brand-accent cursor-pointer hover:underline">Ctrl/⌘ Click to open IDE →</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+  function setupScrollytelling() {
+    const steps = document.querySelectorAll<HTMLElement>('.scrolly-step');
+    const panelViews = {
+      1: document.getElementById('panel-view-1'),
+      2: document.getElementById('panel-view-2'),
+      3: document.getElementById('panel-view-3'),
+    };
+    const stepBadge = document.getElementById('terminal-step-badge');
+    const tabBtns = document.querySelectorAll<HTMLButtonElement>('.step-tab-btn');
+
+    function setActiveStep(stepNum: number) {
+      // Update Tab buttons
+      tabBtns.forEach((btn) => {
+        const target = Number(btn.getAttribute('data-target-step'));
+        if (target === stepNum) {
+          btn.classList.add('text-white', 'bg-white/10');
+          btn.classList.remove('text-gray-400');
+        } else {
+          btn.classList.remove('text-white', 'bg-white/10');
+          btn.classList.add('text-gray-400');
+        }
+      });
+
+      // Update Step Indicators on Left
+      steps.forEach((s) => {
+        const num = Number(s.getAttribute('data-step'));
+        const badge = s.querySelector('.step-num');
+        if (num === stepNum) {
+          s.classList.add('border-white/20', 'border-l-brand-accent', 'bg-[#111418]', 'opacity-100', 'shadow-xl');
+          s.classList.remove('border-white/[0.08]', 'border-l-transparent', 'bg-[#0D0F12]', 'opacity-60');
+          if (badge) {
+            badge.classList.add('bg-brand-accent/20', 'text-brand-accent');
+            badge.classList.remove('bg-white/[0.05]', 'text-gray-400');
+          }
+        } else {
+          s.classList.remove('border-white/20', 'border-l-brand-accent', 'bg-[#111418]', 'opacity-100', 'shadow-xl');
+          s.classList.add('border-white/[0.08]', 'border-l-transparent', 'bg-[#0D0F12]', 'opacity-60');
+          if (badge) {
+            badge.classList.remove('bg-brand-accent/20', 'text-brand-accent');
+            badge.classList.add('bg-white/[0.05]', 'text-gray-400');
+          }
+        }
+      });
+
+      // Switch Panel Views
+      Object.entries(panelViews).forEach(([k, el]) => {
+        if (!el) return;
+        if (Number(k) === stepNum) {
+          el.classList.remove('hidden');
+        } else {
+          el.classList.add('hidden');
+        }
+      });
+
+      if (stepBadge) {
+        if (stepNum === 1) stepBadge.textContent = 'pinpoint:report --tier=critical';
+        if (stepNum === 2) stepBadge.textContent = 'pinpoint:report --since=30m';
+        if (stepNum === 3) stepBadge.textContent = 'pinpoint:report --route=api.orders';
+      }
+    }
+
+    // Click listener on Cards themselves
+    steps.forEach((step) => {
+      step.addEventListener('click', () => {
+        const num = Number(step.getAttribute('data-step'));
+        if (num) setActiveStep(num);
+      });
+    });
+
+    // Click listener on Tab Buttons
+    tabBtns.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const target = Number(btn.getAttribute('data-target-step'));
+        if (target) setActiveStep(target);
+      });
+    });
+
+    // IntersectionObserver for scroll-driven updates
+    if ('IntersectionObserver' in window) {
+      const observer = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              const step = Number(entry.target.getAttribute('data-step'));
+              if (step) setActiveStep(step);
+            }
+          });
+        },
+        {
+          rootMargin: '-20% 0px -40% 0px',
+          threshold: 0.2,
+        }
+      );
+
+      steps.forEach((step) => observer.observe(step));
+    }
+  }
+
+  setupScrollytelling();
+  document.addEventListener('astro:after-swap', setupScrollytelling);
+</script>

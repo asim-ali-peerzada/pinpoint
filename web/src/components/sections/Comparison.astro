@@ -1,0 +1,29 @@
+---
+import InteractiveDemo from './InteractiveDemo.tsx';
+import { ArrowRight } from 'lucide-react';
+---
+
+<section id="architecture" class="relative py-24">
+  <div class="relative z-10 mx-auto max-w-5xl px-4">
+    <div class="mx-auto max-w-2xl text-center">
+      <p class="text-sm font-medium uppercase tracking-[0.16em] text-brand-accent">        02 / Diagnostic Workflow</p>
+      <h2 class="mt-4 text-3xl font-semibold tracking-tight text-brand-fg sm:text-4xl">
+        From runtime signal to source line.
+      </h2>
+      <p class="mt-4 leading-7 text-brand-muted">
+        See how Pinpoint turns a Laravel performance anomaly into an actionable diagnosis.
+      </p>
+    </div>
+
+    <div class="mt-14">
+      <InteractiveDemo client:load />
+    </div>
+
+    <p class="mt-6 text-center text-xs text-gray-600">
+      Detect → Measure → Locate, on a real request. Curious how it compares? See{" "}
+      <a href="#diff" class="inline-flex items-center gap-1 text-brand-accent hover:underline">
+        where Pinpoint differs <ArrowRight class="h-3 w-3" />
+      </a>
+    </p>
+  </div>
+</section>
