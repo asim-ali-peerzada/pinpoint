@@ -37,9 +37,10 @@ jobs:
         with:
           php-version: ${{ matrix.php }}
           coverage: none
-          # Laravel 12 (flysystem-local) requires ext-fileinfo; Windows PHP
-          # builds don't enable it by default. No-op on Ubuntu (compiled in).
-          extensions: fileinfo
+          # Laravel 12 (flysystem-local) requires ext-fileinfo; the test suite
+          # uses in-memory SQLite (pdo_sqlite). Windows PHP builds don't
+          # enable either by default. No-ops on Ubuntu (compiled in).
+          extensions: fileinfo, pdo_sqlite, sqlite3
 
       - name: Install dependencies
         run: |
