@@ -97,9 +97,13 @@ class CliRenderer
 
         return match ($editor) {
             'phpstorm' => sprintf('phpstorm://open?file=%s&line=%d', rawurlencode($absolutePath), $line),
-            // Path separators must stay literal — VSCode's URI handler cannot
-            // resolve %2F-encoded slashes (only other chars may be encoded).
-            default => sprintf('vscode://file/%s:%d', str_replace('%2F', '/', rawurlencode($absolutePath)), $line),
+            // VS Code-compatible scheme (also registered by Cursor,
+            // Windsurf/Devin Desktop — the URI handler is the editor's).
+            // Canonical form is EXACTLY one slash between "file" and the
+            // path: vscode://file{path}:{line}. A double slash (vscode://file//mnt/...)
+            // makes the URL parser see an empty path, handlers misbehave
+            // (wrong/recent-focus file opens instead of the target).
+            default => sprintf('%s://file/%s:%d', $editor, ltrim(str_replace('%2F', '/', rawurlencode($absolutePath)), '/'), $line),
         };
     }
 

@@ -133,6 +133,8 @@ N+1 detected — suggested eager loads:
 'editor' => 'phpstorm', // or env PINPOINT_EDITOR=phpstorm
 ```
 
+Any other editor that registers its own URI scheme works too — set `PINPOINT_EDITOR` to its scheme and Pinpoint emits `<scheme>://file/path:line` (e.g. `devin`, `cursor`, `windsurf`). VS Code-compatible forks (Cursor, Windsurf/Devin Desktop) typically register their scheme (or `vscode://`) as the handler; pick whichever your OS opens by default.
+
 The summary table is followed by a **Locate** block showing the top 5 worst offenders (N+1 or critical routes) with their caller line; the rest are listed with a hint to drill in.
 
 Pinpoint persists the model + relation of every lazy-loading violation, chains nested relations (`stages.photos` when `stages` itself is lazily loaded), and shows the exact caller — so the fix is copy-paste ready.

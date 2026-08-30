@@ -23,10 +23,34 @@ test('route link resolves a controller action to its file and line', function ()
 
     $output = $buffer->fetch();
 
-    expect($output)->toContain('vscode://file//')
+    expect($output)->toContain('vscode://file/')
+        ->not->toContain('vscode://file//')
         ->toContain('RouteSource.php')
         ->toContain('api.route-source')
         ->not->toContain('__PINPOINT_LINK_');
+});
+
+test('route links use a custom editor scheme when configured', function () {
+    config()->set('pinpoint.editor', 'devin');
+
+    Route::get('/pinpoint-route-source', [RouteSource::class, 'handle'])->name('api.route-source');
+
+    $renderer = app(CliRenderer::class);
+    $buffer = new BufferedOutput;
+    $buffer->setDecorated(true);
+
+    renderUsing($buffer);
+    $renderer->reportTable('Test', [[
+        'route' => 'api.route-source', 'p95' => 1, 'avg' => 1, 'samples' => 1,
+        'tier' => 'good', 'n1' => 'No',
+    ]]);
+    renderUsing(null);
+
+    $output = $buffer->fetch();
+
+    expect($output)->toContain('devin://file/')
+        ->not->toContain('devin://file//')
+        ->toContain('RouteSource.php');
 });
 
 test('route link resolves invokable controllers', function () {
@@ -45,7 +69,9 @@ test('route link resolves invokable controllers', function () {
 
     $output = $buffer->fetch();
 
-    expect($output)->toContain('vscode://file//')->toContain('RouteSource.php');
+    expect($output)->toContain('vscode://file/')
+        ->not->toContain('vscode://file//')
+        ->toContain('RouteSource.php');
 });
 
 test('route link falls back to plain text for unknown routes', function () {

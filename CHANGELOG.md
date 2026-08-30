@@ -4,6 +4,13 @@ All notable changes to Pinpoint will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.1] - 2026-08-30
+
+### Fixed
+
+- **Editor jumps now open the right file**: `vscode://file` URIs now use the canonical documented form with exactly one slash before the path (`vscode://file/mnt/...`). The previous `vscode://file//mnt/...` (double slash) made URL parsers see an empty path — handlers fell back to the recently-focused file instead of the target (e.g. opening `AbstractRouteCollection.php`). Both route-name links and caller links affected; fixed for all editors.
+- Custom editor schemes (`PINPOINT_EDITOR=devin`, `cursor`, `windsurf`, …) now actually pass through instead of silently becoming `vscode://`.
+
 ## [1.3.0] - 2026-08-30
 
 ### Added
