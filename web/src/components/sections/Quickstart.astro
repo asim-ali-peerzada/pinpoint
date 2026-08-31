@@ -2,7 +2,7 @@
 import GlowMesh from '../ui/GlowMesh.astro';
 import Button from '../ui/Button.astro';
 import InstallSnippet from './InstallSnippet.astro';
-import { Copy } from 'lucide-react';
+import { Copy, Zap, Route } from 'lucide-react';
 
 const steps = [
   {
@@ -231,7 +231,7 @@ const table = [
   <div class="relative z-10 mx-auto max-w-4xl px-4 sm:px-6 space-y-12">
     <!-- What Pinpoint adds to each request (Benchmark Card) -->
     <div class="rounded-xl border border-white/[0.08] bg-[#0D0F12]/90 backdrop-blur-sm px-6 py-8 md:px-8 shadow-2xl">
-      <div class="flex flex-col items-center justify-between gap-6 sm:flex-row">
+      <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
         <div>
           <p class="text-sm font-semibold text-white">What Pinpoint adds to each request</p>
           <p class="mt-1 text-sm text-brand-muted max-w-lg">
@@ -239,18 +239,28 @@ const table = [
             A 1,420ms route measures 1,420.29ms with Pinpoint on — 0ms added to TTFB.
           </p>
         </div>
-        <div class="flex items-center gap-10 shrink-0">
-          <div class="flex flex-col items-center">
-            <p class="font-mono text-3xl font-bold tabular-nums text-brand-fg">
-              0.29<span class="text-sm font-normal text-gray-500">ms</span>
+        <!-- Visual separator between description and stats -->
+        <div class="hidden lg:block w-px self-stretch bg-white/10"></div>
+        <div class="flex items-center justify-center gap-4 sm:gap-5 lg:shrink-0">
+          <!-- Pinpoint stat card (accent) -->
+          <div class="flex flex-col items-center rounded-lg border border-brand-accent/30 bg-brand-accent/[0.06] px-6 py-4">
+            <p class="font-mono text-4xl font-bold tabular-nums text-brand-accent">
+              0.29<span class="text-sm font-normal text-gray-400">ms</span>
             </p>
-            <p class="mt-1.5 text-xs font-semibold tracking-wide text-brand-accent">Pinpoint</p>
+            <p class="mt-2 flex items-center gap-1.5 text-xs font-semibold tracking-wide text-gray-300">
+              <Zap class="h-3.5 w-3.5 text-brand-accent" />
+              Pinpoint
+            </p>
           </div>
-          <div class="flex flex-col items-center">
-            <p class="font-mono text-3xl font-normal tabular-nums text-gray-400">
-              1,420<span class="text-sm text-gray-600">ms</span>
+          <!-- Route stat card (neutral) -->
+          <div class="flex flex-col items-center rounded-lg border border-white/10 bg-white/[0.03] px-6 py-4">
+            <p class="font-mono text-4xl font-normal tabular-nums text-gray-300">
+              1,420<span class="text-sm text-gray-500">ms</span>
             </p>
-            <p class="mt-1.5 text-xs font-normal tracking-wide text-gray-400">api.orders.index</p>
+            <p class="mt-2 flex items-center gap-1.5 text-xs font-normal tracking-wide text-gray-400">
+              <Route class="h-3.5 w-3.5 text-gray-500" />
+              api.orders.index
+            </p>
           </div>
         </div>
       </div>
