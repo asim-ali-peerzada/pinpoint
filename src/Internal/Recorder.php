@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\DB;
  */
 class Recorder
 {
-    /** @var array<int, array{sql: string, fingerprint: string, time_ms: float, caller: array{file: string, line: int}|null}> */
+    /** @var array<int, array{sql: string, fingerprint: string, bindings_hash: string|null, time_ms: float, caller: array{file: string, line: int}|null}> */
     protected array $queries = [];
 
     /** @var array<int, array{model: string, relation: string, caller: array{file: string, line: int}|null}> */
@@ -65,6 +65,9 @@ class Recorder
             'query_count' => count($this->queries),
             'query_time_ms' => (int) round(array_sum(array_column($this->queries, 'time_ms'))),
             'has_n_plus_one' => $this->hasNPlusOne(),
+            // peak_memory_kb may be absent from pre-migration callers (queue
+            // jobs, custom flush calls) — never assume the key exists.
+            'peak_memory_kb' => $request['peak_memory_kb'] ?? null,
             'created_at' => now(),
         ]);
 
@@ -74,6 +77,10 @@ class Recorder
                     'request_id' => $id,
                     'sql_fingerprint' => $query['fingerprint'],
                     'sql' => $query['sql'],
+                    // bindings_hash is null when bindings are empty (no-bind
+                    // queries like "select 1") or when the driver doesn't
+                    // expose them. Detection treats null as "unknown".
+                    'bindings_hash' => $query['bindings_hash'] ?? null,
                     'time_ms' => (int) round($query['time_ms']),
                     'caller_file' => $query['caller']['file'] ?? null,
                     'caller_line' => $query['caller']['line'] ?? null,
@@ -117,6 +124,78 @@ class Recorder
         $counts = array_count_values(array_column($this->queries, 'fingerprint'));
 
         return $counts !== [] && max($counts) >= $repeatThreshold;
+    }
+
+    /**
+     * Classify each repeated fingerprint group as either a true N+1 or an
+     * exact duplicate (same SQL *and* same bound values).
+     *
+     * Returns an array keyed by fingerprint, each value having:
+     *   - 'count'     int    total occurrences
+     *   - 'type'      string 'n_plus_one' | 'duplicate' | 'unknown'
+     *   - 'sql'       string a representative SQL string for that fingerprint
+     *
+     * Classification rules:
+     *   'duplicate'  — every occurrence shares the same non-null bindings_hash
+     *                  → the same query ran with the same values → cache candidate
+     *   'n_plus_one' — occurrences share the same fingerprint but bindings differ
+     *                  → varying IDs per iteration → eager-load candidate
+     *   'unknown'    — at least one occurrence has a null bindings_hash (no
+     *                  bindings data was recorded, e.g. raw DB::statement())
+     *                  → cannot determine type, report conservatively
+     *
+     * @return array<string, array{count: int, type: string, sql: string}>
+     */
+    public function classifyRepeatGroups(): array
+    {
+        $threshold = (int) $this->config->get('pinpoint.n_plus_one_repeat_threshold', 3);
+
+        // Group queries by fingerprint, collecting bindings_hash values.
+        $groups = [];
+
+        foreach ($this->queries as $query) {
+            $fp = $query['fingerprint'];
+
+            if (! isset($groups[$fp])) {
+                $groups[$fp] = [
+                    'count' => 0,
+                    'sql' => $query['sql'],
+                    'bindings_hashes' => [],
+                ];
+            }
+
+            $groups[$fp]['count']++;
+            $groups[$fp]['bindings_hashes'][] = $query['bindings_hash'] ?? null;
+        }
+
+        $result = [];
+
+        foreach ($groups as $fp => $group) {
+            if ($group['count'] < $threshold) {
+                continue;
+            }
+
+            $hashes = $group['bindings_hashes'];
+            $hasNull = in_array(null, $hashes, true);
+
+            if ($hasNull) {
+                $type = 'unknown';
+            } elseif (count(array_unique($hashes)) === 1) {
+                // All occurrences have the same non-null bindings hash.
+                $type = 'duplicate';
+            } else {
+                // Multiple distinct binding sets → true N+1 pattern.
+                $type = 'n_plus_one';
+            }
+
+            $result[$fp] = [
+                'count' => $group['count'],
+                'type' => $type,
+                'sql' => $group['sql'],
+            ];
+        }
+
+        return $result;
     }
 
     public function repeatCounts(): array

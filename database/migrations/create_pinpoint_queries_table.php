@@ -17,6 +17,10 @@ return new class extends Migration
             $table->unsignedInteger('time_ms');
             $table->string('caller_file')->nullable();
             $table->unsignedInteger('caller_line')->nullable();
+            // char(32): md5() always returns a 32-char hex string.
+            // Nullable: empty-bindings queries (e.g. "select 1") store null.
+            // Detection treats null as 'unknown' — never falsely classifies.
+            $table->char('bindings_hash', 32)->nullable();
             $table->timestamp('created_at');
         });
     }

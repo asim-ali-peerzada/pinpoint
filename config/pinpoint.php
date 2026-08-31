@@ -32,6 +32,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Memory budget
+    |--------------------------------------------------------------------------
+    |
+    | Peak RAM (in KB) beyond which a route is flagged in the report table.
+    | The Memory column turns red when a route's recorded peak_memory_kb
+    | exceeds this value. Default: 20 MB (20 × 1024 KB).
+    | Set to null to disable the budget check (column still shows the value).
+    */
+    'memory_budget_kb' => env('PINPOINT_MEMORY_BUDGET_KB', 20 * 1024),
+
+    /*
+    |--------------------------------------------------------------------------
     | Caller capture
     |--------------------------------------------------------------------------
     |

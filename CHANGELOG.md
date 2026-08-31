@@ -4,6 +4,19 @@ All notable changes to Pinpoint will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-08-30
+
+### Added
+
+- **Exact duplicate query flagging**: queries are classified by binding values, not just SQL shape.
+  - `bindings_hash` column stores a normalized MD5 of bound parameters (`1` and `'1'` match; empty bindings → null).
+  - Repeated queries are now typed in reports: **CACHE** (same bindings — fix with `Cache::remember()`), **N+1** (varying bindings — fix with `with()`), or **unknown** (no binding data).
+  - Drill-down shows cyan CACHE pills and red N+1 pills, plus `Cache::remember()` fix suggestions below the table.
+  - Summary reports which routes contain duplicate queries; `pinpoint:check --json` exposes `query_type` for CI scripts.
+- **Peak memory hydration tracking**: `peak_memory_kb` column records `memory_get_peak_usage(true)` at request flush.
+  - Report table shows a Memory column (KB/MB), flagged bold-red when a route exceeds `pinpoint.memory_budget_kb` (default 20 MB; null disables).
+  - Summary aggregates the maximum peak memory observed per route.
+
 ## [1.3.2] - 2026-08-30
 
 ### Fixed

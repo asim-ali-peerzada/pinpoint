@@ -17,6 +17,9 @@ return new class extends Migration
             $table->unsignedSmallInteger('query_count');
             $table->unsignedInteger('query_time_ms');
             $table->boolean('has_n_plus_one')->default(false);
+            // Peak RSS at request flush time (real_usage=true, rounded to KB).
+            // Nullable: null = no memory data (pre-feature rows, queue jobs).
+            $table->unsignedInteger('peak_memory_kb')->nullable();
             $table->timestamp('created_at');
             $table->index(['route_name', 'created_at']);
         });

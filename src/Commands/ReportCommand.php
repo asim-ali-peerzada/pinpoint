@@ -118,9 +118,15 @@ class ReportCommand extends Command
 
         $table = [];
 
+        // null = budget check disabled; cast only when a real limit is set.
+        $memoryBudgetKb = config('pinpoint.memory_budget_kb');
+        $memoryBudgetKb = $memoryBudgetKb !== null ? (int) $memoryBudgetKb : null;
+
         foreach ($filtered as $row) {
             $repeat = $row['n1_repeat'];
             $n1 = $repeat >= (int) config('pinpoint.n_plus_one_repeat_threshold', 3) ? "Yes (x{$repeat})" : 'No';
+
+            $memKb = $row['peak_memory_kb'] ?? null;
 
             $table[] = [
                 'route' => $row['route'],
@@ -129,6 +135,9 @@ class ReportCommand extends Command
                 'samples' => $row['samples'],
                 'tier' => $row['tier'],
                 'n1' => $n1,
+                'memory' => $memKb !== null ? $this->formatMemory($memKb) : null,
+                'memory_over_budget' => $memKb !== null && $memoryBudgetKb !== null && $memKb > $memoryBudgetKb,
+                'has_duplicate' => $row['has_duplicate_queries'],
             ];
         }
 
@@ -222,7 +231,17 @@ class ReportCommand extends Command
         if ($this->option('json') || $this->option('json-to')) {
             $this->emitJson([
                 'route' => $routeLabel,
-                'queries' => $queries->all(),
+                'queries' => $queries->map(fn ($q) => [
+                    'sql' => $q->sql,
+                    'repeat_count' => $q->repeat_count,
+                    'avg_ms' => (float) $q->avg_ms,
+                    'max_ms' => $q->max_ms,
+                    'caller_file' => $q->caller_file,
+                    'caller_line' => $q->caller_line,
+                    // query_type tells CI scripts whether to fix with with()
+                    // or Cache::remember() without parsing the CLI badge text.
+                    'query_type' => $q->query_type ?? null,
+                ])->all(),
                 'suggestions' => $this->buildChains($routeLabel),
             ]);
 
@@ -233,6 +252,8 @@ class ReportCommand extends Command
 
         if ($queries->isNotEmpty()) {
             $this->cli->queriesTable($queries, (int) config('pinpoint.n_plus_one_repeat_threshold', 3));
+            $this->cli->duplicateQuerySuggestions($queries);
+            $this->cli->n1QuerySuggestions($queries);
         } else {
             $this->cli->info('No queries captured for this route.');
         }
@@ -269,6 +290,25 @@ class ReportCommand extends Command
     protected function resolvePath(string $path): string
     {
         return str_starts_with($path, DIRECTORY_SEPARATOR) ? $path : base_path($path);
+    }
+
+    /**
+     * Format a memory figure in KB into a human-readable string.
+     *
+     * Display tiers:
+     *   < 1 MB    → "512 KB"
+     *   >= 1 MB   → "4.2 MB" (one decimal)
+     *
+     * This keeps the Memory column narrow in most cases (most routes stay
+     * under 10 MB), while still being readable for large values.
+     */
+    protected function formatMemory(int $kb): string
+    {
+        if ($kb < 1024) {
+            return $kb.' KB';
+        }
+
+        return round($kb / 1024, 1).' MB';
     }
 
     /**

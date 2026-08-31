@@ -40,6 +40,14 @@ abstract class TestCase extends Orchestra
 
             return response('ok');
         });
+        $router->get('/pinpoint-duplicate', function () {
+            $id = DB::table('users')->value('id');
+            for ($i = 0; $i < 3; $i++) {
+                DB::select('select * from users where id = ?', [$id]);
+            }
+
+            return response('ok');
+        });
         $router->get('/pinpoint-suggestion', fn () => response(
             CloseoutPackage::all()->each->stages
         ));

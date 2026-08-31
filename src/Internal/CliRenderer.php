@@ -252,7 +252,7 @@ class CliRenderer
     }
 
     /**
-     * @param  array<int, array{route: string, p95: int, avg: int, samples: int, tier: string, n1: string}>  $rows
+     * @param  array<int, array{route: string, p95: int, avg: int, samples: int, tier: string, n1: string, memory?: string|null, memory_over_budget?: bool, has_duplicate?: bool}>  $rows
      */
     public function reportTable(string $title, array $rows, ?string $emptyMessage = null): void
     {
@@ -268,15 +268,20 @@ class CliRenderer
         // table, same convention as Horizon/Octane/Pest output.
         $critical = count(array_filter($rows, fn ($r) => $r['tier'] === TierClassifier::CRITICAL));
         $n1 = count(array_filter($rows, fn ($r) => str_starts_with($r['n1'], 'Yes')));
+        $duplicate = count(array_filter($rows, fn ($r) => (bool) ($r['has_duplicate'] ?? false)));
 
         $html = $this->header($title)
-            .sprintf('<div class="mt-1 mb-1 text-gray-400">%d route(s) · <span class="text-white">%d</span> critical · <span class="text-white">%d</span> with N+1</div>', count($rows), $critical, $n1);
+            .sprintf(
+                '<div class="mt-1 mb-1 text-gray-400">%d route(s) · <span class="text-white">%d</span> critical · <span class="text-white">%d</span> with N+1 · <span class="text-white">%d</span> with duplicate queries</div>',
+                count($rows), $critical, $n1, $duplicate
+            );
 
         $html .= '<table class="w-full"><thead><tr class="text-gray-500 border-b border-gray-600">'
             .'<th class="text-left">Route</th>'
             .'<th class="text-right">p95</th>'
             .'<th class="text-right">Avg</th>'
             .'<th class="text-right">Samples</th>'
+            .'<th class="text-right">Memory</th>'
             .'<th class="text-left">Tier</th>'
             .'<th class="text-center">N+1?</th>'
             .'</tr></thead><tbody>';
@@ -287,6 +292,7 @@ class CliRenderer
                 .'<td class="text-right text-white">'.$row['p95'].'<span class="text-gray-500">ms</span></td>'
                 .'<td class="text-right text-white">'.$row['avg'].'<span class="text-gray-500">ms</span></td>'
                 .'<td class="text-right text-gray-300">'.$row['samples'].'</td>'
+                .'<td class="text-right">'.$this->memoryCell($row['memory'] ?? null, (bool) ($row['memory_over_budget'] ?? false)).'</td>'
                 .'<td class="text-left">'.$this->tierBadge($row['tier']).'</td>'
                 .'<td class="text-center">'.$this->n1Badge($row['n1']).'</td>'
                 .'</tr>';
@@ -358,6 +364,62 @@ class CliRenderer
         $this->render($html);
     }
 
+    /**
+     * @param  Collection<int, \stdClass>  $queries
+     */
+    public function duplicateQuerySuggestions(Collection $queries): void
+    {
+        $duplicates = $queries->filter(fn ($q) => ($q->query_type ?? null) === 'duplicate');
+
+        if ($duplicates->isEmpty()) {
+            return;
+        }
+
+        $html = '<div class="mx-2 my-1">'
+            .'<div class="mt-2"><span class="px-1 bg-cyan-600 text-white font-bold">Duplicate queries detected</span></div>';
+
+        foreach ($duplicates as $query) {
+            $caller = $query->caller_file
+                ? ' at '.$this->callerLink($query->caller_file, $query->caller_line)
+                : '';
+
+            $html .= '<div class="mt-1 text-white">'.e(str_replace("\n", ' ', mb_strimwidth($query->sql, 0, 70, '…'))).' (x'.$query->repeat_count.')'.$caller.'</div>';
+            $html .= '<div class="text-gray-400">Suggested fix: <span class="text-cyan-400">Cache::remember(...)</span> or memoize query result in memory</div>';
+        }
+
+        $html .= '</div>';
+
+        $this->render($html);
+    }
+
+    /**
+     * @param  Collection<int, \stdClass>  $queries
+     */
+    public function n1QuerySuggestions(Collection $queries): void
+    {
+        $n1s = $queries->filter(fn ($q) => ($q->query_type ?? null) === 'n_plus_one');
+
+        if ($n1s->isEmpty()) {
+            return;
+        }
+
+        $html = '<div class="mx-2 my-1">'
+            .'<div class="mt-2"><span class="px-1 bg-red-600 text-white font-bold">N+1 query pattern detected</span></div>';
+
+        foreach ($n1s as $query) {
+            $caller = $query->caller_file
+                ? ' at '.$this->callerLink($query->caller_file, $query->caller_line)
+                : '';
+
+            $html .= '<div class="mt-1 text-white">'.e(str_replace("\n", ' ', mb_strimwidth($query->sql, 0, 70, '…'))).' (x'.$query->repeat_count.')'.$caller.'</div>';
+            $html .= '<div class="text-gray-400">Suggested fix: Eager load with <span class="text-green-400">Model::with(...)</span></div>';
+        }
+
+        $html .= '</div>';
+
+        $this->render($html);
+    }
+
     public function info(string $message): void
     {
         $this->render('<div class="mx-2 my-1 text-gray-300">'.e($message).'</div>');
@@ -415,6 +477,7 @@ class CliRenderer
             .'<th class="text-right">Repeats</th>'
             .'<th class="text-right">Avg ms</th>'
             .'<th class="text-right">Max ms</th>'
+            .'<th class="text-left">Type</th>'
             .'<th class="text-left">Caller</th>'
             .'</tr></thead><tbody>';
 
@@ -424,11 +487,17 @@ class CliRenderer
                 ? $this->callerLink($query->caller_file, $query->caller_line)
                 : '<span class="text-gray-600">-</span>';
 
+            // query_type is set by QueryReader::topQueries() for repeated groups.
+            $typeBadge = $isN1
+                ? $this->queryTypeBadge($query->query_type ?? null, $query->repeat_count)
+                : '<span class="text-gray-600">-</span>';
+
             $html .= '<tr>'
                 .'<td class="text-left text-white">'.e(str_replace("\n", ' ', mb_strimwidth($query->sql, 0, 60, '…'))).'</td>'
                 .'<td class="text-right">'.($isN1 ? '<span class="text-red-500 font-bold">'.$query->repeat_count.'</span>' : '<span class="text-gray-300">'.$query->repeat_count.'</span>').'</td>'
                 .'<td class="text-right text-white">'.(int) round($query->avg_ms).'</td>'
                 .'<td class="text-right text-white">'.$query->max_ms.'</td>'
+                .'<td class="text-left">'.$typeBadge.'</td>'
                 .'<td class="text-left">'.$caller.'</td>'
                 .'</tr>';
         }
@@ -476,5 +545,42 @@ class CliRenderer
         }
 
         return '<span class="text-gray-600">No</span>';
+    }
+
+    /**
+     * Badge for the query type column in the drill-in query table.
+     *
+     * Visual language:
+     *   [N+1]     red    — fix with Model::with() (varying bindings per loop)
+     *   [CACHE]   cyan   — fix with Cache::remember() (identical query repeated)
+     *   [REPEAT]  yellow — classification unknown (null bindings_hash recorded)
+     */
+    protected function queryTypeBadge(?string $type, int $count): string
+    {
+        return match ($type) {
+            'duplicate' => '<span class="px-1 bg-cyan-600 text-white font-bold">CACHE x'.$count.'</span>',
+            'n_plus_one' => '<span class="px-1 bg-red-600 text-white font-bold">N+1 x'.$count.'</span>',
+            // Bindings were not captured (e.g. raw DB::statement) — we know
+            // it repeats but cannot tell if the values differ.
+            default => '<span class="px-1 bg-yellow-600 text-black font-bold">REPEAT x'.$count.'</span>',
+        };
+    }
+
+    /**
+     * Render a memory figure for the report table.
+     *
+     * Returns an em-dash when no data is available (pre-migration rows, routes
+     * not yet accessed since the upgrade). Returns a red-highlighted value when
+     * peak RAM exceeds the configured budget.
+     */
+    protected function memoryCell(?string $formatted, bool $overBudget): string
+    {
+        if ($formatted === null) {
+            return '<span class="text-gray-600">—</span>';
+        }
+
+        return $overBudget
+            ? '<span class="text-red-500 font-bold">'.$formatted.'</span>'
+            : '<span class="text-gray-300">'.$formatted.'</span>';
     }
 }

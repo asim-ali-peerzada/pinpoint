@@ -73,6 +73,7 @@ class PinpointServiceProvider extends PackageServiceProvider
                 $recorder->recordQuery([
                     'sql' => $query->sql,
                     'fingerprint' => QueryFingerprinter::hash($query->sql),
+                    'bindings_hash' => self::hashBindings($query->bindings),
                     'time_ms' => $query->time,
                     'caller' => $recorder->capturesCaller() ? Caller::capture(base_path()) : null,
                 ]);
@@ -108,6 +109,11 @@ class PinpointServiceProvider extends PackageServiceProvider
                     'method' => $request->method(),
                     'path' => $request->path(),
                     'duration_ms' => (microtime(true) - $this->requestStart()) * 1000,
+                    // Snapshot peak RSS *before* terminating callbacks run so
+                    // Pinpoint's own DB writes don't inflate the measurement.
+                    // real_usage=true matches Xdebug / Blackfire convention and
+                    // reflects OS-level pages allocated, not emalloc blocks.
+                    'peak_memory_kb' => (int) round(memory_get_peak_usage(true) / 1024),
                 ];
 
                 $this->app->terminating(function () use ($recorder, $payload) {
@@ -185,6 +191,37 @@ class PinpointServiceProvider extends PackageServiceProvider
         }
 
         return defined('LARAVEL_START') ? LARAVEL_START : $this->startedAt;
+    }
+
+    /**
+     * Hash the bound values for duplicate-query detection.
+     *
+     * Normalisation rules:
+     *   - Non-array bindings (some drivers pass a scalar) are wrapped first.
+     *   - Values are cast to string: integer 1 and string "1" bind identically
+     *     in SQL and must produce the same hash.
+     *   - Null is kept as null (a NULL binding IS semantically distinct).
+     *   - The array is re-indexed before encoding so [0 => 'a'] and
+     *     [1 => 'a'] (possible after array_values vs list spread) hash the same.
+     *   - Returns null when the bindings list is empty — the fingerprint alone
+     *     already identifies the query shape; no extra signal is needed.
+     */
+    protected static function hashBindings(mixed $bindings): ?string
+    {
+        if (! is_array($bindings)) {
+            $bindings = [$bindings];
+        }
+
+        if ($bindings === []) {
+            return null;
+        }
+
+        $normalised = array_map(
+            fn ($v) => $v === null ? null : (string) $v,
+            array_values($bindings)
+        );
+
+        return md5(json_encode($normalised, JSON_THROW_ON_ERROR));
     }
 
     protected function currentLazyLoadingCallback(): ?callable
