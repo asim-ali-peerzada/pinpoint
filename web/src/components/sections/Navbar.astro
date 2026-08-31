@@ -6,7 +6,7 @@ import { Copy } from 'lucide-react';
 <header class="fixed top-0 left-0 right-0 z-50 h-14 border-b border-white/[0.08] bg-[#050608]/90 backdrop-blur-2xl transition-all duration-300">
   <div class="mx-auto flex h-full max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
     
-    <!-- Left: Brand + Get Started (unified visual unit) -->
+    <!-- Left: Brand -->
     <div class="flex items-center gap-3 sm:gap-4 shrink-0">
       <a href="#" class="flex items-center gap-2.5 group">
         <div class="relative flex h-7 w-7 items-center justify-center rounded-lg bg-brand-accent/15 ring-1 ring-brand-accent/30 shadow-[0_0_12px_rgba(245,48,3,0.25)]">
@@ -19,9 +19,6 @@ import { Copy } from 'lucide-react';
           Pinpoint
         </span>
       </a>
-      <Button href="#docs" size="sm" variant="primary" class="hidden sm:inline-flex">
-        Get started <span class="transition-transform duration-200 group-hover:translate-x-0.5">→</span>
-      </Button>
     </div>
 
     <!-- Center: Navigation Links (Generous spacing, no overlap) -->
@@ -45,6 +42,11 @@ import { Copy } from 'lucide-react';
         <Copy strokeWidth={1.25} class="h-3 w-3 text-gray-400 group-hover:text-white transition-colors" />
       </button>
 
+      <!-- CTA (revealed after hero scrolls out, so the navbar stays clean on load) -->
+      <Button href="#docs" size="sm" variant="primary" class="navbar-cta">
+        Get started <span class="transition-transform duration-200 group-hover:translate-x-0.5">→</span>
+      </Button>
+
       <!-- GitHub Link -->
       <a
         href="https://github.com/asim-ali-peerzada/pinpoint"
@@ -65,6 +67,29 @@ import { Copy } from 'lucide-react';
   button[data-copy][data-copied='true'] svg {
     color: theme('colors.brand.success');
   }
+
+  /* CTA hidden until hero scrolls out — display:none, not opacity, so it
+     takes no layout space in the navbar. Mobile keeps it hidden (hero CTA
+     is always visible on mobile). */
+  .navbar-cta {
+    display: none;
+  }
+  @media (min-width: 640px) {
+    .navbar-cta.navbar-cta-visible {
+      display: inline-flex;
+      animation: navbarCtaIn 0.3s ease-out;
+    }
+  }
+  @keyframes navbarCtaIn {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
 </style>
 
 <script>
@@ -84,4 +109,27 @@ import { Copy } from 'lucide-react';
 
   bindCopyButtons();
   document.addEventListener('astro:after-swap', bindCopyButtons);
+</script>
+
+<script>
+  // Reveal the navbar CTA once the hero has scrolled out of view.
+  // ponytail: one IntersectionObserver, no scroll-listener math.
+  function bindNavbarCta() {
+    const cta = document.querySelector('.navbar-cta');
+    const hero = document.querySelector('section');
+    if (!cta || !hero || cta.dataset.bound) return;
+    cta.dataset.bound = 'true';
+
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        const show = !entry.isIntersecting && entry.boundingClientRect.top < 0;
+        cta.classList.toggle('navbar-cta-visible', show);
+      },
+      { rootMargin: '-56px 0px 0px 0px' } // account for the fixed navbar height
+    );
+    io.observe(hero);
+  }
+
+  bindNavbarCta();
+  document.addEventListener('astro:after-swap', bindNavbarCta);
 </script>
