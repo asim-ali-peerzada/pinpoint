@@ -86,7 +86,7 @@ export default function TerminalPreview() {
           </div>
 
           {/* Route table */}
-          <div className="mt-4">
+          <div className="mt-6">
             <div className="sm:min-w-[520px]">
               <div className="hidden sm:grid sm:grid-cols-[minmax(0,2fr)_95px_95px_130px_75px] items-center gap-4 sm:gap-6 px-3 pb-2 text-[11px] font-semibold uppercase tracking-widest text-gray-500">
                 <div className="text-left">Route</div>
@@ -118,7 +118,7 @@ export default function TerminalPreview() {
                             <span className="break-all font-mono text-sm font-medium text-white">{r.key}</span>
                             <span className="flex shrink-0 items-center gap-1.5 font-mono text-xs">
                               <span className={`h-1.5 w-1.5 rounded-full ${critical ? 'bg-red-400' : 'bg-emerald-400'}`}></span>
-                              <span className={critical ? 'font-medium text-red-300' : 'text-emerald-400'}>{r.status}</span>
+                              <span className={critical ? 'font-medium text-red-200' : 'text-emerald-400'}>{r.status}</span>
                               {hasDetails && (
                                 <ChevronDown
                                   className={`h-3.5 w-3.5 text-red-300 transition-transform duration-200 ${
@@ -149,8 +149,8 @@ export default function TerminalPreview() {
                             <span
                               className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-medium ${
                                 critical
-                                    ? 'bg-red-500/10 text-red-300 ring-1 ring-red-500/20'
-                                    : 'bg-emerald-500/10 text-emerald-300 ring-1 ring-emerald-500/20'
+                                  ? 'bg-red-500/15 text-red-200 ring-1 ring-red-400/40'
+                                  : 'bg-emerald-500/10 text-emerald-300 ring-1 ring-emerald-500/20'
                               }`}
                             >
                               <span className={`h-1.5 w-1.5 rounded-full ${critical ? 'bg-red-400' : 'bg-emerald-400'}`}></span>
@@ -182,9 +182,9 @@ export default function TerminalPreview() {
                           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                             <div className="space-y-1">
                               <p className="font-mono text-[11px] text-gray-400">
-                                <span className="text-red-400 font-semibold">{r.execs}</span> duplicate queries detected:
+                                <span className="text-red-300 font-semibold">{r.execs}</span> duplicate queries detected:
                               </p>
-                              <code className="block font-mono text-[11px] text-red-300/90">
+                              <code className="block font-mono text-[11px] text-red-200/90">
                                 {r.pattern}
                               </code>
                             </div>
