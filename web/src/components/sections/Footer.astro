@@ -18,27 +18,23 @@ try {
 const navigation = {
   highlights: [
     { label: 'Features', href: '#features' },
-    { label: 'Architecture', href: '#features' },
     { label: 'Benchmarks', href: '#benchmarks' },
-    { label: 'Interactive Terminal', href: '#docs' },
+    { label: 'Interactive Terminal', href: '#delta' },
     { label: 'N+1 Query Detection', href: '#features' },
   ],
   resources: [
     { label: 'Documentation', href: '#docs' },
-    { label: 'Quickstart Guide', href: '#docs' },
     { label: 'CI Regression Gate', href: '#ci' },
     { label: 'Releases & Changelog', href: 'https://github.com/asim-ali-peerzada/pinpoint/releases', external: true },
     { label: 'Packagist Package', href: 'https://packagist.org/packages/asimali/pinpoint', external: true },
   ],
   ecosystem: [
-    { label: 'Laravel 12–13', href: '#docs' },
-    { label: 'PHP 8.2+', href: '#docs' },
-    { label: 'MySQL & Postgres', href: '#docs' },
-    { label: 'Local-first Architecture', href: '#features' },
+    { label: 'Laravel 12–13' },
+    { label: 'PHP 8.2+' },
+    { label: 'MySQL & Postgres' },
     { label: 'Comparison Matrix', href: '#diff' },
   ],
   community: [
-    { label: 'GitHub Repository', href: 'https://github.com/asim-ali-peerzada/pinpoint', external: true },
     { label: 'Issue Tracker', href: 'https://github.com/asim-ali-peerzada/pinpoint/issues', external: true },
     { label: 'Contributing Guide', href: 'https://github.com/asim-ali-peerzada/pinpoint/blob/main/CONTRIBUTING.md', external: true },
     { label: 'Security Policy', href: 'https://github.com/asim-ali-peerzada/pinpoint/blob/main/SECURITY.md', external: true },
@@ -128,9 +124,13 @@ const navigation = {
         <ul class="mt-5 space-y-3.5 text-sm">
           {navigation.ecosystem.map((item) => (
             <li>
-              <a href={item.href} class="text-gray-400 transition-colors duration-150 hover:text-white">
-                {item.label}
-              </a>
+              {item.href ? (
+                <a href={item.href} class="text-gray-400 transition-colors duration-150 hover:text-white">
+                  {item.label}
+                </a>
+              ) : (
+                <span class="text-gray-400">{item.label}</span>
+              )}
             </li>
           ))}
         </ul>
