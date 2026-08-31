@@ -112,13 +112,12 @@ export default function TerminalPreview() {
                             : 'cursor-default'
                         }`}
                       >
-                        {/* Mobile: stacked, route name always fully visible */}
-                        <div className="px-3 py-2.5 sm:hidden">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="break-all font-mono text-sm font-medium text-white">{r.key}</span>
+                        <div className="px-3.5 py-3 sm:hidden">
+                          <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-white/[0.06]">
+                            <span className="break-all font-mono text-sm font-semibold text-white tracking-tight">{r.key}</span>
                             <span className="flex shrink-0 items-center gap-1.5 font-mono text-xs">
-                              <span className={`h-1.5 w-1.5 rounded-full ${critical ? 'bg-red-400' : 'bg-emerald-400'}`}></span>
-                              <span className={critical ? 'font-medium text-red-200' : 'text-emerald-400'}>{r.status}</span>
+                              <span className={`h-2 w-2 rounded-full ${critical ? 'bg-red-400' : 'bg-emerald-400'}`}></span>
+                              <span className={critical ? 'font-medium text-red-300' : 'text-emerald-400'}>{r.status}</span>
                               {hasDetails && (
                                 <ChevronDown
                                   className={`h-3.5 w-3.5 text-red-300 transition-transform duration-200 ${
@@ -128,12 +127,12 @@ export default function TerminalPreview() {
                               )}
                             </span>
                           </div>
-                          <div className="mt-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs text-gray-400">
-                            <span className="tabular-nums">p95: <strong className="text-gray-200">{r.p95}</strong></span>
-                            <span className="tabular-nums">avg: <strong className="text-gray-200">{r.avg}</strong></span>
-                            <span>queries: <strong className="text-gray-200">{r.queries}</strong></span>
+                          <div className="pt-2.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 text-xs text-gray-400">
+                            <span className="tabular-nums">p95: <strong className="text-gray-200 font-semibold">{r.p95}</strong></span>
+                            <span className="tabular-nums">avg: <strong className="text-gray-200 font-semibold">{r.avg}</strong></span>
+                            <span>queries: <strong className="text-gray-200 font-semibold">{r.queries}</strong></span>
                             {r.dupes !== '—' && (
-                              <span className="rounded bg-red-500/10 px-1.5 py-0.5 text-[11px] font-medium text-red-400">
+                              <span className="rounded bg-red-500/20 border border-red-500/30 px-2 py-0.5 text-[11px] font-bold text-red-300">
                                 {r.dupes} N+1
                               </span>
                             )}
