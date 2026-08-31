@@ -11,7 +11,7 @@ export default {
           'card-hover': '#121417',
           border: '#22252A',
           'border-active': '#2F3339',
-          accent: '#F53003',
+          accent: 'rgb(245 48 3 / <alpha-value>)',
           'accent-glow': 'rgba(245, 48, 3, 0.15)',
           muted: '#CBD5E1', // Upgraded to Slate-300 for 11.5:1 WCAG AAA contrast
           fg: '#F8FAFC',
