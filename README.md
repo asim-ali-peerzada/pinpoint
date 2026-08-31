@@ -4,16 +4,18 @@
 
 **[Explore the Documentation &amp; Features ↗](https://asim-ali-peerzada.github.io/pinpoint)**
 
-Pinpoint is a local-first Laravel request performance profiler. It captures every DB query during a request, detects N+1 patterns, tiers each route (good → critical), and gives you a CLI report that drills from a slow endpoint straight to the offending query and its `caller file:line`.
+Pinpoint is a local-first Laravel request performance profiler. It captures every DB query during a request, detects N+1 patterns, **classifies repeated-query anomalies** (exact-duplicate CACHE vs true N+1), tracks **peak memory per route**, tiers each route (good → critical), and gives you a CLI report that drills from a slow endpoint straight to the offending query and its `caller file:line`.
+
+**Find repeated relationship queries before they become production bottlenecks.** Repeats with identical bindings are flagged **CACHE** (reach for `Cache::remember`); varying bindings are true **N+1s** (reach for eager loading).
 
 ![Pinpoint CLI performance report](docs/terminal-cli.png)
 
-Terminal output is rendered with **Termwind** (ships with Laravel): tier pills are color-coded (green / yellow / red), numbers are right-aligned for quick scanning, units are dimmed, and N+1 flags are red and bold. The design is defined once in `Internal\CliRenderer` and shared by every Pinpoint command.
+Terminal output is rendered with **Termwind** (ships with Laravel): tier pills are color-coded (green / yellow / red), numbers are right-aligned for quick scanning, the **Memory** column flags routes over your budget in red, and N+1/duplicate flags are red/cyan and bold. The design is defined once in `Internal\CliRenderer` and shared by every Pinpoint command.
 
 ## Scope & Limitations
 
-- **Is:** a local/dev + limited-staging diagnostics tool for request time, query count, query time, and N+1 detection.
-- **Is not:** an APM replacement, a production-wide trace collector, or a memory/CPU profiler (use Blackfire for those).
+- **Is:** a local/dev + limited-staging diagnostics tool for request time, query count, query time, per-route peak memory, and repeated-query analysis (N+1 + exact duplicates).
+- **Is not:** an APM replacement, a production-wide trace collector, or a general memory/CPU profiler (use Blackfire for those).
 
 ## Installation
 
@@ -223,6 +225,22 @@ Two signals:
 2. **Fingerprint repeat count (heuristic):** the same normalized SQL appearing 3+ times (`pinpoint.n_plus_one_repeat_threshold`) in one request is flagged. This catches N+1s done via the raw query builder, but it's a heuristic — a legitimate loop that intentionally runs the same query 3+ times will be flagged. Treat this signal as *likely* N+1, not proof.
 
 Both signals set `has_n_plus_one`; the report shows the repeat count as `Yes (xN)`.
+
+### Repeated-query anomalies: CACHE vs N+1 vs unknown
+
+Fingerprint repeats are not all the same problem — Pinpoint records a normalized hash of the **bound values** alongside each SQL shape and classifies every repeated group by whether the bindings change:
+
+| Classification | Meaning | Suggested fix |
+|---|---|---|
+| **CACHE** (cyan) | Same SQL with the identical bound values every time — the query result is constant within the request | `Cache::remember(...)` / memoize the result |
+| **N+1** (red) | Same SQL shape, different bindings per iteration | eager load with `Model::with(...)` |
+| **unknown** | No binding data recorded (e.g. raw `DB::statement` with no params) | drill in and inspect |
+
+The summary line counts both: `53 route(s) · 2 critical · 5 with N+1 · 2 with duplicate queries`. Drill-down (`--route=`) shows a CACHE/N+1/REPEAT pill per repeated query plus the exact `Cache::remember(...)` suggestion for cache candidates. `pinpoint:check --json` exposes `query_type` so CI scripts can branch on the fix automatically.
+
+### Peak memory per route
+
+Each request records `memory_get_peak_usage(true)` at flush. The report's **Memory** column shows the max observed per route and turns bold-red when a route exceeds `pinpoint.memory_budget_kb` (default 20 MB, `PINPOINT_MEMORY_BUDGET_KB=10240` for a 10 MB cap, `null` disables the check).
 
 ## Performance
 
