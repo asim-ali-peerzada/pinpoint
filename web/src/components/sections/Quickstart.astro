@@ -279,8 +279,8 @@ const table = [
           Zero external telemetry. 100% self-hosted in your existing database. Actionable terminal diagnostics in 60 seconds.
         </p>
 
-        <!-- Focused 2-CTA Row using Global Button Component -->
-        <div class="mx-auto pt-3 flex flex-col items-center justify-center gap-3 sm:flex-row">
+        <!-- Focused 2-CTA Row: primary solid vs clear outline for hierarchy -->
+        <div class="mx-auto pt-4 flex flex-col items-center justify-center gap-3 sm:flex-row">
           <Button href="#docs">
             Get started <span class="transition-transform duration-200 group-hover:translate-x-0.5">→</span>
           </Button>
@@ -288,14 +288,15 @@ const table = [
             href="https://github.com/asim-ali-peerzada/pinpoint"
             target="_blank"
             rel="noopener noreferrer"
-            variant="secondary"
+            variant="ghost"
+            class="border border-white/15 rounded-md px-5 py-2.5 text-[15px] text-gray-300 hover:text-white hover:border-white/30 hover:bg-white/[0.04]"
           >
             View on GitHub
           </Button>
         </div>
 
-        <!-- Quick install snippet -->
-        <div class="mt-4 flex justify-center">
+        <!-- Quick install snippet (slightly lighter bg to pop as distinct element) -->
+        <div class="mt-6 flex justify-center">
           <InstallSnippet command="composer require asimali/pinpoint --dev" />
         </div>
       </div>

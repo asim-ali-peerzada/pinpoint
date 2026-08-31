@@ -82,12 +82,12 @@ const navigation = {
       </p>
     </div>
 
-    <!-- Navigation Columns Grid -->
-    <div class="mt-12 grid grid-cols-2 gap-8 border-t border-white/[0.08] pt-12 sm:grid-cols-2 md:grid-cols-4 lg:gap-10">
+    <!-- Navigation Columns Grid (strong separator from the description area) -->
+    <div class="mt-14 grid grid-cols-2 gap-8 border-t border-white/[0.14] pt-10 sm:grid-cols-2 md:grid-cols-4 lg:gap-10">
       <!-- Highlights -->
       <div>
-        <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Highlights</p>
-        <ul class="mt-4 space-y-3 text-sm">
+        <p class="text-xs font-bold uppercase tracking-wider text-gray-200">Highlights</p>
+        <ul class="mt-4 space-y-3.5 text-sm">
           {navigation.highlights.map((item) => (
             <li>
               <a href={item.href} class="text-gray-400 transition-colors duration-150 hover:text-white">
@@ -100,8 +100,8 @@ const navigation = {
 
       <!-- Resources -->
       <div>
-        <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Resources</p>
-        <ul class="mt-4 space-y-3 text-sm">
+        <p class="text-xs font-bold uppercase tracking-wider text-gray-200">Resources</p>
+        <ul class="mt-4 space-y-3.5 text-sm">
           {navigation.resources.map((item) => (
             <li>
               <a
@@ -122,8 +122,8 @@ const navigation = {
 
       <!-- Ecosystem -->
       <div>
-        <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Ecosystem</p>
-        <ul class="mt-4 space-y-3 text-sm">
+        <p class="text-xs font-bold uppercase tracking-wider text-gray-200">Ecosystem</p>
+        <ul class="mt-4 space-y-3.5 text-sm">
           {navigation.ecosystem.map((item) => (
             <li>
               <a href={item.href} class="text-gray-400 transition-colors duration-150 hover:text-white">
@@ -136,8 +136,8 @@ const navigation = {
 
       <!-- Community -->
       <div>
-        <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Community</p>
-        <ul class="mt-4 space-y-3 text-sm">
+        <p class="text-xs font-bold uppercase tracking-wider text-gray-200">Community</p>
+        <ul class="mt-4 space-y-3.5 text-sm">
           {navigation.community.map((item) => (
             <li>
               <a
@@ -158,7 +158,7 @@ const navigation = {
     </div>
 
     <!-- Bottom Attribution Bar -->
-    <div class="mt-14 flex flex-col items-center justify-between gap-4 border-t border-white/[0.08] pt-8 text-xs text-gray-500 sm:flex-row">
+    <div class="mt-14 flex flex-col items-center justify-between gap-4 border-t border-white/[0.08] pt-8 text-xs text-gray-400 sm:flex-row">
       <p>
         Pinpoint is open-sourced software licensed under the <a href="https://github.com/asim-ali-peerzada/pinpoint/blob/main/LICENSE" class="text-gray-300 hover:text-white underline">MIT license</a>. Laravel is a registered trademark of Taylor Otwell.
       </p>
@@ -172,6 +172,19 @@ const navigation = {
         <Github class="h-4 w-4" />
         <span>View source on GitHub</span>
       </a>
+    </div>
+
+    <!-- Copyright & Developer Credit -->
+    <div class="mt-6 flex flex-col items-center justify-between gap-2 border-t border-white/[0.06] pt-6 text-xs text-gray-500 sm:flex-row">
+      <p>© {new Date().getFullYear()} Pinpoint. All rights reserved.</p>
+      <p>
+        Crafted with care by <a
+          href="https://github.com/asim-ali-peerzada"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="text-gray-300 hover:text-white transition-colors"
+        >Asim Ali Peerzada</a>
+      </p>
     </div>
   </div>
 </footer>
