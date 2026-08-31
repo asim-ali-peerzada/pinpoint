@@ -191,7 +191,7 @@ export default function TerminalPreview() {
                             {r.source && (
                               <a
                                 href="#docs"
-                                className="inline-flex items-center gap-1 text-[11px] text-brand-accent hover:underline shrink-0"
+                                className="inline-flex items-center gap-1 rounded bg-red-500/15 px-1.5 py-0.5 font-mono text-[11px] font-medium text-red-200 ring-1 ring-red-400/40 hover:bg-red-500/25 shrink-0"
                               >
                                 <span>{r.source}</span>
                                 <ArrowRight className="h-3 w-3" />

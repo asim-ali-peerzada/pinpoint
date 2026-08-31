@@ -77,15 +77,16 @@ import { ArrowRight, ChevronDown } from 'lucide-react';
       <TerminalPreview client:load />
     </div>
 
-    <!-- Overhead Proof Note -->
-    <div class="mx-auto mt-10 max-w-lg text-center">
+    <!-- Overhead Proof Note (hairline separation from the terminal above) -->
+    <div class="mx-auto mt-12 max-w-lg text-center">
+      <div class="mx-auto mb-6 h-px w-24 bg-white/10"></div>
       <p class="text-[11px] uppercase tracking-[0.16em] text-gray-400">Measured runtime overhead</p>
       <p class="mt-1 text-sm leading-6 text-brand-muted">
         <span class="font-mono font-medium text-brand-fg">+0.29 <span class="text-gray-500">ms</span></span>
         mean overhead. Telemetry flushes asynchronously
         <span class="text-gray-200">after your HTTP response is dispatched</span>.
         <a href="#benchmarks" class="inline-flex items-center gap-1 font-sans font-medium text-brand-accent hover:underline">
-          View benchmark code <ArrowRight class="h-4 w-4" />
+          View benchmark code <ArrowRight class="h-3 w-3" />
         </a>
       </p>
     </div>
@@ -94,7 +95,7 @@ import { ArrowRight, ChevronDown } from 'lucide-react';
     <div class="mt-8 flex flex-col items-center justify-center gap-1.5 text-xs font-mono text-gray-400">
       <a href="#delta" class="inline-flex items-center gap-1 hover:text-white transition-colors">
         <span>See the fix</span>
-        <ChevronDown class="h-3.5 w-3.5 animate-bounce text-brand-accent" />
+        <ChevronDown class="h-3 w-3 animate-bounce text-brand-accent" />
       </a>
     </div>
 
