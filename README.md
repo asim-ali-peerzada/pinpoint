@@ -40,6 +40,39 @@ php artisan vendor:publish --tag=pinpoint-config
 
 Pinpoint starts recording automatically when enabled. It's **enabled by default when `APP_ENV` is `local`, `development`, `dev`, or `testing`** — zero config needed. `PINPOINT_ENABLED=false` hard-disables it everywhere (e.g. production); `PINPOINT_ENABLED=true` is only needed for non-standard environments like `staging`. Caller file:line capture (`debug_backtrace`) follows the same default in local/dev/testing and can be turned on/off with `PINPOINT_CAPTURE_CALLER`.
 
+## Quickstart (30 seconds)
+
+```bash
+# 1. Start clean, then exercise the app — browser, curl, or run your test suite
+php artisan pinpoint:reset --force
+curl http://localhost:8000/api/orders
+
+# 2. See what was recorded
+php artisan pinpoint:report
+
+# 3. Drill into a flagged route (exact queries + caller file:line + suggested fix)
+php artisan pinpoint:report --route=api.orders
+
+# 4. Made a fix? Verify it instantly with a time window (see "Fix-verify loop" below)
+php artisan pinpoint:report --since=5m
+```
+
+### Fix-verify loop (the core workflow)
+
+The report is a **historical aggregate** — it reads every recorded sample, not live traffic. That's deliberate (trends, regressions), but it means **old pre-fix samples keep skewing the numbers after you fix something**: the p95 stays high, `N+1 x14` keeps showing, a 24 MB memory reading lingers. The fix's effect is verified instantly with a time window:
+
+```bash
+# before: fix the endpoint however you like, then hit it once
+curl http://localhost:8000/api/orders
+
+# after: only look at samples recorded after the fix
+php artisan pinpoint:report --since=1m                 # summary, last minute only
+php artisan pinpoint:report --route=api.orders --since=1m   # drill-down, fresh only
+php artisan pinpoint:reset --force                     # or wipe history entirely
+```
+
+`--since` accepts any natural duration — `5` (minutes), `5m`, `5min`, `1h`, `2d`.
+
 ## Command reference
 
 | Command                | What it does                                                                                                 | Options                                                                                                                                 | Exit codes                                   |
@@ -57,56 +90,17 @@ Local read API (local/debug environments only — blocked by the `LocalOnly` mid
 | `GET /_pinpoint/api/v1/summaries`                 | Per-route tiers as JSON                                                                         |
 | `GET /_pinpoint/api/v1/summaries/{route}/queries` | Top offending queries for one route (URL-encode the route name;`METHOD path` labels work too) |
 
-### Try it on your project
+### More report options
 
 ```bash
-# 1. Start clean
-php artisan pinpoint:reset --force
-
-# 2. Exercise the app — hit endpoints in the browser/curl, or run your test suite
-curl http://localhost:8000/api/orders
-
-# 3. Inspect what was recorded
-php artisan pinpoint:report                              # summary table
-php artisan pinpoint:report --since=1h                   # only the last hour
-php artisan pinpoint:report --tier=critical              # only critical routes
-php artisan pinpoint:report --route=api.orders           # drill into a route
-php artisan pinpoint:report --limit=5                    # top 5 routes only
-php artisan pinpoint:report --json | jq .                # machine-readable summary
-php artisan pinpoint:report --json-to=storage/pinpoint/report.json  # same JSON to a file, prints its path
-
-# 4. Run the CI gate locally (exit 1 = violation)
-php artisan pinpoint:check --fail-on-n1 --max-queries=20 --max-duration-ms=1000
-php artisan pinpoint:check --json                        # JSON for scripts
-
-# 5. Roll raw rows into summaries (schedule this) and prune old data
-php artisan pinpoint:aggregate
-php artisan pinpoint:prune --days=7
+php artisan pinpoint:report --tier=critical        # only critical routes
+php artisan pinpoint:report --since=1h            # only the last hour (5, 5m, 5min, 1h, 2d…)
+php artisan pinpoint:report --limit=130            # show more routes (default 20)
+php artisan pinpoint:report --json                # machine-readable (scripts / webhooks)
+php artisan pinpoint:report --json-to=storage/pinpoint/report.json   # JSON to a file, path printed
 ```
 
-### The report
-
-```bash
-php artisan pinpoint:report                      # summary table for all routes
-php artisan pinpoint:report --tier=critical      # only critical routes
-php artisan pinpoint:report --route=api.orders   # drill into a route: top queries + caller file:line
-php artisan pinpoint:report --since=1h           # only consider recent samples
-php artisan pinpoint:report --since=5m           # ...or just the last 5 minutes
-php artisan pinpoint:report --limit=10           # cap the table (default 20)
-php artisan pinpoint:report --json               # machine-readable summary (scripts / webhooks)
-php artisan pinpoint:report --json-to=storage/pinpoint/report.json   # same JSON written to a file, path printed
-```
-
-**Iterating on a fix?** The report reads **historical samples** — after you fix an N+1 or a slow route, the old pre-fix rows still skew the tiers until they age out of the window or are pruned. `--since` accepts any natural duration (`5`, `5m`, `5min`, `1h`, `2d`; bare number = minutes), so you see your fix's effect immediately:
-
-```bash
-php artisan pinpoint:report --since=5m           # post-fix verification, minutes later
-php artisan pinpoint:reset                       # or: clear all recorded data entirely
-```
-
-`pinpoint:reset` wipes every recorded request/query/lazy-load/summary (asks for confirmation; use `--force` in scripts).
-
-#### What the summary shows
+### What the summary shows
 
 ```
 PINPOINT                                                             Performance Report
@@ -122,10 +116,13 @@ PINPOINT                                                             Performance
 +------------------------------------------+------+------+---------+--------+--------------+-----------+
 ```
 
-- **Memory** — peak RAM (`memory_get_peak_usage(true)`) recorded per request, aggregated to the max per route. Values over `pinpoint.memory_budget_kb` (default 20 MB; `PINPOINT_MEMORY_BUDGET_KB=10240` for a 10 MB cap, `null`/`-1` disables) are shown bold red.
+- **Memory** — the **peak RAM the PHP process used while serving the request** (`memory_get_peak_usage(true)`), NOT the size of your response/payload. A 4 MB reading does *not* mean the endpoint returns 4 MB of JSON — it means serving that request made the process allocate up to 4 MB at its worst moment (models hydrated, collections built, big arrays held). Large readings usually mean you're hydrating far more rows than you need — the fix is chunking, `select()` only the columns you use, or cursor-based iteration, not trimming the response body.
+  - Each request records its own peak; the report shows the **max** observed across that route's samples.
+  - Values over `pinpoint.memory_budget_kb` (default 20 MB; `PINPOINT_MEMORY_BUDGET_KB=10240` for a 10 MB cap, `null`/`-1` disables) are shown bold red.
+  - Baseline note: a plain Laravel request typically sits around 2–4 MB. Don't expect 0 MB — read the column as "how far above baseline this route pushes memory," and compare routes against each other rather than against an absolute number.
 - **N+1?** — `Yes (xN)` when a repeated query shape runs with **varying** bindings (true N+1, fix with eager loading). Repeated queries with **identical** bindings are counted separately in the summary line (`with duplicate queries`) — those are cache candidates, not N+1s (see drill-down badges below).
 
-#### Drill-down: CACHE vs N+1 badges
+### Drill-down: CACHE vs N+1 badges
 
 `pinpoint:report --route=<route>` classifies each repeated query by its bindings:
 
@@ -209,6 +206,22 @@ Notes for CI:
 - The check reads raw tables, so it's meant for the **same job that just ran the tests** (fresh data, `--since` guards the window). Use `sample_rate = 1.0` in the CI environment so the gate is deterministic — the command warns if sampling is on.
 - **No data in the window → the gate fails closed** (a check that evaluated nothing is a false green). If an empty run is legitimate for your pipeline, add `--allow-empty`.
 
+### Configuration reference
+
+All env vars (publish the config for full control: `php artisan vendor:publish --tag=pinpoint-config`):
+
+| Env | Config key | Default | What it does |
+|---|---|---|---|
+| `PINPOINT_ENABLED` | `enabled` | auto — true when `APP_ENV` is `local`/`development`/`dev`/`testing` | master switch; `false` disables everything, `true` forces on (e.g. staging) |
+| `PINPOINT_CAPTURE_CALLER` | `capture_caller` | auto — same environments as above | `debug_backtrace` file:line capture; `true` to force on for staging, `false` to disable even locally |
+| `PINPOINT_MEMORY_BUDGET_KB` | `memory_budget_kb` | `20480` (20 MB) | routes whose peak memory exceeds this are flagged red in the Memory column; `null`/`-1` disables the check |
+| `PINPOINT_EDITOR` | `editor` | `vscode` | URI scheme for clickable file:line links (`phpstorm`, `cursor`, `windsurf`, `devin`, …) |
+| — | `sample_rate` | `1.0` | fraction of requests recorded; use `0.1`–`0.2` in staging, keep `1.0` in local and CI |
+| — | `n_plus_one_repeat_threshold` | `3` | repeats of a query shape before N+1/duplicate flagging |
+| — | `thresholds_ms` | `good: 150, acceptable: 400, needs_improvement: 1000` | tier boundaries (milliseconds) |
+| — | `route_threshold_overrides` | — | per-route tier boundaries for endpoints that are naturally slow/fast |
+| — | `retention_days` | `30` | window for `pinpoint:prune` |
+
 ## Retention
 
 Raw tables grow. Prune old data on a schedule (default retention: 30 days, configurable via `pinpoint.retention_days`):
@@ -240,7 +253,19 @@ The summary line counts both: `53 route(s) · 2 critical · 5 with N+1 · 2 with
 
 ### Peak memory per route
 
-Each request records `memory_get_peak_usage(true)` at flush. The report's **Memory** column shows the max observed per route and turns bold-red when a route exceeds `pinpoint.memory_budget_kb` (default 20 MB, `PINPOINT_MEMORY_BUDGET_KB=10240` for a 10 MB cap, `null` disables the check).
+Every request records its **peak PHP process memory** (`memory_get_peak_usage(true)`) at flush time — the maximum RAM the process allocated while serving that single request, the same figure `memory_get_usage()` tooling reports. This is deliberately **not** the response/payload size: it measures server-side hydration cost (models, collections, query result sets), which is what actually gets your process OOM-killed under load.
+
+The report's **Memory** column shows the max observed across that route's samples and turns bold-red when it exceeds `pinpoint.memory_budget_kb` (default 20 MB, `PINPOINT_MEMORY_BUDGET_KB=10240` for a 10 MB cap, `null` disables the check).
+
+Common causes of a high reading — and the matching fixes:
+
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| All routes 2–4 MB | normal Laravel baseline | nothing — compare routes against each other |
+| One route spikes 20 MB+ | hydrating a huge result set | `->paginate()` / `->limit()`, `select()` only needed columns, `chunkById()` for iteration |
+| Growing with request count | accumulating state across requests (Octane/queue) | check for static caches or listeners holding references |
+
+> **Why the column can be non-zero on tiny endpoints:** a bare Laravel request already allocates a few MB (framework boot + middleware). The column is a *comparative* signal: which routes push memory unusually far above that baseline.
 
 ## Performance
 
@@ -263,6 +288,26 @@ The worst case (caller capture via `debug_backtrace`) only runs in local environ
 - **Route grouping:** requests are grouped by `route_name`; requests without a route name fall back to `METHOD path`. If many endpoints share a route name, the summary flattens them — name your routes for useful grouping.
 - **Stored SQL is parameterized** — bound values are never persisted (Laravel sends them as `?` placeholders, and Pinpoint stores only the SQL string). The exception is *unparameterized* SQL (`DB::select("... where x = '$value'")`, `whereRaw` with interpolated values): those literals are stored verbatim, so don't pass secrets through string interpolation into raw queries.
 - **Local summary computation is in-memory** — `pinpoint:report` and the API read all raw rows to compute percentiles on demand. This is instant at local-dev volumes; for large staging/prod datasets use `pinpoint:aggregate` on a schedule and keep retention tight.
+
+## Troubleshooting
+
+**"No requests recorded yet" — but I've been hitting endpoints.**
+Pinpoint is almost certainly disabled. It only records when `pinpoint.enabled` resolves to true, which by default means `APP_ENV` is one of `local`, `development`, `dev`, or `testing`. Check what your app actually thinks: `php artisan about` (Environment line). A custom env name (e.g. `APP_ENV=staging` or a typo like `developement`) silently disables recording — set `PINPOINT_ENABLED=true` in `.env` to enable it regardless of environment. Also verify the tables exist (`php artisan migrate:status | grep pinpoint`); a missing migration only logs a warning, it never throws.
+
+**"I fixed the N+1 / slow route but the report still shows it."**
+Expected — the report aggregates **all recorded samples**, so pre-fix rows keep skewing p95, the `Yes (xN)` flag, and the memory column until they age out or are pruned. Verify your fix with a time window: `pinpoint:report --since=5m` (summary or `--route` drill-down), or wipe history with `pinpoint:reset --force`. New fixed requests are recorded instantly — `--since` just excludes the old ones from view.
+
+**"The Memory column shows 4 MB on a route that returns a tiny JSON."**
+That's correct — the column is the **peak RAM the PHP process allocated while serving the request**, not the response size. A bare Laravel request has a 2–4 MB baseline; compare routes against each other, not against zero. See [Peak memory per route](#peak-memory-per-route) for causes and fixes.
+
+**"Installed it, ran tests, but `pinpoint:check` finds nothing."**
+Two things to check: (1) did your test suite actually make HTTP requests (feature tests via `get()`/`post()` do; pure unit tests don't); (2) the check only inspects the last 30 minutes by default — use `--since=2h` if your run was earlier. If you sample in CI, run with `sample_rate = 1.0` there (the command warns when it sees sampling).
+
+**"Is my database even connected?"**
+The package ships with no database of its own — it records into your app's default connection. A fresh `composer create-project` Laravel app uses **SQLite** (`database/database.sqlite` file), which looks like "no database" in GUI tools — point any SQLite browser at that file. Pinpoint's tables (`pinpoint_requests`, `pinpoint_queries`, …) appear inside your existing connection after you publish and run the migrations.
+
+**"Links don't open my editor."**
+OSC 8 terminal hyperlinks require a terminal that supports them (iTerm2, VS Code's integrated terminal, Windows Terminal, kitty…). The link uses the `pinpoint.editor` scheme — `vscode` by default, `PINPOINT_EDITOR=phpstorm` for PhpStorm, any custom scheme like `cursor`/`windsurf`/`devin` passes through. From inside Docker/Sail/WSL the host terminal still resolves the link — nothing is executed server-side.
 
 ## Testing
 
