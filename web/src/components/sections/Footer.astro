@@ -78,14 +78,14 @@ const navigation = {
       </p>
     </div>
 
-    <!-- Navigation Columns Grid (columns flush to full container width) -->
-    <div class="mt-14 flex flex-col gap-8 border-t border-white/[0.14] pt-10 sm:flex-row sm:justify-between lg:gap-10">
+    <!-- Navigation Columns Grid (equal-width columns, flush full width) -->
+    <div class="mt-14 grid grid-cols-2 gap-8 border-t border-white/[0.14] pt-10 md:grid-cols-4 lg:gap-10">
       <!-- Highlights -->
       <div>
         <p class="text-xs font-bold uppercase tracking-wider text-gray-200">Highlights</p>
-        <ul class="mt-5 space-y-3.5 text-sm">
+        <ul class="mt-5 space-y-3 text-sm">
           {navigation.highlights.map((item) => (
-            <li>
+            <li class="flex items-center h-6">
               <a href={item.href} class="text-gray-400 transition-colors duration-150 hover:text-white">
                 {item.label}
               </a>
@@ -97,9 +97,9 @@ const navigation = {
       <!-- Resources -->
       <div>
         <p class="text-xs font-bold uppercase tracking-wider text-gray-200">Resources</p>
-        <ul class="mt-5 space-y-3.5 text-sm">
+        <ul class="mt-5 space-y-3 text-sm">
           {navigation.resources.map((item) => (
-            <li>
+            <li class="flex items-center h-6">
               <a
                 href={item.href}
                 target={item.external ? '_blank' : undefined}
@@ -108,9 +108,7 @@ const navigation = {
               >
                 <span>{item.label}</span>
                 {item.external && (
-                  <span class="ml-0.5 inline-flex">
-                    <ArrowUpRight strokeWidth={1.25} class="h-3.5 w-3.5 text-gray-500 opacity-70 transition-all duration-150 group-hover:text-white group-hover:opacity-100" />
-                  </span>
+                  <ArrowUpRight strokeWidth={1.5} class="h-3.5 w-3.5 text-gray-500 transition-colors duration-150 group-hover:text-white shrink-0" />
                 )}
               </a>
             </li>
@@ -121,9 +119,9 @@ const navigation = {
       <!-- Ecosystem -->
       <div>
         <p class="text-xs font-bold uppercase tracking-wider text-gray-200">Ecosystem</p>
-        <ul class="mt-5 space-y-3.5 text-sm">
+        <ul class="mt-5 space-y-3 text-sm">
           {navigation.ecosystem.map((item) => (
-            <li>
+            <li class="flex items-center h-6">
               {item.href ? (
                 <a href={item.href} class="text-gray-400 transition-colors duration-150 hover:text-white">
                   {item.label}
@@ -139,9 +137,9 @@ const navigation = {
       <!-- Community (flush right, aligns with View-source / credit bars below) -->
       <div>
         <p class="text-xs font-bold uppercase tracking-wider text-gray-200">Community</p>
-        <ul class="mt-5 space-y-3.5 text-sm">
+        <ul class="mt-5 space-y-3 text-sm">
           {navigation.community.map((item) => (
-            <li>
+            <li class="flex items-center h-6">
               <a
                 href={item.href}
                 target={item.external ? '_blank' : undefined}
@@ -150,9 +148,7 @@ const navigation = {
               >
                 <span>{item.label}</span>
                 {item.external && (
-                  <span class="ml-0.5 inline-flex">
-                    <ArrowUpRight strokeWidth={1.25} class="h-3.5 w-3.5 text-gray-500 opacity-70 transition-all duration-150 group-hover:text-white group-hover:opacity-100" />
-                  </span>
+                  <ArrowUpRight strokeWidth={1.5} class="h-3.5 w-3.5 text-gray-500 transition-colors duration-150 group-hover:text-white shrink-0" />
                 )}
               </a>
             </li>

@@ -32,10 +32,10 @@ import { ArrowRight, Terminal } from 'lucide-react';
           <p class="mt-3 text-sm leading-relaxed text-gray-400">
             Find repeated relationship queries before they become production bottlenecks. Repeats with identical bindings are flagged <span class="text-cyan-300">CACHE</span> (reach for <code class="text-gray-300">Cache::remember</code>); varying bindings are true N+1s (reach for eager loading).
           </p>
-          <div class="mt-5 flex flex-wrap gap-2 text-xs font-medium">
-            <span class="whitespace-nowrap rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-gray-300">Eloquent signal</span>
-            <span class="whitespace-nowrap rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-gray-300">SQL fingerprint</span>
-            <span class="whitespace-nowrap rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-gray-300">Bindings-hash match</span>
+          <div class="mt-5 flex flex-wrap items-center gap-1.5 text-[11px] font-medium">
+            <span class="whitespace-nowrap rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 text-gray-300">Eloquent signal</span>
+            <span class="whitespace-nowrap rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 text-gray-300">SQL fingerprint</span>
+            <span class="whitespace-nowrap rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 text-gray-300">Bindings-hash match</span>
           </div>
 
           <!-- Mobile Inline View (only visible on mobile) -->
@@ -63,10 +63,10 @@ import { ArrowRight, Terminal } from 'lucide-react';
             <span class="text-xs font-semibold uppercase tracking-[0.14em] text-gray-400">Measure</span>
           </div>
           <h3 class="mt-4 text-xl font-bold tracking-tight text-white">
-            Route latency, memory & percentile rollups
+            Route latency & percentile rollups
           </h3>
           <p class="mt-3 text-sm leading-relaxed text-gray-400">
-            Understand request performance with p95/avg latency, sample counts, and peak memory per route — highlighted in red when it crosses your configured budget.
+            Understand request performance with p95/avg latency and sample counts. Rollups compute on-demand via a single indexed SQL pass, or batched via <code class="text-gray-300">pinpoint:aggregate</code>.
           </p>
           <div class="mt-5">
             <a href="#benchmarks" class="inline-flex items-center gap-1 text-xs font-medium text-brand-accent hover:underline">
@@ -78,7 +78,7 @@ import { ArrowRight, Terminal } from 'lucide-react';
           <div class="mt-6 block lg:hidden">
             <div class="rounded-lg border border-white/10 bg-[#08090C] p-4 font-mono text-xs text-gray-300">
               <div class="uppercase tracking-wider text-gray-500 text-[11px] border-b border-white/[0.06] pb-2">Request Diagnostics</div>
-              <div class="mt-3 grid grid-cols-2 gap-3">
+              <div class="mt-3 grid grid-cols-3 gap-3">
                 <div>
                   <div class="text-[10px] text-gray-500 uppercase">P95</div>
                   <div class="text-white font-bold">1.42s</div>
@@ -91,12 +91,42 @@ import { ArrowRight, Terminal } from 'lucide-react';
                   <div class="text-[10px] text-gray-500 uppercase">Queries</div>
                   <div class="text-gray-300">42</div>
                 </div>
-                <div>
-                  <div class="text-[10px] text-gray-500 uppercase">Peak Mem</div>
-                  <div class="text-red-400 font-bold">32.4 MB</div>
-                  <div class="text-[10px] text-rose-400">over 20 MB budget</div>
-                </div>
               </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 04: Memory -->
+        <div class="scrolly-step group cursor-pointer rounded-2xl border border-white/[0.08] border-l-2 border-l-transparent bg-[#0D0F12] p-6 sm:p-8 transition-all duration-300 opacity-60 hover:opacity-100" data-step="4">
+          <div class="flex items-center gap-3">
+            <span class="step-num flex h-7 w-7 items-center justify-center rounded-md bg-white/[0.05] font-mono text-xs font-bold text-gray-400">04</span>
+            <span class="text-xs font-semibold uppercase tracking-[0.14em] text-gray-400">Memory</span>
+          </div>
+          <h3 class="mt-4 text-xl font-bold tracking-tight text-white">
+            Peak RAM per route, budget-guarded
+          </h3>
+          <p class="mt-3 text-sm leading-relaxed text-gray-400">
+            Every request captures peak memory at flush time. Routes crossing your configured budget (<code class="text-gray-300">pinpoint.memory_budget_kb</code>, default 20 MB) are highlighted in red in the report.
+          </p>
+          <div class="mt-5 flex flex-wrap items-center gap-1.5 text-[11px] font-medium">
+            <span class="whitespace-nowrap rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 text-gray-300">Peak RSS per route</span>
+            <span class="whitespace-nowrap rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 text-gray-300">Configurable budget</span>
+          </div>
+
+          <!-- Mobile Inline View -->
+          <div class="mt-6 block lg:hidden">
+            <div class="rounded-lg border border-white/10 bg-[#08090C] p-4 font-mono text-xs text-gray-300">
+              <div class="uppercase tracking-wider text-gray-500 text-[11px] border-b border-white/[0.06] pb-2">Memory Report</div>
+              <div class="mt-3 flex items-center justify-between">
+                <span class="text-white font-medium">api.reports.export</span>
+                <span class="text-red-400 font-bold">64.2 MB</span>
+              </div>
+              <div class="mt-1 text-[11px] text-rose-400">Budget exceeded — over 20 MB (configurable)</div>
+              <div class="mt-3 pt-3 border-t border-white/[0.06] flex items-center justify-between">
+                <span class="text-white font-medium">api.orders.index</span>
+                <span class="text-emerald-400 font-bold">12.4 MB</span>
+              </div>
+              <div class="mt-1 text-[11px] text-gray-500">Within budget</div>
             </div>
           </div>
         </div>
@@ -150,6 +180,7 @@ import { ArrowRight, Terminal } from 'lucide-react';
               <button class="step-tab-btn bg-transparent border-none p-0 text-white border-b-2 border-brand-accent cursor-default" data-target-step="1">01 Detect</button>
               <button class="step-tab-btn bg-transparent border-none p-0 text-gray-500 hover:text-gray-300 border-b-2 border-transparent cursor-default transition-colors" data-target-step="2">02 Measure</button>
               <button class="step-tab-btn bg-transparent border-none p-0 text-gray-500 hover:text-gray-300 border-b-2 border-transparent cursor-default transition-colors" data-target-step="3">03 Locate</button>
+              <button class="step-tab-btn bg-transparent border-none p-0 text-gray-500 hover:text-gray-300 border-b-2 border-transparent cursor-default transition-colors" data-target-step="4">04 Memory</button>
             </div>
           </div>
 
@@ -209,7 +240,7 @@ import { ArrowRight, Terminal } from 'lucide-react';
                 </span>
               </div>
 
-              <div class="grid grid-cols-2 gap-3 text-center">
+              <div class="grid grid-cols-3 gap-3 text-center">
                 <div class="rounded-xl border border-white/[0.08] bg-black/30 p-3.5">
                   <div class="text-[10px] text-gray-500 uppercase font-semibold">P95 Latency</div>
                   <div class="mt-1 text-lg font-bold text-rose-400 tabular-nums">1.42s</div>
@@ -221,11 +252,6 @@ import { ArrowRight, Terminal } from 'lucide-react';
                 <div class="rounded-xl border border-white/[0.08] bg-black/30 p-3.5">
                   <div class="text-[10px] text-gray-500 uppercase font-semibold">Overhead</div>
                   <div class="mt-1 text-lg font-bold text-emerald-400 tabular-nums">+0.29ms</div>
-                </div>
-                <div class="rounded-xl border border-rose-500/30 bg-rose-950/20 p-3.5">
-                  <div class="text-[10px] text-gray-400 uppercase font-semibold">Peak Memory</div>
-                  <div class="mt-1 text-lg font-bold text-red-400 tabular-nums">32.4 MB</div>
-                  <div class="text-[10px] text-rose-400">over 20 MB budget</div>
                 </div>
               </div>
 
@@ -270,6 +296,37 @@ import { ArrowRight, Terminal } from 'lucide-react';
               </div>
             </div>
 
+            <!-- Panel View 4: Memory State -->
+            <div id="panel-view-4" class="panel-view hidden space-y-4 transition-opacity duration-300">
+              <div class="flex items-center justify-between border-b border-white/[0.06] pb-3">
+                <div class="flex items-center gap-2">
+                  <span class="h-2 w-2 rounded-full bg-rose-500 animate-pulse"></span>
+                  <span class="font-bold text-white text-sm">Memory Report • Budget 20 MB</span>
+                </div>
+                <span class="rounded bg-rose-500/20 px-2 py-0.5 text-[10px] font-bold text-rose-400 uppercase tracking-wider">
+                  1 Over Budget
+                </span>
+              </div>
+
+              <div class="grid grid-cols-2 gap-3">
+                <div class="rounded-xl border border-rose-500/30 bg-rose-950/20 p-3.5">
+                  <div class="text-[10px] text-gray-400 uppercase font-semibold">api.reports.export</div>
+                  <div class="mt-1 text-lg font-bold text-red-400 tabular-nums">64.2 MB</div>
+                  <div class="text-[10px] text-rose-400">Budget exceeded</div>
+                </div>
+                <div class="rounded-xl border border-white/[0.08] bg-black/30 p-3.5">
+                  <div class="text-[10px] text-gray-500 uppercase font-semibold">api.orders.index</div>
+                  <div class="mt-1 text-lg font-bold text-gray-200 tabular-nums">12.4 MB</div>
+                  <div class="text-[10px] text-gray-500">Within budget</div>
+                </div>
+              </div>
+
+              <div class="rounded-lg border border-white/5 bg-white/[0.02] p-3 text-[11px] text-gray-400 flex items-center justify-between">
+                <span>Peak captured via <span class="text-gray-200">memory_get_peak_usage(true)</span> at flush time</span>
+                <span class="text-brand-accent font-medium">max across samples</span>
+              </div>
+            </div>
+
           </div>
         </div>
       </div>
@@ -284,6 +341,7 @@ import { ArrowRight, Terminal } from 'lucide-react';
       1: document.getElementById('panel-view-1'),
       2: document.getElementById('panel-view-2'),
       3: document.getElementById('panel-view-3'),
+      4: document.getElementById('panel-view-4'),
     };
     const stepBadge = document.getElementById('terminal-step-badge');
     const tabBtns = document.querySelectorAll<HTMLButtonElement>('.step-tab-btn');
@@ -336,6 +394,7 @@ import { ArrowRight, Terminal } from 'lucide-react';
         if (stepNum === 1) stepBadge.textContent = 'pinpoint:report --tier=critical';
         if (stepNum === 2) stepBadge.textContent = 'pinpoint:report --since=30m';
         if (stepNum === 3) stepBadge.textContent = 'pinpoint:report --route=api.orders';
+        if (stepNum === 4) stepBadge.textContent = 'pinpoint:report --sort=memory';
       }
     }
 
