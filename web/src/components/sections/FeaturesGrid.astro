@@ -136,9 +136,9 @@ import { ArrowRight, Terminal } from 'lucide-react';
             </div>
             
             <div class="flex items-center gap-3 font-mono text-[11px]">
-              <button class="step-tab-btn bg-transparent border-none p-0 text-white border-b-2 border-brand-accent cursor-pointer" data-target-step="1">01 Detect</button>
-              <button class="step-tab-btn bg-transparent border-none p-0 text-gray-500 hover:text-gray-300 border-b-2 border-transparent cursor-pointer transition-colors" data-target-step="2">02 Measure</button>
-              <button class="step-tab-btn bg-transparent border-none p-0 text-gray-500 hover:text-gray-300 border-b-2 border-transparent cursor-pointer transition-colors" data-target-step="3">03 Locate</button>
+              <button class="step-tab-btn bg-transparent border-none p-0 text-white border-b-2 border-brand-accent cursor-default" data-target-step="1">01 Detect</button>
+              <button class="step-tab-btn bg-transparent border-none p-0 text-gray-500 hover:text-gray-300 border-b-2 border-transparent cursor-default transition-colors" data-target-step="2">02 Measure</button>
+              <button class="step-tab-btn bg-transparent border-none p-0 text-gray-500 hover:text-gray-300 border-b-2 border-transparent cursor-default transition-colors" data-target-step="3">03 Locate</button>
             </div>
           </div>
 
@@ -317,15 +317,11 @@ import { ArrowRight, Terminal } from 'lucide-react';
       });
     });
 
-    // Click listener on Tab Buttons — activates the step AND scrolls the
-    // matching card into view so the left column follows the selection.
+    // Click listener on Tab Buttons — activates the step on click.
     tabBtns.forEach((btn) => {
       btn.addEventListener('click', () => {
         const target = Number(btn.getAttribute('data-target-step'));
-        if (!target) return;
-        setActiveStep(target);
-        const card = document.querySelector<HTMLElement>(`.scrolly-step[data-step="${target}"]`);
-        card?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        if (target) setActiveStep(target);
       });
     });
 
