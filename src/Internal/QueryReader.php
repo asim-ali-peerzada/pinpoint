@@ -53,12 +53,18 @@ class QueryReader
      *
      * @return Collection<int, \stdClass>
      */
-    public function topQueries(string $routeLabel, int $limit = 20): Collection
+    public function topQueries(string $routeLabel, int $limit = 20, ?int $sinceMinutes = null): Collection
     {
-        $requestIds = self::scopeRouteLabel(
-            DB::table('pinpoint_requests')->select('id'),
+        $scope = self::scopeRouteLabel(
+            DB::table('pinpoint_requests')->select('id')->orderByDesc('id'),
             $routeLabel
-        )->pluck('id');
+        );
+
+        if ($sinceMinutes !== null) {
+            $scope->where('created_at', '>=', now()->subMinutes($sinceMinutes));
+        }
+
+        $requestIds = $scope->pluck('id');
 
         if ($requestIds->isEmpty()) {
             return collect();

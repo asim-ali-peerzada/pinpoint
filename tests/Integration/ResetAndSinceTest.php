@@ -83,3 +83,35 @@ test('reset aborts without confirmation', function () {
         ->expectsQuestion('This deletes ALL recorded Pinpoint data. Continue?', false)
         ->assertSuccessful();
 });
+
+test('drill-down respects the since window', function () {
+    // Old request with a lazy-load N+1 (outside the window).
+    $old = DB::table('pinpoint_requests')->insertGetId([
+        'route_name' => 'api.orders', 'method' => 'GET', 'path' => 'api/orders',
+        'duration_ms' => 500, 'query_count' => 10, 'query_time_ms' => 100,
+        'has_n_plus_one' => true, 'created_at' => now()->subHours(2),
+    ]);
+    DB::table('pinpoint_queries')->insert([
+        ['request_id' => $old, 'sql_fingerprint' => md5('select * from orders where user_id = ?'), 'sql' => 'select * from orders where user_id = ?', 'time_ms' => 10, 'caller_file' => null, 'caller_line' => null, 'created_at' => now()->subHours(2)],
+        ['request_id' => $old, 'sql_fingerprint' => md5('select * from orders where user_id = ?'), 'sql' => 'select * from orders where user_id = ?', 'time_ms' => 10, 'caller_file' => null, 'caller_line' => null, 'created_at' => now()->subHours(2)],
+        ['request_id' => $old, 'sql_fingerprint' => md5('select * from orders where user_id = ?'), 'sql' => 'select * from orders where user_id = ?', 'time_ms' => 10, 'caller_file' => null, 'caller_line' => null, 'created_at' => now()->subHours(2)],
+    ]);
+
+    // Fresh request WITHOUT the N+1 (inside the window).
+    $fresh = DB::table('pinpoint_requests')->insertGetId([
+        'route_name' => 'api.orders', 'method' => 'GET', 'path' => 'api/orders',
+        'duration_ms' => 50, 'query_count' => 2, 'query_time_ms' => 5,
+        'has_n_plus_one' => false, 'created_at' => now(),
+    ]);
+    DB::table('pinpoint_queries')->insert([
+        ['request_id' => $fresh, 'sql_fingerprint' => md5('select * from orders where id in (1, 2)'), 'sql' => 'select * from orders where id in (1, 2)', 'time_ms' => 5, 'caller_file' => null, 'caller_line' => null, 'created_at' => now()],
+    ]);
+
+    // With --since: only the fresh request — no N+1 badge.
+    $freshOutput = runArtisanCaptured('pinpoint:report', ['--route' => 'api.orders', '--since' => '5m']);
+    expect($freshOutput)->not->toContain('N+1 x3');
+
+    // Without --since: the old N+1 shows.
+    $allOutput = runArtisanCaptured('pinpoint:report', ['--route' => 'api.orders']);
+    expect($allOutput)->toContain('x3');
+});

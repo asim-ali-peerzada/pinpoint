@@ -39,13 +39,25 @@ class ReportCommand extends Command
     public function handle(): int
     {
         try {
+            $sinceMinutes = null;
+
+            if ($this->option('since') !== null) {
+                try {
+                    $sinceMinutes = SinceParser::toMinutes($this->option('since'));
+                } catch (InvalidArgumentException $e) {
+                    $this->cli->info($e->getMessage());
+
+                    return self::FAILURE;
+                }
+            }
+
             if ($route = $this->option('route')) {
-                $this->drillInto($route);
+                $this->drillInto($route, $sinceMinutes);
 
                 return self::SUCCESS;
             }
 
-            return $this->summary();
+            return $this->summary($sinceMinutes);
         } catch (Throwable $e) {
             Log::error('Pinpoint: report failed', ['exception' => $e->getMessage()]);
             $this->error('Pinpoint report failed: '.$e->getMessage());
@@ -54,20 +66,8 @@ class ReportCommand extends Command
         }
     }
 
-    protected function summary(): int
+    protected function summary(?int $sinceMinutes = null): int
     {
-        $sinceMinutes = null;
-
-        if ($this->option('since') !== null) {
-            try {
-                $sinceMinutes = SinceParser::toMinutes($this->option('since'));
-            } catch (InvalidArgumentException $e) {
-                $this->cli->info($e->getMessage());
-
-                return self::FAILURE;
-            }
-        }
-
         $rows = $this->summaries->fromRaw($sinceMinutes);
 
         if ($rows === []) {
@@ -224,9 +224,9 @@ class ReportCommand extends Command
         return $query ? ['file' => $query->caller_file, 'line' => (int) $query->caller_line] : null;
     }
 
-    protected function drillInto(string $routeLabel): void
+    protected function drillInto(string $routeLabel, ?int $sinceMinutes = null): void
     {
-        $queries = $this->queries->topQueries($routeLabel, (int) $this->option('limit'));
+        $queries = $this->queries->topQueries($routeLabel, (int) $this->option('limit'), $sinceMinutes);
 
         if ($this->option('json') || $this->option('json-to')) {
             $this->emitJson([
@@ -242,7 +242,7 @@ class ReportCommand extends Command
                     // or Cache::remember() without parsing the CLI badge text.
                     'query_type' => $q->query_type ?? null,
                 ])->all(),
-                'suggestions' => $this->buildChains($routeLabel),
+                'suggestions' => $this->buildChains($routeLabel, $sinceMinutes),
             ]);
 
             return;
@@ -258,7 +258,7 @@ class ReportCommand extends Command
             $this->cli->info('No queries captured for this route.');
         }
 
-        $this->cli->suggestions($this->buildChains($routeLabel));
+        $this->cli->suggestions($this->buildChains($routeLabel, $sinceMinutes));
     }
 
     /**
@@ -315,7 +315,7 @@ class ReportCommand extends Command
      * Eager-loading suggestion chains for a route label (deduped across the
      * most recent requests).
      */
-    protected function buildChains(string $routeLabel): array
+    protected function buildChains(string $routeLabel, ?int $sinceMinutes = null): array
     {
         // "METHOD path" fallback labels: match at the SQL level (grouped —
         // see QueryReader::scopeRouteLabel).
@@ -325,12 +325,17 @@ class ReportCommand extends Command
         // routes (SQLite bind limit / MySQL packet limit / memory), and
         // chaining violations from different requests would fabricate chains
         // that never occurred in a single request.
-        $requestIds = QueryReader::scopeRouteLabel(
+        $requestIdsQuery = QueryReader::scopeRouteLabel(
             DB::table('pinpoint_requests')->select('id'),
             $routeLabel
         )->orderByDesc('id')
-            ->limit((int) $this->option('limit'))
-            ->pluck('id');
+            ->limit((int) $this->option('limit'));
+
+        if ($sinceMinutes !== null) {
+            $requestIdsQuery->where('created_at', '>=', now()->subMinutes($sinceMinutes));
+        }
+
+        $requestIds = $requestIdsQuery->pluck('id');
 
         if ($requestIds->isEmpty()) {
             return [];
