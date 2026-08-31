@@ -135,10 +135,10 @@ import { ArrowRight, Terminal } from 'lucide-react';
               </span>
             </div>
             
-            <div class="flex items-center gap-1.5 font-mono text-[11px]">
-              <button class="step-tab-btn rounded px-2 py-0.5 text-white bg-brand-accent/25 ring-1 ring-brand-accent/60" data-target-step="1">01 Detect</button>
-              <button class="step-tab-btn rounded px-2 py-0.5 text-gray-400 hover:text-white" data-target-step="2">02 Measure</button>
-              <button class="step-tab-btn rounded px-2 py-0.5 text-gray-400 hover:text-white" data-target-step="3">03 Locate</button>
+            <div class="flex items-center gap-3 font-mono text-[11px]">
+              <button class="step-tab-btn bg-transparent border-none p-0 text-white border-b-2 border-brand-accent cursor-pointer" data-target-step="1">01 Detect</button>
+              <button class="step-tab-btn bg-transparent border-none p-0 text-gray-500 hover:text-gray-300 border-b-2 border-transparent cursor-pointer transition-colors" data-target-step="2">02 Measure</button>
+              <button class="step-tab-btn bg-transparent border-none p-0 text-gray-500 hover:text-gray-300 border-b-2 border-transparent cursor-pointer transition-colors" data-target-step="3">03 Locate</button>
             </div>
           </div>
 
@@ -259,15 +259,15 @@ import { ArrowRight, Terminal } from 'lucide-react';
     const tabBtns = document.querySelectorAll<HTMLButtonElement>('.step-tab-btn');
 
     function setActiveStep(stepNum: number) {
-      // Update Tab buttons (active = brand-accent, matches logo red)
+      // Update Tab buttons (active = underlined in logo red, text-style tabs)
       tabBtns.forEach((btn) => {
         const target = Number(btn.getAttribute('data-target-step'));
         if (target === stepNum) {
-          btn.classList.add('text-white', 'bg-brand-accent/25', 'ring-1', 'ring-brand-accent/60');
-          btn.classList.remove('text-gray-400');
+          btn.classList.add('text-white', 'border-brand-accent');
+          btn.classList.remove('text-gray-500', 'border-transparent');
         } else {
-          btn.classList.remove('text-white', 'bg-brand-accent/25', 'ring-1', 'ring-brand-accent/60');
-          btn.classList.add('text-gray-400');
+          btn.classList.remove('text-white', 'border-brand-accent');
+          btn.classList.add('text-gray-500', 'border-transparent');
         }
       });
 
@@ -317,11 +317,15 @@ import { ArrowRight, Terminal } from 'lucide-react';
       });
     });
 
-    // Click listener on Tab Buttons
+    // Click listener on Tab Buttons — activates the step AND scrolls the
+    // matching card into view so the left column follows the selection.
     tabBtns.forEach((btn) => {
       btn.addEventListener('click', () => {
         const target = Number(btn.getAttribute('data-target-step'));
-        if (target) setActiveStep(target);
+        if (!target) return;
+        setActiveStep(target);
+        const card = document.querySelector<HTMLElement>(`.scrolly-step[data-step="${target}"]`);
+        card?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       });
     });
 
