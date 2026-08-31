@@ -120,3 +120,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Security
 
 - Parameterized SQL is stored without bound values; unparameterized literals are documented as a caveat.
+## [1.4.1] - 2026-08-31
+
+### Fixed
+
+- **Drill-down and suggestions now respect `--since`**: `pinpoint:report --route=X --since=1h` previously read ALL recorded requests for the route, so stale pre-fix N+1 rows kept appearing after a fix. Both the drill-down table and eager-load suggestion chains are now windowed by `created_at`.
