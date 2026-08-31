@@ -104,6 +104,35 @@ php artisan pinpoint:reset                       # or: clear all recorded data e
 
 `pinpoint:reset` wipes every recorded request/query/lazy-load/summary (asks for confirmation; use `--force` in scripts).
 
+#### What the summary shows
+
+```
+PINPOINT                                                             Performance Report
+
+15 route(s) · 2 critical · 5 with N+1 · 2 with duplicate queries
+
++------------------------------------------+------+------+---------+--------+--------------+-----------+
+| Route                                    | p95  | Avg  | Samples | Memory | Tier         | N+1?      |
++------------------------------------------+------+------+---------+--------+--------------+-----------+
+| v1.historical-records.search             | 5872 | 5872 | 1       | 12 MB  |  CRITICAL    | Yes (x3)  |
+| api.user.families.tree                   | 258  | 224  | 2       | 6 MB   |  ACCEPTABLE  | Yes (x11) |
+| api.changelogs.mark-read                 | 136  | 136  | 1       | 4 MB   |  GOOD        | Yes (x17) |
++------------------------------------------+------+------+---------+--------+--------------+-----------+
+```
+
+- **Memory** — peak RAM (`memory_get_peak_usage(true)`) recorded per request, aggregated to the max per route. Values over `pinpoint.memory_budget_kb` (default 20 MB; `PINPOINT_MEMORY_BUDGET_KB=10240` for a 10 MB cap, `null`/`-1` disables) are shown bold red.
+- **N+1?** — `Yes (xN)` when a repeated query shape runs with **varying** bindings (true N+1, fix with eager loading). Repeated queries with **identical** bindings are counted separately in the summary line (`with duplicate queries`) — those are cache candidates, not N+1s (see drill-down badges below).
+
+#### Drill-down: CACHE vs N+1 badges
+
+`pinpoint:report --route=<route>` classifies each repeated query by its bindings:
+
+- **CACHE xN** (cyan) — same SQL with the same bound values every time → fix with `Cache::remember()` or memoization.
+- **N+1 xN** (red) — same SQL shape with different bindings each iteration → fix with `Model::with()`.
+- **REPEAT xN** (`unknown`) — no binding data recorded (e.g. raw SQL) → shown conservatively.
+
+A "Duplicate queries detected" block follows the table with the exact `Cache::remember(...)` suggestion for each cache candidate.
+
 ### Aggregation (staging/production)
 
 At scale, compute percentiles offline instead of per-request:

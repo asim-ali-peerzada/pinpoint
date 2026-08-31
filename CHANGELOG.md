@@ -14,8 +14,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - Drill-down shows cyan CACHE pills and red N+1 pills, plus `Cache::remember()` fix suggestions below the table.
   - Summary reports which routes contain duplicate queries; `pinpoint:check --json` exposes `query_type` for CI scripts.
 - **Peak memory hydration tracking**: `peak_memory_kb` column records `memory_get_peak_usage(true)` at request flush.
-  - Report table shows a Memory column (KB/MB), flagged bold-red when a route exceeds `pinpoint.memory_budget_kb` (default 20 MB; null disables).
+  - Report table shows a Memory column (KB/MB), flagged bold-red when a route exceeds `pinpoint.memory_budget_kb` (default 20 MB; `PINPOINT_MEMORY_BUDGET_KB=10240` for a 10 MB cap, null disables).
   - Summary aggregates the maximum peak memory observed per route.
+
+### Docs
+
+- README: documented the Memory column, the `pinpoint.memory_budget_kb` budget flag, the CACHE vs N+1 drill-down badges, and the duplicate-query summary line.
+- Verified against a real SPA/API app (FamilyTree): 12 MB route flagged red under a 10 MB budget, CACHE/duplicate detection working on live traffic.
 
 ## [1.3.2] - 2026-08-30
 
