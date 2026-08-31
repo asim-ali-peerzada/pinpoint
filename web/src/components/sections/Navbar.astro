@@ -6,7 +6,7 @@ import { Copy } from 'lucide-react';
 <header class="fixed top-0 left-0 right-0 z-50 h-14 border-b border-white/[0.08] bg-[#050608]/90 backdrop-blur-2xl transition-all duration-300">
   <div class="mx-auto flex h-full max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
     
-    <!-- Left: Brand -->
+    <!-- Left: Brand + Get Started (unified visual unit) -->
     <div class="flex items-center gap-3 sm:gap-4 shrink-0">
       <a href="#" class="flex items-center gap-2.5 group">
         <div class="relative flex h-7 w-7 items-center justify-center rounded-lg bg-brand-accent/15 ring-1 ring-brand-accent/30 shadow-[0_0_12px_rgba(245,48,3,0.25)]">
@@ -19,6 +19,9 @@ import { Copy } from 'lucide-react';
           Pinpoint
         </span>
       </a>
+      <Button href="#docs" size="sm" variant="primary" class="hidden sm:inline-flex">
+        Get started <span class="transition-transform duration-200 group-hover:translate-x-0.5">→</span>
+      </Button>
     </div>
 
     <!-- Center: Navigation Links (Generous spacing, no overlap) -->
@@ -29,7 +32,7 @@ import { Copy } from 'lucide-react';
       <a href="#docs" class="transition-colors hover:text-white">Documentation</a>
     </nav>
 
-    <!-- Right: Compact Command + Unified Global Button + GitHub -->
+    <!-- Right: Compact Command + GitHub -->
     <div class="flex items-center gap-2.5 sm:gap-3 shrink-0">
       <!-- Compact Copyable Command (xl:flex) -->
       <button
@@ -41,11 +44,6 @@ import { Copy } from 'lucide-react';
         <span class="truncate">composer require asimali/pinpoint</span>
         <Copy strokeWidth={1.25} class="h-3 w-3 text-gray-400 group-hover:text-white transition-colors" />
       </button>
-
-      <!-- Global Design-System Button (Instrument Sans, #F53003, rounded-md) -->
-      <Button href="#docs" size="sm" variant="primary">
-        Get started <span class="transition-transform duration-200 group-hover:translate-x-0.5">→</span>
-      </Button>
 
       <!-- GitHub Link -->
       <a
