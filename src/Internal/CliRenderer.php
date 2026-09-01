@@ -281,8 +281,8 @@ class CliRenderer
             .'<th class="text-right">p95</th>'
             .'<th class="text-right">Avg</th>'
             .'<th class="text-right">Samples</th>'
-            .'<th class="text-right">Memory</th>'
-            .'<th class="text-left">Tier</th>'
+            .'<th class="text-right">Memory (peak)</th>'
+            .'<th class="text-left">Tier (p95 only)</th>'
             .'<th class="text-center">N+1?</th>'
             .'</tr></thead><tbody>';
 

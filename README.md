@@ -107,14 +107,16 @@ PINPOINT                                                             Performance
 
 15 route(s) · 2 critical · 5 with N+1 · 2 with duplicate queries
 
-+------------------------------------------+------+------+---------+--------+--------------+-----------+
-| Route                                    | p95  | Avg  | Samples | Memory | Tier         | N+1?      |
-+------------------------------------------+------+------+---------+--------+--------------+-----------+
-| v1.historical-records.search             | 5872 | 5872 | 1       | 12 MB  |  CRITICAL    | Yes (x3)  |
-| api.user.families.tree                   | 258  | 224  | 2       | 6 MB   |  ACCEPTABLE  | Yes (x11) |
-| api.changelogs.mark-read                 | 136  | 136  | 1       | 4 MB   |  GOOD        | Yes (x17) |
-+------------------------------------------+------+------+---------+--------+--------------+-----------+
++------------------------------------------+------+------+---------+--------------+--------------+-----------+
+| Route                                    | p95  | Avg  | Samples | Memory (peak)| Tier (p95)   | N+1?      |
++------------------------------------------+------+------+---------+--------------+--------------+-----------+
+| v1.historical-records.search             | 5872 | 5872 | 1       | 12 MB        |  CRITICAL    | Yes (x3)  |
+| api.user.families.tree                   | 258  | 224  | 2       | 6 MB         |  ACCEPTABLE  | Yes (x11) |
+| api.changelogs.mark-read                 | 136  | 136  | 1       | 4 MB         |  GOOD        | Yes (x17) |
++------------------------------------------+------+------+---------+--------------+--------------+-----------+
 ```
+
+> **Each column is an independent signal.** The tier reflects **latency only** (p95 against `thresholds_ms`) — it does *not* factor in N+1s or memory. That's why `api.changelogs.mark-read` shows `GOOD` while carrying `Yes (x17)`: the route responds fast, but 17 near-identical queries per request is still a fixable problem. Read the row as: tier = speed, N+1? = query pattern, Memory = hydration cost. A route is only truly clean when all three are unremarkable.
 
 - **Memory** — the **peak RAM the PHP process used while serving the request** (`memory_get_peak_usage(true)`), NOT the size of your response/payload. A 4 MB reading does *not* mean the endpoint returns 4 MB of JSON — it means serving that request made the process allocate up to 4 MB at its worst moment (models hydrated, collections built, big arrays held). Large readings usually mean you're hydrating far more rows than you need — the fix is chunking, `select()` only the columns you use, or cursor-based iteration, not trimming the response body.
   - Each request records its own peak; the report shows the **max** observed across that route's samples.
@@ -296,6 +298,9 @@ Pinpoint is almost certainly disabled. It only records when `pinpoint.enabled` r
 
 **"I fixed the N+1 / slow route but the report still shows it."**
 Expected — the report aggregates **all recorded samples**, so pre-fix rows keep skewing p95, the `Yes (xN)` flag, and the memory column until they age out or are pruned. Verify your fix with a time window: `pinpoint:report --since=5m` (summary or `--route` drill-down), or wipe history with `pinpoint:reset --force`. New fixed requests are recorded instantly — `--since` just excludes the old ones from view.
+
+**"My route shows GOOD but it has an N+1 / high memory — is the tier wrong?"**
+No — the tier is labeled `Tier (p95 only)` because it measures **latency alone**. N+1s and memory are tracked in their own columns precisely because a fast route can still be wasteful (a cached-in-memory N+1 answers quickly; 24 MB of hydration can still return in 80 ms). Three independent signals: `Tier (p95)` = speed, `N+1?` = query pattern, `Memory (peak)` = hydration cost. Don't stop at green — scan all three columns.
 
 **"The Memory column shows 4 MB on a route that returns a tiny JSON."**
 That's correct — the column is the **peak RAM the PHP process allocated while serving the request**, not the response size. A bare Laravel request has a 2–4 MB baseline; compare routes against each other, not against zero. See [Peak memory per route](#peak-memory-per-route) for causes and fixes.
