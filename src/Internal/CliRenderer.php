@@ -276,13 +276,19 @@ class CliRenderer
                 count($rows), $critical, $n1, $duplicate
             );
 
+        $composite = (bool) config('pinpoint.composite_tier', false);
+
+        $tierHeader = $composite
+            ? 'Health (tier + N+1 + memory)'
+            : 'Tier (p95 only)';
+
         $html .= '<table class="w-full"><thead><tr class="text-gray-500 border-b border-gray-600">'
             .'<th class="text-left">Route</th>'
             .'<th class="text-right">p95</th>'
             .'<th class="text-right">Avg</th>'
             .'<th class="text-right">Samples</th>'
             .'<th class="text-right">Memory (peak)</th>'
-            .'<th class="text-left">Tier (p95 only)</th>'
+            .'<th class="text-left">'.$tierHeader.'</th>'
             .'<th class="text-center">N+1?</th>'
             .'</tr></thead><tbody>';
 
@@ -293,7 +299,7 @@ class CliRenderer
                 .'<td class="text-right text-white">'.$row['avg'].'<span class="text-gray-500">ms</span></td>'
                 .'<td class="text-right text-gray-300">'.$row['samples'].'</td>'
                 .'<td class="text-right">'.$this->memoryCell($row['memory'] ?? null, (bool) ($row['memory_over_budget'] ?? false)).'</td>'
-                .'<td class="text-left">'.$this->tierBadge($row['tier']).'</td>'
+                .'<td class="text-left">'.$this->healthOrTierBadge($row, $composite).'</td>'
                 .'<td class="text-center">'.$this->n1Badge($row['n1']).'</td>'
                 .'</tr>';
         }
@@ -523,6 +529,44 @@ class CliRenderer
     protected function routeLabel(string $route, int $max = 40): string
     {
         return mb_strimwidth($route, 0, $max, '…');
+    }
+
+    /**
+     * Pick the badge for the tier column: composite Health verdict when
+     * enabled, plain p95 tier otherwise.
+     *
+     * @param  array{tier: string, n1: string, memory_over_budget: bool}  $row
+     */
+    protected function healthOrTierBadge(array $row, bool $composite): string
+    {
+        return $composite
+            ? $this->healthBadge($row)
+            : $this->tierBadge($row['tier']);
+    }
+
+    /**
+     * Composite health verdict (opt-in via pinpoint.composite_tier):
+     * HEALTHY only when the p95 tier is good/acceptable AND no N+1 AND
+     * memory is within budget. The p95 tier rides along in parentheses so
+     * latency context is never lost — e.g. "NEEDS WORK (GOOD)" means fast,
+     * but flagged for another reason.
+     *
+     * @param  array{tier: string, n1: string, memory_over_budget: bool}  $row
+     */
+    protected function healthBadge(array $row): string
+    {
+        $tierLabel = strtoupper($row['tier']);
+
+        $isHealthyTier = in_array($row['tier'], [TierClassifier::GOOD, TierClassifier::ACCEPTABLE], true);
+        $hasN1 = str_starts_with($row['n1'], 'Yes');
+        $overMemory = $row['memory_over_budget'];
+
+        if ($isHealthyTier && ! $hasN1 && ! $overMemory) {
+            return '<span class="px-1 bg-green-600 text-white font-bold">HEALTHY</span>';
+        }
+
+        return '<span><span class="px-1 bg-red-600 text-white font-bold">NEEDS WORK</span>'
+            .'<span class="text-gray-600"> ('.$tierLabel.')</span></span>';
     }
 
     protected function tierBadge(string $tier): string

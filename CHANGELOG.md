@@ -120,6 +120,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Security
 
 - Parameterized SQL is stored without bound values; unparameterized literals are documented as a caveat.
+## [1.4.2] - 2026-08-31
+
+### Added
+
+- **Composite Health column (opt-in)**: `PINPOINT_COMPOSITE_TIER=true` replaces the p95-only tier column with a single verdict — `HEALTHY` only when the p95 tier is good/acceptable AND no N+1 AND peak memory is within budget; otherwise `NEEDS WORK (GOOD)`-style with the latency tier kept in parentheses. The header (`Health (tier + N+1 + memory)`) states what it measures, and `--json` rows gain `health` + `health_reason` fields. Off by default — the standard tier column is unchanged.
+
+### Changed
+
+- Report table headers now state their reference: `Tier (p95 only)` and `Memory (peak)` — a GOOD tier no longer reads as endorsing the whole route when it carries an N+1 or memory flag.
+
 ## [1.4.1] - 2026-08-31
 
 ### Fixed

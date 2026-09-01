@@ -70,6 +70,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Composite health column
+    |--------------------------------------------------------------------------
+    |
+    | When true, the report's Tier column becomes a composite "Health"
+    | verdict: HEALTHY only when the p95 tier is good/acceptable AND no N+1
+    | AND peak memory is within budget. Otherwise NEEDS WORK (with the p95
+    | tier in parentheses). Off by default — the standard Tier (p95 only)
+    | column is unchanged.
+    */
+    'composite_tier' => env('PINPOINT_COMPOSITE_TIER', false),
+
+    /*
+    |--------------------------------------------------------------------------
     | Retention
     |--------------------------------------------------------------------------
     |

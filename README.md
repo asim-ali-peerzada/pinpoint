@@ -118,6 +118,8 @@ PINPOINT                                                             Performance
 
 > **Each column is an independent signal.** The tier reflects **latency only** (p95 against `thresholds_ms`) — it does *not* factor in N+1s or memory. That's why `api.changelogs.mark-read` shows `GOOD` while carrying `Yes (x17)`: the route responds fast, but 17 near-identical queries per request is still a fixable problem. Read the row as: tier = speed, N+1? = query pattern, Memory = hydration cost. A route is only truly clean when all three are unremarkable.
 
+**Prefer one verdict?** Set `PINPOINT_COMPOSITE_TIER=true` and the column becomes **Health** — `HEALTHY` only when the p95 tier is good/acceptable AND no N+1 AND memory is within budget; anything else shows `NEEDS WORK (GOOD)`-style with the latency tier kept in parentheses. The header changes to `Health (tier + N+1 + memory)` so it always states what it measures. `--json` rows gain `health` and a `health_reason` breakdown for scripts.
+
 - **Memory** — the **peak RAM the PHP process used while serving the request** (`memory_get_peak_usage(true)`), NOT the size of your response/payload. A 4 MB reading does *not* mean the endpoint returns 4 MB of JSON — it means serving that request made the process allocate up to 4 MB at its worst moment (models hydrated, collections built, big arrays held). Large readings usually mean you're hydrating far more rows than you need — the fix is chunking, `select()` only the columns you use, or cursor-based iteration, not trimming the response body.
   - Each request records its own peak; the report shows the **max** observed across that route's samples.
   - Values over `pinpoint.memory_budget_kb` (default 20 MB; `PINPOINT_MEMORY_BUDGET_KB=10240` for a 10 MB cap, `null`/`-1` disables) are shown bold red.
@@ -218,6 +220,7 @@ All env vars (publish the config for full control: `php artisan vendor:publish -
 | `PINPOINT_CAPTURE_CALLER` | `capture_caller` | auto — same environments as above | `debug_backtrace` file:line capture; `true` to force on for staging, `false` to disable even locally |
 | `PINPOINT_MEMORY_BUDGET_KB` | `memory_budget_kb` | `20480` (20 MB) | routes whose peak memory exceeds this are flagged red in the Memory column; `null`/`-1` disables the check |
 | `PINPOINT_EDITOR` | `editor` | `vscode` | URI scheme for clickable file:line links (`phpstorm`, `cursor`, `windsurf`, `devin`, …) |
+| `PINPOINT_COMPOSITE_TIER` | `composite_tier` | `false` | replace the p95-only tier column with a composite Health verdict (`HEALTHY` / `NEEDS WORK (tier)`) that factors in N+1 and memory too |
 | — | `sample_rate` | `1.0` | fraction of requests recorded; use `0.1`–`0.2` in staging, keep `1.0` in local and CI |
 | — | `n_plus_one_repeat_threshold` | `3` | repeats of a query shape before N+1/duplicate flagging |
 | — | `thresholds_ms` | `good: 150, acceptable: 400, needs_improvement: 1000` | tier boundaries (milliseconds) |

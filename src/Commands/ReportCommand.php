@@ -108,6 +108,45 @@ class ReportCommand extends Command
         $filtered = array_slice($filtered, 0, (int) $this->option('limit'));
 
         if ($this->option('json') || $this->option('json-to')) {
+            if ((bool) config('pinpoint.composite_tier', false)) {
+                // Keep CLI and JSON in agreement: when the composite Health
+                // verdict is enabled, each row carries both the verdict and
+                // the reason it wasn't healthy.
+                $budgetKb = config('pinpoint.memory_budget_kb');
+                $budgetKb = ($budgetKb === null || (int) $budgetKb === -1) ? null : (int) $budgetKb;
+                $threshold = (int) config('pinpoint.n_plus_one_repeat_threshold', 3);
+
+                $filtered = array_map(function (array $row) use ($budgetKb, $threshold) {
+                    $healthy = in_array($row['tier'], [TierClassifier::GOOD, TierClassifier::ACCEPTABLE], true)
+                        && $row['n1_repeat'] < $threshold
+                        && ($budgetKb === null || $row['peak_memory_kb'] === null || $row['peak_memory_kb'] <= $budgetKb);
+
+                    $row['health'] = $healthy ? 'healthy' : 'needs_work';
+
+                    if (! $healthy) {
+                        $reasons = [];
+
+                        if (! in_array($row['tier'], [TierClassifier::GOOD, TierClassifier::ACCEPTABLE], true)) {
+                            $reasons[] = 'p95 tier: '.$row['tier'];
+                        }
+
+                        if ($row['n1_repeat'] >= $threshold) {
+                            $reasons[] = 'N+1 repeats: '.$row['n1_repeat'];
+                        }
+
+                        if ($budgetKb !== null && $row['peak_memory_kb'] !== null && $row['peak_memory_kb'] > $budgetKb) {
+                            $reasons[] = 'peak memory: '.$row['peak_memory_kb'].' KB (budget '.$budgetKb.' KB)';
+                        }
+
+                        $row['health_reason'] = implode('; ', $reasons);
+                    } else {
+                        $row['health_reason'] = null;
+                    }
+
+                    return $row;
+                }, $filtered);
+            }
+
             $this->emitJson([
                 'meta' => ['window_minutes' => $sinceMinutes],
                 'routes' => $filtered,
