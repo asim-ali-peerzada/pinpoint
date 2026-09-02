@@ -39,17 +39,7 @@ class ReportCommand extends Command
     public function handle(): int
     {
         try {
-            $sinceMinutes = null;
-
-            if ($this->option('since') !== null) {
-                try {
-                    $sinceMinutes = SinceParser::toMinutes($this->option('since'));
-                } catch (InvalidArgumentException $e) {
-                    $this->cli->info($e->getMessage());
-
-                    return self::FAILURE;
-                }
-            }
+            $sinceMinutes = $this->resolveSinceMinutes();
 
             if ($route = $this->option('route')) {
                 $this->drillInto($route, $sinceMinutes);
@@ -59,11 +49,27 @@ class ReportCommand extends Command
 
             return $this->summary($sinceMinutes);
         } catch (Throwable $e) {
+            return $this->handleException($e);
+        }
+    }
+
+    protected function handleException(Throwable $e): int
+    {
+        if ($e instanceof InvalidArgumentException) {
+            $this->cli->info($e->getMessage());
+        } else {
             Log::error('Pinpoint: report failed', ['exception' => $e->getMessage()]);
             $this->error('Pinpoint report failed: '.$e->getMessage());
-
-            return self::FAILURE;
         }
+
+        return self::FAILURE;
+    }
+
+    protected function resolveSinceMinutes(): ?int
+    {
+        $since = $this->option('since');
+
+        return $since !== null ? SinceParser::toMinutes($since) : null;
     }
 
     protected function summary(?int $sinceMinutes = null): int
@@ -76,96 +82,155 @@ class ReportCommand extends Command
             return self::SUCCESS;
         }
 
-        $tier = $this->option('tier');
+        $tier = $this->validateTier($this->option('tier'));
+        $filtered = $this->filterRows($rows, $tier, (int) $this->option('limit'));
 
-        // An unknown tier must fail loudly — silently rendering an empty table
-        // reads as "nothing is slow" when the user typo'd the filter.
-        if ($tier !== null && ! in_array(strtolower($tier), [
+        if ($this->option('json') || $this->option('json-to')) {
+            $this->emitJsonSummary($filtered, $sinceMinutes);
+        } else {
+            $this->renderTableSummary($filtered, $rows, $sinceMinutes);
+        }
+
+        return self::SUCCESS;
+    }
+
+    protected function validateTier(?string $tier): ?string
+    {
+        if ($tier === null) {
+            return null;
+        }
+
+        $validTiers = [
             TierClassifier::GOOD,
             TierClassifier::ACCEPTABLE,
             TierClassifier::NEEDS_IMPROVEMENT,
             TierClassifier::CRITICAL,
-        ], true)) {
-            $this->error(sprintf(
+        ];
+
+        $normalized = strtolower($tier);
+
+        if (! in_array($normalized, $validTiers, true)) {
+            throw new InvalidArgumentException(sprintf(
                 'Invalid --tier value "%s". Valid tiers: %s.',
                 $tier,
-                implode(', ', [TierClassifier::GOOD, TierClassifier::ACCEPTABLE, TierClassifier::NEEDS_IMPROVEMENT, TierClassifier::CRITICAL])
+                implode(', ', $validTiers)
             ));
-
-            return self::FAILURE;
         }
 
+        return $normalized;
+    }
+
+    /**
+     * @param  array<int, array{route: string, p50: int, p95: int, p99: int, avg: int, samples: int, tier: string, n1_repeat: int, peak_memory_kb: int|null, has_duplicate_queries: bool}>  $rows
+     * @return array<int, array{route: string, p50: int, p95: int, p99: int, avg: int, samples: int, tier: string, n1_repeat: int, peak_memory_kb: int|null, has_duplicate_queries: bool}>
+     */
+    protected function filterRows(array $rows, ?string $tier, int $limit): array
+    {
         $filtered = [];
 
         foreach ($rows as $row) {
-            if ($tier && $row['tier'] !== strtolower($tier)) {
+            if ($tier !== null && $row['tier'] !== $tier) {
                 continue;
             }
 
             $filtered[] = $row;
         }
 
-        $filtered = array_slice($filtered, 0, (int) $this->option('limit'));
+        return array_slice($filtered, 0, $limit);
+    }
 
-        if ($this->option('json') || $this->option('json-to')) {
-            if ((bool) config('pinpoint.composite_tier', false)) {
-                // Keep CLI and JSON in agreement: when the composite Health
-                // verdict is enabled, each row carries both the verdict and
-                // the reason it wasn't healthy.
-                $budgetKb = config('pinpoint.memory_budget_kb');
-                $budgetKb = ($budgetKb === null || (int) $budgetKb === -1) ? null : (int) $budgetKb;
-                $threshold = (int) config('pinpoint.n_plus_one_repeat_threshold', 3);
-
-                $filtered = array_map(function (array $row) use ($budgetKb, $threshold) {
-                    $healthy = in_array($row['tier'], [TierClassifier::GOOD, TierClassifier::ACCEPTABLE], true)
-                        && $row['n1_repeat'] < $threshold
-                        && ($budgetKb === null || $row['peak_memory_kb'] === null || $row['peak_memory_kb'] <= $budgetKb);
-
-                    $row['health'] = $healthy ? 'healthy' : 'needs_work';
-
-                    if (! $healthy) {
-                        $reasons = [];
-
-                        if (! in_array($row['tier'], [TierClassifier::GOOD, TierClassifier::ACCEPTABLE], true)) {
-                            $reasons[] = 'p95 tier: '.$row['tier'];
-                        }
-
-                        if ($row['n1_repeat'] >= $threshold) {
-                            $reasons[] = 'N+1 repeats: '.$row['n1_repeat'];
-                        }
-
-                        if ($budgetKb !== null && $row['peak_memory_kb'] !== null && $row['peak_memory_kb'] > $budgetKb) {
-                            $reasons[] = 'peak memory: '.$row['peak_memory_kb'].' KB (budget '.$budgetKb.' KB)';
-                        }
-
-                        $row['health_reason'] = implode('; ', $reasons);
-                    } else {
-                        $row['health_reason'] = null;
-                    }
-
-                    return $row;
-                }, $filtered);
-            }
-
-            $this->emitJson([
-                'meta' => ['window_minutes' => $sinceMinutes],
-                'routes' => $filtered,
-            ]);
-
-            return self::SUCCESS;
+    /**
+     * @param  array<int, array{route: string, p50: int, p95: int, p99: int, avg: int, samples: int, tier: string, n1_repeat: int, peak_memory_kb: int|null, has_duplicate_queries: bool}>  $filtered
+     */
+    protected function emitJsonSummary(array $filtered, ?int $sinceMinutes): void
+    {
+        if ((bool) config('pinpoint.composite_tier', false)) {
+            $filtered = $this->applyCompositeHealth($filtered);
         }
 
-        $table = [];
+        $this->emitJson([
+            'meta' => ['window_minutes' => $sinceMinutes],
+            'routes' => $filtered,
+        ]);
+    }
 
-        // null = budget check disabled; cast only when a real limit is set.
+    /**
+     * @param  array<int, array<string, mixed>>  $rows
+     * @return array<int, array<string, mixed>>
+     */
+    protected function applyCompositeHealth(array $rows): array
+    {
+        $budgetKb = config('pinpoint.memory_budget_kb');
+        $budgetKb = ($budgetKb === null || (int) $budgetKb === -1) ? null : (int) $budgetKb;
+        $threshold = (int) config('pinpoint.n_plus_one_repeat_threshold', 3);
+
+        return array_map(function (array $row) use ($budgetKb, $threshold) {
+            $healthy = in_array($row['tier'], [TierClassifier::GOOD, TierClassifier::ACCEPTABLE], true)
+                && $row['n1_repeat'] < $threshold
+                && ($budgetKb === null || $row['peak_memory_kb'] === null || $row['peak_memory_kb'] <= $budgetKb);
+
+            $row['health'] = $healthy ? 'healthy' : 'needs_work';
+            $row['health_reason'] = $healthy ? null : $this->buildHealthReason($row, $budgetKb, $threshold);
+
+            return $row;
+        }, $rows);
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     */
+    protected function buildHealthReason(array $row, ?int $budgetKb, int $threshold): string
+    {
+        $reasons = [];
+
+        if (! in_array($row['tier'], [TierClassifier::GOOD, TierClassifier::ACCEPTABLE], true)) {
+            $reasons[] = 'p95 tier: '.$row['tier'];
+        }
+
+        if ($row['n1_repeat'] >= $threshold) {
+            $reasons[] = 'N+1 repeats: '.$row['n1_repeat'];
+        }
+
+        if ($budgetKb !== null && $row['peak_memory_kb'] !== null && $row['peak_memory_kb'] > $budgetKb) {
+            $reasons[] = 'peak memory: '.$row['peak_memory_kb'].' KB (budget '.$budgetKb.' KB)';
+        }
+
+        return implode('; ', $reasons);
+    }
+
+    /**
+     * @param  array<int, array{route: string, p50: int, p95: int, p99: int, avg: int, samples: int, tier: string, n1_repeat: int, peak_memory_kb: int|null, has_duplicate_queries: bool}>  $filtered
+     * @param  array<int, array{route: string, p50: int, p95: int, p99: int, avg: int, samples: int, tier: string, n1_repeat: int, peak_memory_kb: int|null, has_duplicate_queries: bool}>  $allRows
+     */
+    protected function renderTableSummary(array $filtered, array $allRows, ?int $sinceMinutes): void
+    {
         $memoryBudgetKb = config('pinpoint.memory_budget_kb');
         $memoryBudgetKb = $memoryBudgetKb !== null ? (int) $memoryBudgetKb : null;
 
+        $table = $this->buildTableRows($filtered, $memoryBudgetKb);
+
+        $title = 'Performance Report';
+        if ($sinceMinutes !== null) {
+            $title .= ' · last '.$sinceMinutes.' min';
+        }
+
+        $this->cli->reportTable($title, $table);
+        $this->printLocate($allRows);
+    }
+
+    /**
+     * @param  array<int, array{route: string, p50: int, p95: int, p99: int, avg: int, samples: int, tier: string, n1_repeat: int, peak_memory_kb: int|null, has_duplicate_queries: bool}>  $filtered
+     * @return array<int, array{route: string, p95: int, avg: int, samples: int, tier: string, n1: string, memory: string|null, memory_over_budget: bool, has_duplicate: bool}>
+     */
+    protected function buildTableRows(array $filtered, ?int $memoryBudgetKb): array
+    {
+        $threshold = (int) config('pinpoint.n_plus_one_repeat_threshold', 3);
+        $table = [];
+
         foreach ($filtered as $row) {
             $repeat = $row['n1_repeat'];
-            $n1 = $repeat >= (int) config('pinpoint.n_plus_one_repeat_threshold', 3) ? "Yes (x{$repeat})" : 'No';
-
-            $memKb = $row['peak_memory_kb'] ?? null;
+            $n1 = $repeat >= $threshold ? "Yes (x{$repeat})" : 'No';
+            $memKb = $row['peak_memory_kb'];
 
             $table[] = [
                 'route' => $row['route'],
@@ -180,17 +245,7 @@ class ReportCommand extends Command
             ];
         }
 
-        $title = 'Performance Report';
-
-        if ($sinceMinutes !== null) {
-            $title .= ' · last '.$sinceMinutes.' min';
-        }
-
-        $this->cli->reportTable($title, $table);
-
-        $this->printLocate($rows);
-
-        return self::SUCCESS;
+        return $table;
     }
 
     /**

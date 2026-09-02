@@ -3,9 +3,11 @@
 namespace AsimAli\Pinpoint\Internal;
 
 use AsimAli\Pinpoint\TierClassifier;
-use Illuminate\Console\OutputStyle;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Route;
 use Illuminate\Support\Collection;
+use ReflectionFunction;
+use ReflectionMethod;
 use Termwind\Termwind;
 
 use function Termwind\parse;
@@ -80,14 +82,14 @@ class CliRenderer
             return '<span class="text-gray-600">-</span>';
         }
 
-        $label = e($this->relativeCaller($file).':'.$line);
+        $label = e(EditorLink::relativeCaller($file).':'.$line);
         $token = $this->linkToken($label);
 
         if ($token === null) {
             return $label;
         }
 
-        $this->hyperlinks[$token] = sprintf('<href=%s>%s</>', $this->editorScheme($file, $line), $label);
+        $this->hyperlinks[$token] = sprintf('<href=%s>%s</>', EditorLink::scheme($file, $line), $label);
 
         return $token;
     }
@@ -121,59 +123,16 @@ class CliRenderer
         return mb_substr($token, 0, $width);
     }
 
-    protected function editorScheme(string $file, int $line): string
-    {
-        $editor = config('pinpoint.editor', 'vscode');
-
-        $absolutePath = $this->absolutePath($file);
-
-        return match ($editor) {
-            'phpstorm' => sprintf('phpstorm://open?file=%s&line=%d', rawurlencode($absolutePath), $line),
-            // VS Code-compatible scheme (also registered by Cursor,
-            // Windsurf/Devin Desktop — the URI handler is the editor's).
-            // Canonical form is EXACTLY one slash between "file" and the
-            // path: vscode://file{path}:{line}. A double slash (vscode://file//mnt/...)
-            // makes the URL parser see an empty path, handlers misbehave
-            // (wrong/recent-focus file opens instead of the target).
-            default => sprintf('%s://file/%s:%d', $editor, ltrim(str_replace('%2F', '/', rawurlencode($absolutePath)), '/'), $line),
-        };
-    }
-
-    protected function absolutePath(string $file): string
-    {
-        // Caller paths from Caller::capture() are stored workspace-relative
-        // (base_path()-stripped), but URI handlers need absolute paths —
-        // a relative vscode://file path makes VS Code fall back to search.
-        if (str_starts_with($file, DIRECTORY_SEPARATOR) || preg_match('/^[A-Za-z]:[\\\\\/]/', $file)) {
-            return $file;
-        }
-
-        $base = base_path();
-
-        return str_starts_with($file, $base) ? $file : $base.DIRECTORY_SEPARATOR.$file;
-    }
-
-    protected function relativeCaller(string $file): string
-    {
-        $base = base_path();
-
-        if (str_starts_with($file, $base)) {
-            return ltrim(substr($file, strlen($base)), '/\\');
-        }
-
-        return $file;
-    }
-
     public function routeLink(string $route, int $max = 40): string
     {
-        $label = e($this->routeLabel($route, $max));
+        $label = e(mb_strimwidth($route, 0, $max, '…'));
         $location = $this->routeActionLocation($route);
 
         if ($location && $location['file'] && $location['line'] !== null) {
             $token = $this->linkToken($label);
 
             if ($token !== null) {
-                $this->hyperlinks[$token] = sprintf('<href=%s>%s</>', $this->editorScheme($location['file'], $location['line']), $label);
+                $this->hyperlinks[$token] = sprintf('<href=%s>%s</>', EditorLink::scheme($location['file'], $location['line']), $label);
 
                 return $token;
             }
@@ -189,70 +148,84 @@ class CliRenderer
         }
 
         try {
-            $router = app('router');
-            $routes = $router->getRoutes();
+            $route = $this->findRoute($routeLabel);
 
-            // Name lookups are only refreshed when routes are loaded through
-            // the service provider — after runtime registration (tests) they
-            // can be stale. Rebuilding the map is cheap for a dev CLI.
-            $routes->refreshNameLookups();
-
-            $route = $routes->getByName($routeLabel);
-
-            if (! $route && str_contains($routeLabel, ' ')) {
-                [$method, $path] = explode(' ', $routeLabel, 2);
-                try {
-                    $route = $routes->match(Request::create($path, $method));
-                } catch (\Throwable) {
-                    $route = null;
-                }
-            }
-
-            if (! $route) {
-                return null;
-            }
-
-            $uses = $route->getAction('uses');
-
-            if ($uses instanceof \Closure) {
-                $ref = new \ReflectionFunction($uses);
-
-                return ['file' => $ref->getFileName(), 'line' => (int) $ref->getStartLine()];
-            }
-
-            if (is_string($uses) && str_contains($uses, '@')) {
-                [$class, $method] = explode('@', $uses, 2);
-                if (class_exists($class) && method_exists($class, $method)) {
-                    $ref = new \ReflectionMethod($class, $method);
-
-                    return ['file' => $ref->getFileName(), 'line' => (int) $ref->getStartLine()];
-                }
-            }
-
-            // Invokable controller: Route::get('/x', InvokableController::class)
-            // → action 'uses' is the bare class string → __invoke.
-            if (is_string($uses) && ! str_contains($uses, '@') && class_exists($uses) && method_exists($uses, '__invoke')) {
-                $ref = new \ReflectionMethod($uses, '__invoke');
-
-                return ['file' => $ref->getFileName(), 'line' => (int) $ref->getStartLine()];
-            }
-
-            if (is_array($uses) && count($uses) === 2 && is_string($uses[0]) && is_string($uses[1])) {
-                if (class_exists($uses[0]) && method_exists($uses[0], $uses[1])) {
-                    $ref = new \ReflectionMethod($uses[0], $uses[1]);
-
-                    return ['file' => $ref->getFileName(), 'line' => (int) $ref->getStartLine()];
-                }
-            }
+            return $route ? $this->resolveCallableLocation($route->getAction('uses')) : null;
         } catch (\Throwable) {
             return null;
+        }
+    }
+
+    protected function findRoute(string $routeLabel): ?Route
+    {
+        $router = app('router');
+        $routes = $router->getRoutes();
+
+        // Name lookups are only refreshed when routes are loaded through
+        // the service provider — after runtime registration (tests) they
+        // can be stale. Rebuilding the map is cheap for a dev CLI.
+        $routes->refreshNameLookups();
+
+        $route = $routes->getByName($routeLabel);
+
+        if (! $route && str_contains($routeLabel, ' ')) {
+            [$method, $path] = explode(' ', $routeLabel, 2);
+            try {
+                $route = $routes->match(Request::create($path, $method));
+            } catch (\Throwable) {
+                $route = null;
+            }
+        }
+
+        return $route;
+    }
+
+    protected function resolveCallableLocation(mixed $uses): ?array
+    {
+        if ($uses instanceof \Closure) {
+            $ref = new ReflectionFunction($uses);
+
+            return ['file' => $ref->getFileName(), 'line' => (int) $ref->getStartLine()];
+        }
+
+        if (is_string($uses)) {
+            return $this->resolveClassStringLocation($uses);
+        }
+
+        return $this->resolveArrayCallableLocation($uses);
+    }
+
+    protected function resolveArrayCallableLocation(mixed $uses): ?array
+    {
+        if (is_array($uses) && count($uses) === 2 && is_string($uses[0]) && is_string($uses[1]) && class_exists($uses[0]) && method_exists($uses[0], $uses[1])) {
+            $ref = new ReflectionMethod($uses[0], $uses[1]);
+
+            return ['file' => $ref->getFileName(), 'line' => (int) $ref->getStartLine()];
+        }
+
+        return null;
+    }
+
+    protected function resolveClassStringLocation(string $uses): ?array
+    {
+        if (str_contains($uses, '@')) {
+            [$class, $method] = explode('@', $uses, 2);
+            if (class_exists($class) && method_exists($class, $method)) {
+                $ref = new ReflectionMethod($class, $method);
+
+                return ['file' => $ref->getFileName(), 'line' => (int) $ref->getStartLine()];
+            }
+        } elseif (class_exists($uses) && method_exists($uses, '__invoke')) {
+            $ref = new ReflectionMethod($uses, '__invoke');
+
+            return ['file' => $ref->getFileName(), 'line' => (int) $ref->getStartLine()];
         }
 
         return null;
     }
 
     /**
-     * @param  array<int, array{route: string, p95: int, avg: int, samples: int, tier: string, n1: string, memory?: string|null, memory_over_budget?: bool, has_duplicate?: bool}>  $rows
+     * @param  array<int, array{route: string, p95: int, avg: int, samples: int, tier: string, n1: string, memory?: string|null, memory_over_budget?: bool, has_duplicate?: bool, health?: string|null}>  $rows
      */
     public function reportTable(string $title, array $rows, ?string $emptyMessage = null): void
     {
@@ -270,7 +243,7 @@ class CliRenderer
         $n1 = count(array_filter($rows, fn ($r) => str_starts_with($r['n1'], 'Yes')));
         $duplicate = count(array_filter($rows, fn ($r) => (bool) ($r['has_duplicate'] ?? false)));
 
-        $html = $this->header($title)
+        $html = BadgeRenderer::header($title)
             .sprintf(
                 '<div class="mt-1 mb-1 text-gray-400">%d route(s) · <span class="text-white">%d</span> critical · <span class="text-white">%d</span> with N+1 · <span class="text-white">%d</span> with duplicate queries</div>',
                 count($rows), $critical, $n1, $duplicate
@@ -298,9 +271,9 @@ class CliRenderer
                 .'<td class="text-right text-white">'.$row['p95'].'<span class="text-gray-500">ms</span></td>'
                 .'<td class="text-right text-white">'.$row['avg'].'<span class="text-gray-500">ms</span></td>'
                 .'<td class="text-right text-gray-300">'.$row['samples'].'</td>'
-                .'<td class="text-right">'.$this->memoryCell($row['memory'] ?? null, (bool) ($row['memory_over_budget'] ?? false)).'</td>'
-                .'<td class="text-left">'.$this->healthOrTierBadge($row, $composite).'</td>'
-                .'<td class="text-center">'.$this->n1Badge($row['n1']).'</td>'
+                .'<td class="text-right">'.BadgeRenderer::memoryCell($row['memory'] ?? null, (bool) ($row['memory_over_budget'] ?? false)).'</td>'
+                .'<td class="text-left">'.BadgeRenderer::healthOrTier($row, $composite).'</td>'
+                .'<td class="text-center">'.BadgeRenderer::n1($row['n1']).'</td>'
                 .'</tr>';
         }
 
@@ -314,7 +287,7 @@ class CliRenderer
      */
     public function checkReport(array $violations, int $checked, int $windowMinutes, bool $passed): void
     {
-        $html = $this->header('Pinpoint Check');
+        $html = BadgeRenderer::header('Pinpoint Check');
 
         if ($passed) {
             $html .= '<div class="mt-1 text-green-400 font-bold">All checks passed.</div>';
@@ -446,7 +419,7 @@ class CliRenderer
 
         usort($offenders, fn ($a, $b) => $b['repeat'] <=> $a['repeat']);
 
-        $html = $this->header('Locate');
+        $html = BadgeRenderer::header('Locate');
 
         $shown = array_slice($offenders, 0, $cap);
 
@@ -476,7 +449,7 @@ class CliRenderer
      */
     public function queriesTable($queries, int $n1Threshold): void
     {
-        $html = $this->header('Top Offending Queries');
+        $html = BadgeRenderer::header('Top Offending Queries');
 
         $html .= '<table class="w-full"><thead><tr class="text-gray-500 border-b border-gray-600">'
             .'<th class="text-left">SQL</th>'
@@ -495,7 +468,7 @@ class CliRenderer
 
             // query_type is set by QueryReader::topQueries() for repeated groups.
             $typeBadge = $isN1
-                ? $this->queryTypeBadge($query->query_type ?? null, $query->repeat_count)
+                ? BadgeRenderer::queryType($query->query_type ?? null, $query->repeat_count)
                 : '<span class="text-gray-600">-</span>';
 
             $html .= '<tr>'
@@ -511,120 +484,5 @@ class CliRenderer
         $html .= '</tbody></table></div>';
 
         $this->render($html);
-    }
-
-    protected function header(string $title): string
-    {
-        return '<div class="mx-2 my-1">'
-            .'<div class="flex justify-between w-full mb-1">'
-            .'<span class="px-2 bg-blue-500 text-white font-bold uppercase">Pinpoint</span>'
-            .'<span class="text-gray-400">'.e($title).'</span>'
-            .'</div>';
-    }
-
-    /**
-     * Cap route labels so long names can't push the p95/avg columns off
-     * narrow terminals (Termwind sizes columns to content).
-     */
-    protected function routeLabel(string $route, int $max = 40): string
-    {
-        return mb_strimwidth($route, 0, $max, '…');
-    }
-
-    /**
-     * Pick the badge for the tier column: composite Health verdict when
-     * enabled, plain p95 tier otherwise.
-     *
-     * @param  array{tier: string, n1: string, memory_over_budget: bool}  $row
-     */
-    protected function healthOrTierBadge(array $row, bool $composite): string
-    {
-        return $composite
-            ? $this->healthBadge($row)
-            : $this->tierBadge($row['tier']);
-    }
-
-    /**
-     * Composite health verdict (opt-in via pinpoint.composite_tier):
-     * HEALTHY only when the p95 tier is good/acceptable AND no N+1 AND
-     * memory is within budget. The p95 tier rides along in parentheses so
-     * latency context is never lost — e.g. "NEEDS WORK (GOOD)" means fast,
-     * but flagged for another reason.
-     *
-     * @param  array{tier: string, n1: string, memory_over_budget: bool}  $row
-     */
-    protected function healthBadge(array $row): string
-    {
-        $tierLabel = strtoupper($row['tier']);
-
-        $isHealthyTier = in_array($row['tier'], [TierClassifier::GOOD, TierClassifier::ACCEPTABLE], true);
-        $hasN1 = str_starts_with($row['n1'], 'Yes');
-        $overMemory = $row['memory_over_budget'];
-
-        if ($isHealthyTier && ! $hasN1 && ! $overMemory) {
-            return '<span class="px-1 bg-green-600 text-white font-bold">HEALTHY</span>';
-        }
-
-        return '<span><span class="px-1 bg-red-600 text-white font-bold">NEEDS WORK</span>'
-            .'<span class="text-gray-600"> ('.$tierLabel.')</span></span>';
-    }
-
-    protected function tierBadge(string $tier): string
-    {
-        $label = strtoupper($tier);
-
-        return match ($tier) {
-            TierClassifier::GOOD => '<span class="px-1 bg-green-600 text-white font-bold">'.$label.'</span>',
-            TierClassifier::ACCEPTABLE => '<span class="px-1 bg-yellow-600 text-black font-bold">'.$label.'</span>',
-            TierClassifier::NEEDS_IMPROVEMENT => '<span class="px-1 bg-orange-600 text-white font-bold">'.$label.'</span>',
-            TierClassifier::CRITICAL => '<span class="px-1 bg-red-600 text-white font-bold">'.$label.'</span>',
-            default => '<span class="text-gray-400">'.$label.'</span>',
-        };
-    }
-
-    protected function n1Badge(string $n1): string
-    {
-        if (str_starts_with($n1, 'Yes')) {
-            return '<span class="text-red-500 font-bold">'.$n1.'</span>';
-        }
-
-        return '<span class="text-gray-600">No</span>';
-    }
-
-    /**
-     * Badge for the query type column in the drill-in query table.
-     *
-     * Visual language:
-     *   [N+1]     red    — fix with Model::with() (varying bindings per loop)
-     *   [CACHE]   cyan   — fix with Cache::remember() (identical query repeated)
-     *   [REPEAT]  yellow — classification unknown (null bindings_hash recorded)
-     */
-    protected function queryTypeBadge(?string $type, int $count): string
-    {
-        return match ($type) {
-            'duplicate' => '<span class="px-1 bg-cyan-600 text-white font-bold">CACHE x'.$count.'</span>',
-            'n_plus_one' => '<span class="px-1 bg-red-600 text-white font-bold">N+1 x'.$count.'</span>',
-            // Bindings were not captured (e.g. raw DB::statement) — we know
-            // it repeats but cannot tell if the values differ.
-            default => '<span class="px-1 bg-yellow-600 text-black font-bold">REPEAT x'.$count.'</span>',
-        };
-    }
-
-    /**
-     * Render a memory figure for the report table.
-     *
-     * Returns an em-dash when no data is available (pre-migration rows, routes
-     * not yet accessed since the upgrade). Returns a red-highlighted value when
-     * peak RAM exceeds the configured budget.
-     */
-    protected function memoryCell(?string $formatted, bool $overBudget): string
-    {
-        if ($formatted === null) {
-            return '<span class="text-gray-600">—</span>';
-        }
-
-        return $overBudget
-            ? '<span class="text-red-500 font-bold">'.$formatted.'</span>'
-            : '<span class="text-gray-300">'.$formatted.'</span>';
     }
 }

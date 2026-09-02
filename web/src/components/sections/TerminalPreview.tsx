@@ -43,6 +43,13 @@ const routes: RouteRow[] = [
   },
 ];
 
+const getRowButtonClass = (hasDetails: boolean, expanded: boolean): string => {
+  if (!hasDetails) {
+    return 'cursor-default';
+  }
+  return expanded ? 'bg-white/[0.03]' : 'hover:bg-white/[0.02] cursor-pointer';
+};
+
 export default function TerminalPreview() {
   const [view, setView] = useState<View>('output');
   const [open, setOpen] = useState<number | null>(null);
@@ -100,17 +107,12 @@ export default function TerminalPreview() {
                   const critical = r.status === 'Critical';
                   const expanded = open === i;
                   const hasDetails = Boolean(r.pattern);
+                  const buttonBgClass = getRowButtonClass(hasDetails, expanded);
                   return (
                     <React.Fragment key={r.key}>
                       <button
                         onClick={() => hasDetails && setOpen(expanded ? null : i)}
-                        className={`block w-full rounded-md text-left transition-colors ${
-                          hasDetails
-                            ? expanded
-                              ? 'bg-white/[0.03]'
-                              : 'hover:bg-white/[0.02] cursor-pointer'
-                            : 'cursor-default'
-                        }`}
+                        className={`block w-full rounded-md text-left transition-colors ${buttonBgClass}`}
                       >
                         <div className="px-3.5 py-3 sm:hidden">
                           <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-white/[0.06]">
@@ -131,7 +133,7 @@ export default function TerminalPreview() {
                             <span className="tabular-nums">p95: <strong className="text-gray-200 font-semibold">{r.p95}</strong></span>
                             <span className="tabular-nums">avg: <strong className="text-gray-200 font-semibold">{r.avg}</strong></span>
                             <span>queries: <strong className="text-gray-200 font-semibold">{r.queries}</strong></span>
-                            {r.dupes !== '—' && (
+                            {r.dupes === '—' ? null : (
                               <span className="rounded bg-red-500/20 border border-red-500/30 px-2 py-0.5 text-[11px] font-bold text-red-300">
                                 {r.dupes} N+1
                               </span>
@@ -157,7 +159,9 @@ export default function TerminalPreview() {
                             </span>
                           </div>
                           <div className="w-full text-right justify-self-end font-mono">
-                            {r.dupes !== '—' ? (
+                            {r.dupes === '—' ? (
+                              <span className="text-gray-600">—</span>
+                            ) : (
                               <span className="flex items-center justify-end gap-1 font-medium text-red-400">
                                 {r.dupes}
                                 {hasDetails && (
@@ -168,8 +172,6 @@ export default function TerminalPreview() {
                                   />
                                 )}
                               </span>
-                            ) : (
-                              <span className="text-gray-600">—</span>
                             )}
                           </div>
                         </div>

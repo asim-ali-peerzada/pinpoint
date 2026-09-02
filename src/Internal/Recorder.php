@@ -3,7 +3,6 @@
 namespace AsimAli\Pinpoint\Internal;
 
 use Illuminate\Contracts\Config\Repository as Config;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -36,13 +35,15 @@ class Recorder
         return $configured === null ? $default : (bool) $configured;
     }
 
-    public function shouldRecord(Request $request): bool
+    public function shouldRecord(): bool
     {
         if (! $this->isRecording()) {
             return false;
         }
 
-        return mt_rand() / mt_getrandmax() < (float) $this->config->get('pinpoint.sample_rate', 1.0);
+        $sampleRate = (float) $this->config->get('pinpoint.sample_rate', 1.0);
+
+        return $sampleRate >= 1.0 || ($sampleRate > 0.0 && (random_int(1, 10000) / 10000) <= $sampleRate);
     }
 
     public function recordQuery(array $query): void

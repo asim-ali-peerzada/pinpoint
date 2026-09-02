@@ -12,8 +12,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Foundation\Http\Events\RequestHandled;
 use Illuminate\Support\Facades\Log;
-use ReflectionClass;
-use ReflectionException;
+use ReflectionProperty;
 use Spatie\LaravelPackageTools\Package;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
 
@@ -44,9 +43,9 @@ class PinpointServiceProvider extends PackageServiceProvider
     {
         // scoped() (not singleton) so per-request mutable state is cleared
         // between requests under Octane / long-running workers.
-        $this->app->scoped(Recorder::class, fn () => new Recorder($this->app->make('config')));
+        $this->app->scoped(Recorder::class, fn() => new Recorder($this->app->make('config')));
 
-        $this->app->scoped(Pinpoint::class, fn () => new Pinpoint($this->app->make(Recorder::class)));
+        $this->app->scoped(Pinpoint::class, fn() => new Pinpoint($this->app->make(Recorder::class)));
     }
 
     public function bootingPackage(): void
@@ -62,7 +61,7 @@ class PinpointServiceProvider extends PackageServiceProvider
             return;
         }
 
-        $this->app['events']->listen(QueryExecuted::class, function (QueryExecuted $query) {
+        $this->app->make('events')->listen(QueryExecuted::class, function (QueryExecuted $query) {
             try {
                 // Resolve per event, never capture: under Octane/queue workers
                 // the container clears scoped instances between jobs/requests,
@@ -89,13 +88,13 @@ class PinpointServiceProvider extends PackageServiceProvider
             return;
         }
 
-        $this->app['events']->listen(RequestHandled::class, function (RequestHandled $event) {
+        $this->app->make('events')->listen(RequestHandled::class, function (RequestHandled $event) {
             try {
                 // Same per-event resolution as the query listener (see above).
                 $recorder = $this->app->make(Recorder::class);
                 $request = $event->request;
 
-                if (! $recorder->shouldRecord($request)) {
+                if (! $recorder->shouldRecord()) {
                     $recorder->reset();
 
                     return;
@@ -217,21 +216,20 @@ class PinpointServiceProvider extends PackageServiceProvider
         }
 
         $normalised = array_map(
-            fn ($v) => $v === null ? null : (string) $v,
+            fn($v) => $v === null ? null : (string) $v,
             array_values($bindings)
         );
 
-        return md5(json_encode($normalised, JSON_THROW_ON_ERROR));
+        return hash('xxh128', json_encode($normalised, JSON_THROW_ON_ERROR));
     }
 
     protected function currentLazyLoadingCallback(): ?callable
     {
         try {
-            $prop = (new ReflectionClass(Model::class))->getProperty('lazyLoadingViolationCallback');
-            $prop->setAccessible(true);
+            $prop = new ReflectionProperty(Model::class, 'lazyLoadingViolationCallback');
 
-            return $prop->getValue();
-        } catch (ReflectionException) {
+            return $prop->getValue(); // NOSONAR
+        } catch (\Throwable) {
             return null;
         }
     }
