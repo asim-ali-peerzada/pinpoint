@@ -4,6 +4,14 @@ All notable changes to Pinpoint will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.3] - 2026-09-02
+
+### Fixed
+
+- **Pinpoint no longer records its own writes**: the flush-time inserts (`pinpoint_requests`, `pinpoint_queries`, `pinpoint_lazy_loads`) fired `QueryExecuted`, were captured back into the recorder, and stored as real queries. Every request carried a phantom `insert into pinpoint_requests` row whose caller resolved to the bootstrap file, so even zero-query routes showed `n1_repeat=1` and Locate rendered `N+1 x1` for the critical tier. `Recorder::flush()` now flips a guard that makes `recordQuery()` ignore Pinpoint's own inserts.
+- **Exact duplicates no longer counted as N+1**: the summary repeat count included duplicate query groups (same SQL + same bindings → `Cache::remember()` candidates), so a duplicate-only route showed `N+1? Yes (x3)` in the table while the headline separately credited it as "with duplicate queries". `SummaryReader::maxRepeatCounts` now excludes exact-duplicate groups (`distinct_hashes = 1` and `null_count = 0`) from the N+1 repeat count, keeping the table consistent with the headline.
+- **Locate block labels critical routes correctly**: below-threshold repeat counts rendered as `N+1 x1` instead of `critical tier (p95 …)` because the reason keyed off `n1_repeat > 0`; it now keys off the repeat threshold.
+
 ## [1.4.0] - 2026-08-30
 
 ### Added
