@@ -16,6 +16,8 @@ class Recorder
     /** @var array<int, array{model: string, relation: string, caller: array{file: string, line: int}|null}> */
     protected array $lazyLoads = [];
 
+    protected bool $flushing = false;
+
     public function __construct(protected Config $config) {}
 
     public function isRecording(): bool
@@ -48,6 +50,14 @@ class Recorder
 
     public function recordQuery(array $query): void
     {
+        // Never record Pinpoint's own writes: the flush inserts below fire
+        // QueryExecuted and would otherwise be captured back into the array
+        // being flushed (every request would self-record an "insert into
+        // pinpoint_requests" query and pollute repeat/duplicate detection).
+        if ($this->flushing) {
+            return;
+        }
+
         $this->queries[] = $query;
     }
 
@@ -58,54 +68,59 @@ class Recorder
 
     public function flush(array $request): void
     {
-        $id = DB::table('pinpoint_requests')->insertGetId([
-            'route_name' => $request['route_name'],
-            'method' => $request['method'],
-            'path' => $request['path'],
-            'duration_ms' => (int) round($request['duration_ms']),
-            'query_count' => count($this->queries),
-            'query_time_ms' => (int) round(array_sum(array_column($this->queries, 'time_ms'))),
-            'has_n_plus_one' => $this->hasNPlusOne(),
-            // peak_memory_kb may be absent from pre-migration callers (queue
-            // jobs, custom flush calls) — never assume the key exists.
-            'peak_memory_kb' => $request['peak_memory_kb'] ?? null,
-            'created_at' => now(),
-        ]);
+        $this->flushing = true;
 
-        if ($this->queries !== []) {
-            DB::table('pinpoint_queries')->insert(array_map(
-                fn (array $query) => [
-                    'request_id' => $id,
-                    'sql_fingerprint' => $query['fingerprint'],
-                    'sql' => $query['sql'],
-                    // bindings_hash is null when bindings are empty (no-bind
-                    // queries like "select 1") or when the driver doesn't
-                    // expose them. Detection treats null as "unknown".
-                    'bindings_hash' => $query['bindings_hash'] ?? null,
-                    'time_ms' => (int) round($query['time_ms']),
-                    'caller_file' => $query['caller']['file'] ?? null,
-                    'caller_line' => $query['caller']['line'] ?? null,
-                    'created_at' => now(),
-                ],
-                $this->queries
-            ));
+        try {
+            $id = DB::table('pinpoint_requests')->insertGetId([
+                'route_name' => $request['route_name'],
+                'method' => $request['method'],
+                'path' => $request['path'],
+                'duration_ms' => (int) round($request['duration_ms']),
+                'query_count' => count($this->queries),
+                'query_time_ms' => (int) round(array_sum(array_column($this->queries, 'time_ms'))),
+                'has_n_plus_one' => $this->hasNPlusOne(),
+                // peak_memory_kb may be absent from pre-migration callers (queue
+                // jobs, custom flush calls) — never assume the key exists.
+                'peak_memory_kb' => $request['peak_memory_kb'] ?? null,
+                'created_at' => now(),
+            ]);
+
+            if ($this->queries !== []) {
+                DB::table('pinpoint_queries')->insert(array_map(
+                    fn (array $query) => [
+                        'request_id' => $id,
+                        'sql_fingerprint' => $query['fingerprint'],
+                        'sql' => $query['sql'],
+                        // bindings_hash is null when bindings are empty (no-bind
+                        // queries like "select 1") or when the driver doesn't
+                        // expose them. Detection treats null as "unknown".
+                        'bindings_hash' => $query['bindings_hash'] ?? null,
+                        'time_ms' => (int) round($query['time_ms']),
+                        'caller_file' => $query['caller']['file'] ?? null,
+                        'caller_line' => $query['caller']['line'] ?? null,
+                        'created_at' => now(),
+                    ],
+                    $this->queries
+                ));
+            }
+
+            if ($this->lazyLoads !== []) {
+                DB::table('pinpoint_lazy_loads')->insert(array_map(
+                    fn (array $lazyLoad) => [
+                        'request_id' => $id,
+                        'model' => $lazyLoad['model'],
+                        'relation' => $lazyLoad['relation'],
+                        'caller_file' => $lazyLoad['caller']['file'] ?? null,
+                        'caller_line' => $lazyLoad['caller']['line'] ?? null,
+                        'created_at' => now(),
+                    ],
+                    $this->lazyLoads
+                ));
+            }
+        } finally {
+            $this->flushing = false;
+            $this->reset();
         }
-
-        if ($this->lazyLoads !== []) {
-            DB::table('pinpoint_lazy_loads')->insert(array_map(
-                fn (array $lazyLoad) => [
-                    'request_id' => $id,
-                    'model' => $lazyLoad['model'],
-                    'relation' => $lazyLoad['relation'],
-                    'caller_file' => $lazyLoad['caller']['file'] ?? null,
-                    'caller_line' => $lazyLoad['caller']['line'] ?? null,
-                    'created_at' => now(),
-                ],
-                $this->lazyLoads
-            ));
-        }
-
-        $this->reset();
     }
 
     public function reset(): void

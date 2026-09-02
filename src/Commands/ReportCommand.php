@@ -256,10 +256,12 @@ class ReportCommand extends Command
      */
     protected function printLocate(array $summaries): void
     {
+        $threshold = (int) config('pinpoint.n_plus_one_repeat_threshold', 3);
+
         $offenders = [];
 
         foreach ($summaries as $row) {
-            if ($row['n1_repeat'] < (int) config('pinpoint.n_plus_one_repeat_threshold', 3) && $row['tier'] !== TierClassifier::CRITICAL) {
+            if ($row['n1_repeat'] < $threshold && $row['tier'] !== TierClassifier::CRITICAL) {
                 continue;
             }
 
@@ -267,7 +269,7 @@ class ReportCommand extends Command
 
             $offenders[] = [
                 'route' => $row['route'],
-                'reason' => $row['n1_repeat'] > 0
+                'reason' => $row['n1_repeat'] >= $threshold
                     ? 'N+1 x'.$row['n1_repeat']
                     : 'critical tier (p95 '.$row['p95'].'ms)',
                 'repeat' => $row['n1_repeat'],

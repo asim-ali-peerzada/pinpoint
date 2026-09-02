@@ -90,10 +90,19 @@ class SummaryReader
         $perRequest = DB::table('pinpoint_queries')
             ->select('request_id', 'sql_fingerprint')
             ->selectRaw('COUNT(*) as repeat_count')
+            ->selectRaw('COUNT(DISTINCT bindings_hash) as distinct_hashes')
+            ->selectRaw('SUM(CASE WHEN bindings_hash IS NULL THEN 1 ELSE 0 END) as null_count')
             ->groupBy('request_id', 'sql_fingerprint');
 
         $query = DB::table('pinpoint_requests as r')
             ->joinSub($perRequest, 'rc', 'rc.request_id', '=', 'r.id')
+            // Exact duplicates (same fingerprint AND same non-null bindings
+            // across all rows) are cache candidates, not N+1 — keep them out
+            // of the repeat count so the report doesn't label them N+1.
+            ->where(function ($q) {
+                $q->where('rc.distinct_hashes', '!=', 1)
+                    ->orWhere('rc.null_count', '>', 0);
+            })
             ->select('r.route_name', 'r.method', 'r.path', 'rc.repeat_count');
 
         if ($sinceMinutes !== null) {
