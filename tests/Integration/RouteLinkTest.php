@@ -116,7 +116,7 @@ test('link tokens do not distort table column widths', function () {
     // ASCII grid leaked in.
     $output = $buffer->fetch();
     $plain = preg_replace('/\e\[[0-9;]*m|\e\]8;;[^\e]*\e\\\\/', '', $output);
-    preg_match('/api\.route-source\s+1ms\s+1ms/', $plain, $m);
+    preg_match('/api\.route-source\s+1ms\s+.*?\s+1ms/', $plain, $m);
 
     expect($m[0] ?? '')->not->toBe('')
         ->and($output)->not->toContain('__PP_L_')

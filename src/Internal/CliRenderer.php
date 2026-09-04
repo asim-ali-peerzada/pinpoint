@@ -8,6 +8,7 @@ use Illuminate\Routing\Route;
 use Illuminate\Support\Collection;
 use ReflectionFunction;
 use ReflectionMethod;
+use Symfony\Component\Console\Terminal;
 use Termwind\Termwind;
 
 use function Termwind\parse;
@@ -120,34 +121,43 @@ class CliRenderer
         $label = e(mb_strimwidth($route, 0, $max, '…'));
         $location = $this->routeActionLocation($route);
 
-        $linkable = $location && $location['file'] && $location['line'] !== null;
-
-        // Split "METHOD path" labels route:list-style: cyan verb + linked
-        // URI, nested in one span (Termwind drops sibling spans in cells).
-        // Named routes (no verb) render exactly as before.
         if (! str_contains($label, ' ')) {
-            if (! $linkable) {
-                return $label;
-            }
-
-            $token = $this->linkToken($label);
-
-            if ($token === null) {
-                return $label;
-            }
-
-            $this->hyperlinks[$token] = sprintf('<href=%s>%s</>', EditorLink::scheme($location['file'], $location['line']), $label);
-
-            return $token;
+            return $this->namedRouteLink($label, $location);
         }
 
+        return $this->methodPathRouteLink($label, $location);
+    }
+
+    /**
+     * @param  array{file: string, line: int|null}|null  $location
+     */
+    protected function namedRouteLink(string $label, ?array $location): string
+    {
+        if ($location && $location['file'] && $location['line'] !== null) {
+            $token = $this->linkToken($label);
+
+            if ($token !== null) {
+                $this->hyperlinks[$token] = sprintf('<href=%s>%s</>', EditorLink::scheme($location['file'], $location['line']), $label);
+
+                return $token;
+            }
+        }
+
+        return $label;
+    }
+
+    /**
+     * @param  array{file: string, line: int|null}|null  $location
+     */
+    protected function methodPathRouteLink(string $label, ?array $location): string
+    {
         [$method, $uri] = explode(' ', $label, 2);
         // Route:list-style leading slash. The token stands in for the
         // displayed (slashed) URI so column widths hold after the swap —
         // never emit a literal slash next to a token.
         $displayUri = '/'.ltrim($uri, '/');
 
-        if ($linkable) {
+        if ($location && $location['file'] && $location['line'] !== null) {
             $token = $this->linkToken($displayUri);
 
             if ($token !== null) {
@@ -253,9 +263,54 @@ class CliRenderer
         return null;
     }
 
+    public function terminalWidth(): int
+    {
+        if (app()->runningUnitTests()) {
+            return 120;
+        }
+
+        return max((new Terminal)->getWidth(), 80);
+    }
+
     /**
-     * @param  array<int, array{route: string, p95: int, avg: int, samples: int, tier: string, n1: string, memory?: string|null, memory_over_budget?: bool, has_duplicate?: bool, health?: string|null}>  $rows
+     * Calculate responsive column limits for the report summary table.
+     *
+     * @return array{dist_width: int, route_max: int}
      */
+    protected function reportTableDimensions(): array
+    {
+        $termWidth = $this->terminalWidth();
+        $fixedCols = 56;
+
+        if ($termWidth < 90) {
+            $distWidth = 8;
+            $routeMax = max(16, $termWidth - $fixedCols - $distWidth - 2);
+        } elseif ($termWidth < 116) {
+            $distWidth = 10;
+            $routeMax = max(20, min(36, $termWidth - $fixedCols - $distWidth - 2));
+        } else {
+            $distWidth = 12;
+            $routeMax = 40;
+        }
+
+        return ['dist_width' => $distWidth, 'route_max' => $routeMax];
+    }
+
+    /**
+     * Calculate responsive column limits for the offending queries drill-down table.
+     *
+     * @return array{sql_max: int, caller_max: int}
+     */
+    protected function queryTableDimensions(): array
+    {
+        $termWidth = $this->terminalWidth();
+        $avail = max(30, $termWidth - 38);
+        $sqlMax = min(52, max(20, (int) round($avail * 0.55)));
+        $callerMax = min(40, max(16, $avail - $sqlMax));
+
+        return ['sql_max' => $sqlMax, 'caller_max' => $callerMax];
+    }
+
     /**
      * @param  array<int, array{route: string, p95: int, avg: int, samples: int, tier: string, n1: string, memory?: string|null, memory_over_budget?: bool, has_duplicate?: bool, health?: string|null}>  $rows
      * @param  array<int, array{route: string, p95: int, avg: int, samples: int, tier: string, n1: string, memory?: string|null, memory_over_budget?: bool, has_duplicate?: bool, health?: string|null}>  $allRows  full dataset for the banner counts (the table itself may be truncated by --limit)
@@ -280,13 +335,13 @@ class CliRenderer
         $duplicate = count(array_filter($counted, fn ($r) => (bool) ($r['has_duplicate'] ?? false)));
 
         $html = BadgeRenderer::header($title)
-                    .sprintf(
-                        '<div class="mt-1 mb-1 text-gray-400">%d route(s) · <span class="text-red-500">●</span> <span class="text-white">%d</span> critical · <span class="text-yellow-500">▲</span> <span class="text-white">%d</span> with N+1 · <span class="text-cyan-400">◆</span> <span class="text-white">%d</span> with duplicate queries</div>',
-                        count($counted),
-                        $critical,
-                        $n1,
-                        $duplicate
-                    );
+            .sprintf(
+                '<div class="mt-1 mb-1 text-gray-400">%d route(s) · <span class="text-red-500">●</span> <span class="text-white">%d</span> critical · <span class="text-yellow-500">▲</span> <span class="text-white">%d</span> with N+1 · <span class="text-cyan-400">◆</span> <span class="text-white">%d</span> with duplicate queries</div>',
+                count($counted),
+                $critical,
+                $n1,
+                $duplicate
+            );
 
         $composite = (bool) config('pinpoint.composite_tier', false);
 
@@ -294,10 +349,16 @@ class CliRenderer
             ? 'Health'
             : 'Tier (p95 only)';
 
+        $budget = (int) config('pinpoint.thresholds_ms.needs_improvement', 1000);
+        $dims = $this->reportTableDimensions();
+        $routeMax = $dims['route_max'];
+        $distWidth = $dims['dist_width'];
+
         $html .= '<hr>'
             .'<table class="w-full" style="compact"><thead><tr class="text-gray-500 border-b border-gray-600">'
             .'<th class="text-left">Route</th>'
             .'<th class="text-right">p95</th>'
+            .'<th class="text-left">Distribution</th>'
             .'<th class="text-right">Avg</th>'
             .'<th class="text-right">Samples</th>'
             .'<th class="text-right">Memory (peak)</th>'
@@ -306,9 +367,12 @@ class CliRenderer
             .'</tr></thead><tbody>';
 
         foreach ($rows as $row) {
+            $sparkline = BadgeRenderer::sparkline((int) $row['p95'], $row['tier'], $budget, $distWidth);
+
             $html .= '<tr>'
-                .'<td class="text-left text-white">'.$this->routeLink($row['route']).'</td>'
+                .'<td class="text-left text-white">'.$this->routeLink($row['route'], $routeMax).'</td>'
                 .'<td class="text-right text-white"><span>'.$row['p95'].'<span class="text-gray-500">ms</span></span></td>'
+                .'<td class="text-left">'.$sparkline.'</td>'
                 .'<td class="text-right text-white"><span>'.$row['avg'].'<span class="text-gray-500">ms</span></span></td>'
                 .'<td class="text-right text-gray-300">'.$row['samples'].'</td>'
                 .'<td class="text-right">'.BadgeRenderer::memoryCell($row['memory'] ?? null, (bool) ($row['memory_over_budget'] ?? false)).'</td>'
@@ -475,48 +539,87 @@ class CliRenderer
         $html = '<div class="mx-2 my-1"><div class="mt-2 text-gray-500">Locate</div>';
 
         foreach ($groups as $group) {
-            // Group from ALL offenders — never a global slice, so every
-            // route the banner counts stays present under its group.
-            $items = array_values(array_filter(
-                $offenders,
-                fn ($o) => $group['match'] === null
-                    ? ! str_starts_with($o['reason'], 'N+1') && ! str_starts_with($o['reason'], 'CACHE') && ! str_starts_with($o['reason'], 'REPEAT')
-                    : str_starts_with($o['reason'], $group['match'])
-            ));
+            $items = $this->filterOffendersByGroup($offenders, $group['match']);
 
-            if ($items === []) {
-                continue;
-            }
-
-            $total = count($items);
-
-            $html .= '<div class="mt-1 text-white">'.$group['title'].' · '.$total.($total === 1 ? ' route' : ' routes').'</div>';
-
-            if ($group['fix'] !== null) {
-                $html .= '<div class="text-gray-500">'.$group['fix'].'</div>';
-            }
-
-            foreach (array_slice($items, 0, $cap) as $i => $offender) {
-                $last = $i === min($cap, $total) - 1;
-                $branch = $last ? '└── ' : '├── ';
-                $stem = $last ? '    ' : '│   ';
-                $caller = $offender['caller_file']
-                    ? $this->callerLink($offender['caller_file'], $offender['caller_line'])
-                    : '<span class="text-gray-600">run --route for caller</span>';
-
-                $html .= '<div class="mt-1">'
-                    .'<span class="text-white">'.$branch.$this->routeLink($offender['route']).'</span> '
-                    .'<span class="text-gray-400">— '.e($offender['reason']).'</span>'
-                    .'<div class="text-gray-400">'.$stem.'└── '.$caller.'</div>'
-                    .'</div>';
-            }
-
-            if ($total > $cap) {
-                $html .= '<div class="mt-1 text-gray-500">… and '.($total - $cap).' more — run <span class="text-blue-400">pinpoint:report --route=&lt;name&gt;</span> for exact file and line.</div>';
+            if ($items !== []) {
+                $html .= $this->renderLocateGroup($group, $items, $cap);
             }
         }
 
         $html .= '</div>';
+
+        $this->render($html);
+    }
+
+    /**
+     * @param  array<int, array{route: string, reason: string, repeat: int, caller_file: string|null, caller_line: int|null}>  $offenders
+     * @return array<int, array{route: string, reason: string, repeat: int, caller_file: string|null, caller_line: int|null}>
+     */
+    protected function filterOffendersByGroup(array $offenders, ?string $match): array
+    {
+        return array_values(array_filter(
+            $offenders,
+            fn ($o) => $match === null
+                ? ! str_starts_with($o['reason'], 'N+1') && ! str_starts_with($o['reason'], 'CACHE') && ! str_starts_with($o['reason'], 'REPEAT')
+                : str_starts_with($o['reason'], $match)
+        ));
+    }
+
+    /**
+     * @param  array{match: string|null, title: string, fix: string|null}  $group
+     * @param  array<int, array{route: string, reason: string, repeat: int, caller_file: string|null, caller_line: int|null}>  $items
+     */
+    protected function renderLocateGroup(array $group, array $items, int $cap): string
+    {
+        $total = count($items);
+        $html = '<div class="mt-1 text-white">'.$group['title'].' · '.$total.($total === 1 ? ' route' : ' routes').'</div>';
+
+        if ($group['fix'] !== null) {
+            $html .= '<div class="text-gray-500">'.$group['fix'].'</div>';
+        }
+
+        $visible = array_slice($items, 0, $cap);
+        $visibleCount = count($visible);
+
+        foreach ($visible as $i => $offender) {
+            $last = $i === $visibleCount - 1;
+            $branch = $last ? '└── ' : '├── ';
+            $stem = $last ? '    ' : '│   ';
+            $caller = $offender['caller_file']
+                ? $this->callerLink($offender['caller_file'], $offender['caller_line'])
+                : '<span class="text-gray-600">run --route for caller</span>';
+
+            $html .= '<div class="mt-1">'
+                .'<span class="text-white">'.$branch.$this->routeLink($offender['route']).'</span> '
+                .'<span class="text-gray-400">— '.e($offender['reason']).'</span>'
+                .'<div class="text-gray-400">'.$stem.'└── '.$caller.'</div>'
+                .'</div>';
+        }
+
+        if ($total > $cap) {
+            $html .= '<div class="mt-1 text-gray-500">… and '.($total - $cap).' more — run <span class="text-blue-400">pinpoint:report --route=&lt;name&gt;</span> for exact file and line.</div>';
+        }
+
+        return $html;
+    }
+
+    /**
+     * Render an individual route tree branch with caller location and IDE hyperlink.
+     */
+    public function routeBranch(string $route, ?string $callerFile, ?int $callerLine, ?string $reason = null): void
+    {
+        $caller = ($callerFile && $callerLine !== null)
+            ? $this->callerLink($callerFile, $callerLine)
+            : '<span class="text-gray-600">no caller captured</span>';
+
+        $html = '<div class="mx-2 my-1">'
+            .'<div class="mt-2 text-gray-500">Stack Trace & Offender Location</div>'
+            .'<div class="mt-1">'
+            .'<span class="text-white">└── '.$this->routeLink($route).'</span>'
+            .($reason ? ' <span class="text-gray-400">— '.e($reason).'</span>' : '')
+            .'<div class="text-gray-400">    └── '.$caller.'</div>'
+            .'</div>'
+            .'</div>';
 
         $this->render($html);
     }
@@ -527,6 +630,10 @@ class CliRenderer
     public function queriesTable($queries, int $n1Threshold): void
     {
         $html = BadgeRenderer::header('Top Offending Queries');
+
+        $dims = $this->queryTableDimensions();
+        $sqlMax = $dims['sql_max'];
+        $callerMax = $dims['caller_max'];
 
         $html .= '<hr>'
             .'<table class="w-full" style="compact"><thead><tr class="text-gray-500 border-b border-gray-600">'
@@ -540,10 +647,9 @@ class CliRenderer
 
         foreach ($queries as $query) {
             $isN1 = $query->repeat_count >= $n1Threshold;
-            // Cap caller to 40 chars: long paths would otherwise wrap
-            // mid-cell in narrow terminals and break the column geometry.
+            // Cap caller responsively to prevent wrapping mid-cell in narrow terminals.
             $caller = $query->caller_file
-                ? $this->callerLink($query->caller_file, $query->caller_line, 40)
+                ? $this->callerLink($query->caller_file, $query->caller_line, $callerMax)
                 : '<span class="text-gray-600">-</span>';
 
             // query_type is set by QueryReader::topQueries() for repeated groups.
@@ -552,7 +658,7 @@ class CliRenderer
                 : '<span class="text-gray-600">-</span>';
 
             $html .= '<tr>'
-                .'<td class="text-left text-white">'.e(str_replace("\n", ' ', mb_strimwidth($query->sql, 0, 52, '…'))).'</td>'
+                .'<td class="text-left text-white">'.e(str_replace("\n", ' ', mb_strimwidth($query->sql, 0, $sqlMax, '…'))).'</td>'
                 .'<td class="text-right">'.($isN1 ? '<span class="text-red-500 font-bold">'.$query->repeat_count.'</span>' : '<span class="text-gray-300">'.$query->repeat_count.'</span>').'</td>'
                 .'<td class="text-right text-white">'.(int) round($query->avg_ms).'</td>'
                 .'<td class="text-right text-white">'.$query->max_ms.'</td>'

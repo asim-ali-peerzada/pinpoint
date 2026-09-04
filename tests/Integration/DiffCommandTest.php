@@ -107,7 +107,7 @@ test('diff detects a p95 regression and labels it', function () {
     expect($output)
         ->toContain('api.orders')
         ->toContain('REGRESSION')
-        ->toContain('+4900.0%')
+        ->toContain('↑ +4900.0% ⚠')
         ->toContain('5000ms');
 });
 
@@ -255,4 +255,18 @@ test('diff compares successfully against a json baseline file', function () {
             unlink($path);
         }
     }
+});
+
+test('diff renders explicit arrows and icons for regressions and improvements', function () {
+    seedDiffRequest('api.improved', 500, 5);
+    runSnapshot(['--tag' => 'v1']);
+
+    DB::table('pinpoint_requests')->truncate();
+    seedDiffRequest('api.improved', 100, 2);
+
+    $output = runDiff(['--baseline' => 'v1', '--show-stable' => true]);
+
+    expect($output)
+        ->toContain('↓ -80.0% ✔')
+        ->toContain('-3q ✔');
 });

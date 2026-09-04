@@ -1,7 +1,9 @@
 <?php
 
+use AsimAli\Pinpoint\Internal\CliRenderer;
 use AsimAli\Pinpoint\Internal\QueryReader;
 use Illuminate\Support\Facades\DB;
+use Symfony\Component\Console\Output\BufferedOutput;
 
 beforeEach(function () {
     DB::table('pinpoint_requests')->truncate();
@@ -320,4 +322,59 @@ test('banner counts the full dataset even when the table is limit-truncated', fu
         ->toContain('1 with duplicate queries')
         ->toContain('◆ Duplicate queries · 1 route')
         ->toContain('api.quiet-dup — CACHE x3');
+});
+
+test('interactive report prompts and handles selection in console test', function () {
+    $id = DB::table('pinpoint_requests')->insertGetId([
+        'route_name' => 'api.orders', 'method' => 'GET', 'path' => 'api/orders',
+        'duration_ms' => 5000, 'query_count' => 1, 'query_time_ms' => 100,
+        'has_n_plus_one' => false, 'created_at' => now(),
+    ]);
+
+    DB::table('pinpoint_queries')->insert([
+        ['request_id' => $id, 'sql_fingerprint' => 'abc', 'sql' => 'select * from orders where id = 1', 'time_ms' => 99, 'caller_file' => 'app/Models/Order.php', 'caller_line' => 42, 'created_at' => now()],
+    ]);
+
+    $buffer = new BufferedOutput;
+    \Termwind\renderUsing($buffer);
+
+    $this->artisan('pinpoint:report', ['--interactive' => true])
+        ->expectsQuestion('Select a flagged route to inspect the stack trace:', '__exit__')
+        ->assertSuccessful();
+
+    \Termwind\renderUsing(null);
+
+    expect($buffer->fetch())->not->toContain('Stack Trace & Offender Location');
+});
+
+test('interactive report drills into selected flagged route', function () {
+    $id = DB::table('pinpoint_requests')->insertGetId([
+        'route_name' => 'api.orders', 'method' => 'GET', 'path' => 'api/orders',
+        'duration_ms' => 5000, 'query_count' => 1, 'query_time_ms' => 100,
+        'has_n_plus_one' => false, 'created_at' => now(),
+    ]);
+
+    DB::table('pinpoint_queries')->insert([
+        ['request_id' => $id, 'sql_fingerprint' => 'abc', 'sql' => 'select * from orders where id = 1', 'time_ms' => 99, 'caller_file' => 'app/Models/Order.php', 'caller_line' => 42, 'created_at' => now()],
+    ]);
+
+    $buffer = new BufferedOutput;
+    \Termwind\renderUsing($buffer);
+
+    $this->artisan('pinpoint:report', ['--interactive' => true])
+        ->expectsQuestion('Select a flagged route to inspect the stack trace:', 'api.orders')
+        ->assertSuccessful();
+
+    \Termwind\renderUsing(null);
+
+    $output = $buffer->fetch();
+    expect($output)
+        ->toContain('Stack Trace & Offender Location')
+        ->toContain('api.orders')
+        ->toContain('app/Models/Order.php:42');
+});
+
+test('cli renderer calculates responsive table dimensions', function () {
+    $cli = new CliRenderer;
+    expect($cli->terminalWidth())->toBeGreaterThanOrEqual(80);
 });

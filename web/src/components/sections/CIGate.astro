@@ -56,12 +56,12 @@
       <!-- Column 2: Terminal Failure Result (7 cols) -->
       <div class="lg:col-span-7 rounded-2xl border border-white/15 bg-[#08090C] shadow-2xl ring-1 ring-white/5 overflow-hidden flex flex-col font-mono text-xs">
         <!-- Terminal header -->
-        <div class="flex items-center justify-between gap-2 border-b border-white/[0.08] bg-[#0C0E12] px-4 py-3 shrink-0">
+        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-white/[0.08] bg-[#0C0E12] px-3.5 sm:px-4 py-2.5 sm:py-3 shrink-0">
           <div class="flex items-center gap-2 min-w-0">
             <div class="h-2.5 w-2.5 rounded-full bg-[#EC6A5E]/80"></div>
             <div class="h-2.5 w-2.5 rounded-full bg-[#F5BF4F]/80"></div>
             <div class="h-2.5 w-2.5 rounded-full bg-[#62C554]/80"></div>
-            <span class="ml-2 text-xs text-gray-300 font-sans font-medium">GitHub Actions • Run #412</span>
+            <span class="ml-1 sm:ml-2 text-xs text-gray-300 font-sans font-medium truncate">GitHub Actions • Run #412</span>
           </div>
           <span class="rounded-full border border-rose-500/40 bg-rose-500/20 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-rose-300 shrink-0">
             Exit Code 1 • CI Check Failed
@@ -69,36 +69,36 @@
         </div>
 
         <!-- Terminal body: starts right below header without empty space -->
-        <div class="p-5 sm:p-6 space-y-4 leading-relaxed flex-1 flex flex-col justify-between">
+        <div class="p-4 sm:p-6 space-y-4 leading-relaxed flex-1 flex flex-col justify-between">
           <div class="space-y-3">
-            <div class="text-gray-300">
+            <div class="text-gray-300 overflow-x-auto text-[11px] sm:text-xs">
               <span class="text-gray-500 select-none font-medium">$ </span>
               <span class="text-brand-accent font-semibold">php artisan</span>
               <span class="text-white font-medium"> pinpoint:diff</span>
               <span class="text-gray-400"> --baseline=storage/pinpoint/baselines/main.json --fail-on-regression</span>
             </div>
 
-            <div class="pt-1 text-rose-400 font-bold flex items-center gap-2 text-sm leading-none">
+            <div class="pt-1 text-rose-400 font-bold flex flex-wrap items-center gap-2 text-xs sm:text-sm leading-none">
               <span>✗ REGRESSION:</span>
-              <span class="text-white font-semibold">api.orders.index</span>
+              <span class="text-white font-semibold break-all">api.orders.index</span>
             </div>
 
-            <div class="pl-4 border-l-2 border-rose-500 bg-rose-950/20 rounded-r-lg p-3 space-y-1.5 text-[11.5px]">
+            <div class="pl-3 sm:pl-4 border-l-2 border-rose-500 bg-rose-950/20 rounded-r-lg p-3 space-y-1.5 text-[11.5px]">
               <div class="text-rose-300 font-medium">
                 <span class="text-rose-400 font-bold">N+1 Introduced: </span> none (baseline) → 14× loop (current) · p95 +32.4%
               </div>
               <div class="text-gray-300">
                 Relationship <code class="text-white">Order → items</code> lazy-loaded inside collection loop.
               </div>
-              <div class="text-gray-400 text-[11px] pt-0.5">
+              <div class="text-gray-400 text-[11px] pt-0.5 break-all">
                 Trigger: <span class="text-gray-200">app/Http/Controllers/OrderController.php:84</span>
               </div>
             </div>
           </div>
 
-          <div class="mt-2 border-t border-white/5 pt-3 text-xs text-gray-400 flex items-center justify-between shrink-0">
-            <span>PR status set to <strong class="text-rose-400">failure</strong>. Exit code 1 (required status checks can block the merge).</span>
-            <span class="text-gray-500">0.14s duration</span>
+          <div class="mt-2 border-t border-white/5 pt-3 text-xs text-gray-400 flex flex-col sm:flex-row sm:items-center justify-between gap-1 shrink-0">
+            <span>PR status set to <strong class="text-rose-400">failure</strong>. Exit code 1 (blocks merge).</span>
+            <span class="text-gray-500 text-[11px] shrink-0">0.14s duration</span>
           </div>
         </div>
       </div>

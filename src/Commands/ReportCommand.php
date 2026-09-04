@@ -15,6 +15,9 @@ use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
 use Throwable;
 
+use function Laravel\Prompts\clear;
+use function Laravel\Prompts\select;
+
 class ReportCommand extends Command
 {
     use EmitsJson;
@@ -24,6 +27,7 @@ class ReportCommand extends Command
         {--route= : Drill into one route and show its top offending queries}
         {--since= : Only consider requests from the last N (e.g. 5m, 1h, 2d; bare number = minutes)}
         {--limit=20 : Max rows in the summary table}
+        {--interactive : Interactively inspect a flagged route stack trace}
         {--json : Output machine-readable JSON on stdout (for scripts / webhooks / PR comments)}
         {--json-to= : Write the JSON output to a file and print the file location (human-friendly alternative; implies --json)}';
 
@@ -227,7 +231,12 @@ class ReportCommand extends Command
 
         // Banner counts come from ALL rows (the table may be --limit-cut).
         $this->cli->reportTable($title, $table, null, $this->buildTableRows($allRows, $memoryBudgetKb));
-        $this->printLocate($allRows);
+
+        if ($this->isInteractiveSession()) {
+            $this->promptInteractiveDrillDown($allRows, $sinceMinutes);
+        } else {
+            $this->printLocate($allRows);
+        }
     }
 
     /**
@@ -417,6 +426,11 @@ class ReportCommand extends Command
 
         $this->cli->info("Route: {$routeLabel}");
 
+        $caller = $this->worstCaller($routeLabel);
+        if ($caller !== null) {
+            $this->cli->routeBranch($routeLabel, $caller['file'], $caller['line']);
+        }
+
         if ($queries->isNotEmpty()) {
             $this->cli->queriesTable($queries, (int) config('pinpoint.n_plus_one_repeat_threshold', 3));
             $this->cli->duplicateQuerySuggestions($queries);
@@ -435,5 +449,104 @@ class ReportCommand extends Command
     protected function buildChains(string $routeLabel, ?int $sinceMinutes = null): array
     {
         return $this->suggestions->forRoute($routeLabel, (int) $this->option('limit'), $sinceMinutes);
+    }
+
+    protected function isInteractiveSession(): bool
+    {
+        if ($this->option('interactive')) {
+            return true;
+        }
+
+        $disabled = $this->option('route')
+            || $this->option('json')
+            || $this->option('json-to')
+            || (bool) $this->option('no-interaction')
+            || app()->runningUnitTests()
+            || ! $this->input->isInteractive();
+
+        if ($disabled) {
+            return false;
+        }
+
+        return windows_os() || (function_exists('posix_isatty') && posix_isatty(STDIN));
+    }
+
+    /**
+     * @param  array<int, array{route: string, p50: int, p95: int, p99: int, avg: int, samples: int, tier: string, n1_repeat: int, peak_memory_kb: int|null, has_duplicate_queries: bool, duplicate_repeat: int, unknown_repeat: int}>  $allRows
+     */
+    protected function promptInteractiveDrillDown(array $allRows, ?int $sinceMinutes): void
+    {
+        $flagged = $this->collectFlaggedRoutes($allRows);
+
+        if ($flagged === []) {
+            return;
+        }
+
+        $options = ['__exit__' => 'Exit (done)'];
+        foreach ($flagged as $route => $reason) {
+            $options[$route] = $route.' ('.$reason.')';
+        }
+
+        /** @var string $selected */
+        $selected = select(
+            label: 'Select a flagged route to inspect the stack trace:',
+            options: $options,
+            default: array_key_first(array_slice($options, 1, 1, true)) ?? '__exit__',
+        );
+
+        if (! isset($options[$selected])) {
+            $flipped = array_flip($options);
+            $selected = $flipped[$selected] ?? $selected;
+        }
+
+        if ($selected === '__exit__') {
+            return;
+        }
+
+        if (function_exists('\Laravel\Prompts\clear')) {
+            clear();
+        }
+
+        $this->drillInto($selected, $sinceMinutes);
+    }
+
+    /**
+     * @param  array<int, array{route: string, p50: int, p95: int, p99: int, avg: int, samples: int, tier: string, n1_repeat: int, peak_memory_kb: int|null, has_duplicate_queries: bool, duplicate_repeat: int, unknown_repeat: int}>  $summaries
+     * @return array<string, string> route => reason
+     */
+    protected function collectFlaggedRoutes(array $summaries): array
+    {
+        $threshold = (int) config('pinpoint.n_plus_one_repeat_threshold', 3);
+        $flagged = [];
+
+        foreach ($summaries as $row) {
+            $isN1 = $row['n1_repeat'] >= $threshold;
+            $hasDuplicate = $row['has_duplicate_queries'];
+            $unknownRepeat = $row['unknown_repeat'];
+            $hasUnknown = $unknownRepeat >= $threshold;
+            $isCritical = $row['tier'] === TierClassifier::CRITICAL;
+
+            if (! $isN1 && ! $hasDuplicate && ! $hasUnknown && ! $isCritical) {
+                continue;
+            }
+
+            $reasons = [];
+            if ($isN1) {
+                $reasons[] = 'N+1 x'.$row['n1_repeat'];
+            }
+            if ($hasDuplicate) {
+                $reasons[] = 'CACHE x'.$row['duplicate_repeat'];
+            }
+            if ($hasUnknown) {
+                $reasons[] = 'REPEAT x'.$unknownRepeat;
+            }
+            if (! $isN1 && ! $hasDuplicate && ! $hasUnknown && $isCritical) {
+                $reasons[] = 'critical tier (p95 '.$row['p95'].'ms)';
+            }
+
+            $flagged[$row['route']] = implode(', ', $reasons);
+        }
+
+        return $flagged;
     }
 }

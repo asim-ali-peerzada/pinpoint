@@ -156,6 +156,45 @@ class BadgeRenderer
         return round($kb / 1024, 1).' MB';
     }
 
+    /**
+     * Render a horizontal UTF-8 bar chart of p95 latency relative to the budget.
+     * Uses distinct box characters (■) for consumed budget and discrete dots (·) for margin,
+     * ensuring rows maintain visual breathing room without fusing into solid blocks.
+     */
+    public static function sparkline(int $p95, string $tier, int $budget = 1000, int $width = 12): string
+    {
+        $budget = max($budget, 1);
+        $ratio = min(max($p95 / $budget, 0.0), 1.0);
+
+        $colorClass = match ($tier) {
+            TierClassifier::CRITICAL => 'text-red-500',
+            TierClassifier::NEEDS_IMPROVEMENT => 'text-yellow-500',
+            TierClassifier::ACCEPTABLE => 'text-blue-400',
+            default => 'text-green-500',
+        };
+
+        if ($ratio <= 0.0) {
+            return '<span><span class="text-gray-700">'.str_repeat('·', $width).'</span></span>';
+        }
+
+        if ($ratio >= 1.0) {
+            return '<span><span class="'.$colorClass.'">'.str_repeat('■', $width).'</span></span>';
+        }
+
+        $exact = $ratio * $width;
+        $full = (int) floor($exact);
+
+        if ($full === 0) {
+            $solid = '▪';
+            $shaded = str_repeat('·', max($width - 1, 0));
+        } else {
+            $solid = str_repeat('■', $full);
+            $shaded = str_repeat('·', max($width - $full, 0));
+        }
+
+        return '<span><span class="'.$colorClass.'">'.$solid.'</span><span class="text-gray-700">'.$shaded.'</span></span>';
+    }
+
     public static function diffStatus(string $status): string
     {
         return match ($status) {

@@ -18,11 +18,11 @@
     <!-- Clean Workflow Matrix -->
     <div class="overflow-hidden rounded-2xl border border-white/10 bg-[#090B0E] shadow-xl">
       <div class="overflow-x-auto">
-        <table class="w-full text-left text-xs sm:text-sm border-collapse font-mono">
+        <table class="w-full min-w-[620px] text-left text-xs sm:text-sm border-collapse font-mono">
           <thead>
             <tr class="border-b border-white/[0.08] bg-[#0E1015] text-[11px] uppercase tracking-wider text-gray-400">
-              <th class="py-3 px-4 sm:px-6 font-semibold">Workflow & Use Case</th>
-              <th class="py-3 px-4 sm:px-6 text-center font-bold text-brand-accent bg-white/[0.02]">Pinpoint</th>
+              <th class="py-3 px-4 sm:px-6 font-semibold w-1/2">Workflow & Use Case</th>
+              <th class="py-3 px-4 sm:px-6 text-center font-bold text-brand-accent bg-white/[0.02] whitespace-nowrap">Pinpoint</th>
               <th class="py-3 px-4 sm:px-6 font-semibold text-gray-400">Recommended Ecosystem Tool</th>
             </tr>
           </thead>
@@ -31,10 +31,13 @@
             <tr class="hover:bg-white/[0.01] transition-colors">
               <td class="py-3.5 px-4 sm:px-6 font-sans text-gray-200">
                 <span class="font-semibold block font-mono text-[13px] text-white">Terminal Request Reports & Tiers</span>
-                <span class="text-gray-500 text-[11px]">p95/avg latency percentiles, memory alerts, and IDE jump links</span>
+                <span class="text-gray-500 text-[11px] block mt-0.5">p95/avg latency percentiles, memory alerts, and IDE jump links</span>
               </td>
-              <td class="py-3.5 px-4 sm:px-6 text-center font-semibold text-emerald-400 bg-white/[0.02]">
-                ✔ <code class="text-white font-mono">pinpoint:report</code>
+              <td class="py-3.5 px-4 sm:px-6 text-center font-semibold text-emerald-400 bg-white/[0.02] whitespace-nowrap">
+                <span class="inline-flex items-center justify-center gap-1.5 whitespace-nowrap">
+                  <span>✔</span>
+                  <code class="text-white font-mono">pinpoint:report</code>
+                </span>
               </td>
               <td class="py-3.5 px-4 sm:px-6 font-sans text-gray-400">
                 Primary use case for local CLI profiling
@@ -45,10 +48,13 @@
             <tr class="hover:bg-white/[0.01] transition-colors">
               <td class="py-3.5 px-4 sm:px-6 font-sans text-gray-200">
                 <span class="font-semibold block font-mono text-[13px] text-white">Named Baseline Diffs</span>
-                <span class="text-gray-500 text-[11px]">Compare current test runs against a tagged snapshot (e.g. main)</span>
+                <span class="text-gray-500 text-[11px] block mt-0.5">Compare current test runs against a tagged snapshot (e.g. main)</span>
               </td>
-              <td class="py-3.5 px-4 sm:px-6 text-center font-semibold text-emerald-400 bg-white/[0.02]">
-                ✔ <code class="text-white font-mono">pinpoint:diff</code>
+              <td class="py-3.5 px-4 sm:px-6 text-center font-semibold text-emerald-400 bg-white/[0.02] whitespace-nowrap">
+                <span class="inline-flex items-center justify-center gap-1.5 whitespace-nowrap">
+                  <span>✔</span>
+                  <code class="text-white font-mono">pinpoint:diff</code>
+                </span>
               </td>
               <td class="py-3.5 px-4 sm:px-6 font-sans text-gray-400">
                 Automated regression delta detection
@@ -59,10 +65,13 @@
             <tr class="hover:bg-white/[0.01] transition-colors">
               <td class="py-3.5 px-4 sm:px-6 font-sans text-gray-200">
                 <span class="font-semibold block font-mono text-[13px] text-white">CI Performance Budget Gates</span>
-                <span class="text-gray-500 text-[11px]">Exit code 1 on N+1 queries or query count budget violations (blocks CI when required)</span>
+                <span class="text-gray-500 text-[11px] block mt-0.5">Exit code 1 on N+1 queries or query count budget violations (blocks CI when required)</span>
               </td>
-              <td class="py-3.5 px-4 sm:px-6 text-center font-semibold text-emerald-400 bg-white/[0.02]">
-                ✔ <code class="text-white font-mono">pinpoint:check</code>
+              <td class="py-3.5 px-4 sm:px-6 text-center font-semibold text-emerald-400 bg-white/[0.02] whitespace-nowrap">
+                <span class="inline-flex items-center justify-center gap-1.5 whitespace-nowrap">
+                  <span>✔</span>
+                  <code class="text-white font-mono">pinpoint:check</code>
+                </span>
               </td>
               <td class="py-3.5 px-4 sm:px-6 font-sans text-gray-400">
                 Headless CI check without browser or UI
@@ -73,10 +82,10 @@
             <tr class="hover:bg-white/[0.01] transition-colors">
               <td class="py-3.5 px-4 sm:px-6 font-sans text-gray-200">
                 <span class="font-semibold block font-mono text-[13px] text-white">Browser Request & DOM Inspection</span>
-                <span class="text-gray-500 text-[11px]">In-page tabs for rendered views, request headers, and live queries</span>
+                <span class="text-gray-500 text-[11px] block mt-0.5">In-page tabs for rendered views, request headers, and live queries</span>
               </td>
-              <td class="py-3.5 px-4 sm:px-6 text-center text-gray-500 bg-white/[0.02]">
-                —
+              <td class="py-3.5 px-4 sm:px-6 text-center text-gray-500 bg-white/[0.02] whitespace-nowrap">
+                <span>—</span>
               </td>
               <td class="py-3.5 px-4 sm:px-6 font-sans text-gray-300">
                 Use <strong class="text-white font-mono">Laravel Debugbar</strong>
@@ -87,10 +96,10 @@
             <tr class="hover:bg-white/[0.01] transition-colors">
               <td class="py-3.5 px-4 sm:px-6 font-sans text-gray-200">
                 <span class="font-semibold block font-mono text-[13px] text-white">Queues, Jobs, Events & Mails</span>
-                <span class="text-gray-500 text-[11px]">Deep application lifecycle insight via local web dashboard</span>
+                <span class="text-gray-500 text-[11px] block mt-0.5">Deep application lifecycle insight via local web dashboard</span>
               </td>
-              <td class="py-3.5 px-4 sm:px-6 text-center text-gray-500 bg-white/[0.02]">
-                —
+              <td class="py-3.5 px-4 sm:px-6 text-center text-gray-500 bg-white/[0.02] whitespace-nowrap">
+                <span>—</span>
               </td>
               <td class="py-3.5 px-4 sm:px-6 font-sans text-gray-300">
                 Use <strong class="text-white font-mono">Laravel Telescope</strong>

@@ -166,18 +166,18 @@ const reportRoutes: ReportRow[] = [
   </div>
 
   <!-- Tab 1: Performance Regression Diff (Active by default) -->
-  <div role="tabpanel" id="terminal-panel-diff" aria-labelledby="terminal-tab-diff" tabindex="0" data-terminal-panel="diff" class="p-4 sm:p-5 font-mono text-xs focus:outline-none">
-    <div class="flex items-center justify-between gap-2 border-b border-white/[0.06] pb-3 text-gray-400">
-      <div class="flex items-center gap-2">
-        <span class="text-brand-accent font-semibold">$</span>
-        <span class="text-gray-200">php artisan pinpoint:diff --baseline=storage/pinpoint/baselines/main.json</span>
+  <div role="tabpanel" id="terminal-panel-diff" aria-labelledby="terminal-tab-diff" tabindex="0" data-terminal-panel="diff" class="p-3.5 sm:p-5 font-mono text-xs focus:outline-none">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 sm:gap-2 border-b border-white/[0.06] pb-3 text-gray-400">
+      <div class="flex items-center gap-2 overflow-x-auto text-[11px] sm:text-xs">
+        <span class="text-brand-accent font-semibold shrink-0">$</span>
+        <span class="text-gray-200 whitespace-nowrap">php artisan pinpoint:diff <span class="text-gray-400">--baseline=storage/pinpoint/baselines/main.json</span></span>
       </div>
-      <span class="hidden sm:inline-block text-[11px] text-gray-500">Compare current workload against a recorded baseline snapshot</span>
+      <span class="hidden md:inline-block text-[11px] text-gray-500 shrink-0">Compare current workload against a recorded baseline</span>
     </div>
 
     <!-- Diff Table -->
-    <div class="mt-4 overflow-x-auto">
-      <table class="w-full text-left border-collapse">
+    <div class="mt-4 -mx-3.5 sm:mx-0 px-3.5 sm:px-0 overflow-x-auto">
+      <table class="w-full min-w-[480px] text-left border-collapse">
         <thead>
           <tr class="border-b border-white/[0.08] text-[11px] font-semibold uppercase tracking-wider text-gray-500">
             <th class="pb-2 text-left">Route</th>
@@ -189,10 +189,10 @@ const reportRoutes: ReportRow[] = [
         <tbody class="divide-y divide-white/[0.04]">
           {diffRows.map((r) => (
             <tr class="hover:bg-white/[0.02] transition-colors">
-              <td class="py-2.5 font-medium text-white">{r.route}</td>
-              <td class="py-2.5 text-right text-gray-400 tabular-nums">{r.baseline}</td>
-              <td class="py-2.5 text-right font-medium text-gray-200 tabular-nums">{r.current}</td>
-              <td class="py-2.5 text-right tabular-nums">
+              <td class="py-2.5 font-medium text-white whitespace-nowrap">{r.route}</td>
+              <td class="py-2.5 text-right text-gray-400 tabular-nums whitespace-nowrap">{r.baseline}</td>
+              <td class="py-2.5 text-right font-medium text-gray-200 tabular-nums whitespace-nowrap">{r.current}</td>
+              <td class="py-2.5 text-right tabular-nums whitespace-nowrap">
                 <span class={r.isRegression ? 'font-semibold text-rose-400' : r.isImprovement ? 'font-semibold text-emerald-400' : 'text-gray-400'}>
                   {r.change}
                 </span>
@@ -204,19 +204,19 @@ const reportRoutes: ReportRow[] = [
     </div>
 
     <!-- Regression Detail Block -->
-    <div class="mt-5 rounded-xl border border-rose-500/30 bg-rose-950/20 p-4 space-y-2">
-      <div class="flex items-center justify-between border-b border-rose-500/20 pb-2">
-        <div class="flex items-center gap-2 font-bold text-rose-300">
+    <div class="mt-5 rounded-xl border border-rose-500/30 bg-rose-950/20 p-3.5 sm:p-4 space-y-2">
+      <div class="flex flex-wrap items-center justify-between gap-2 border-b border-rose-500/20 pb-2">
+        <div class="flex items-center gap-2 font-bold text-rose-300 text-xs sm:text-sm">
           <span>✗ REGRESSION DETECTED</span>
           <span class="text-gray-400 font-normal">•</span>
           <span class="text-white font-medium">orders.index</span>
         </div>
-        <span class="rounded bg-rose-500/20 text-rose-300 border border-rose-500/40 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider">
+        <span class="rounded bg-rose-500/20 text-rose-300 border border-rose-500/40 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider shrink-0">
           +49 queries
         </span>
       </div>
 
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 text-[11.5px] text-gray-300">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 pt-1 text-[11.5px] text-gray-300">
         <div>
           <span class="text-gray-500">Duration: </span>
           <span class="text-gray-300">182ms → </span>
@@ -238,11 +238,11 @@ const reportRoutes: ReportRow[] = [
       </div>
 
       <div class="pt-2 border-t border-rose-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[11px]">
-        <div class="text-gray-400">
+        <div class="text-gray-400 break-all">
           <span class="text-gray-500">Trigger: </span>
           <code class="text-gray-200">app/Http/Controllers/OrderController.php:42</code>
         </div>
-        <div class="text-emerald-400 font-medium">
+        <div class="text-emerald-400 font-medium shrink-0">
           <span class="text-gray-500">Suggested fix: </span>
           <code class="bg-black/50 px-1.5 py-0.5 rounded border border-emerald-500/30">Order::with('customer')</code>
         </div>
@@ -251,17 +251,17 @@ const reportRoutes: ReportRow[] = [
   </div>
 
   <!-- Tab 2: pinpoint:report (Per-Route Summary) -->
-  <div role="tabpanel" id="terminal-panel-report" aria-labelledby="terminal-tab-report" tabindex="0" data-terminal-panel="report" class="hidden p-4 sm:p-5 font-mono text-xs focus:outline-none">
-    <div class="flex items-center justify-between gap-2 border-b border-white/[0.06] pb-3 text-gray-400">
-      <div class="flex items-center gap-2">
-        <span class="text-brand-accent font-semibold">$</span>
-        <span class="text-gray-200">php artisan pinpoint:report</span>
+  <div role="tabpanel" id="terminal-panel-report" aria-labelledby="terminal-tab-report" tabindex="0" data-terminal-panel="report" class="hidden p-3.5 sm:p-5 font-mono text-xs focus:outline-none">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 sm:gap-2 border-b border-white/[0.06] pb-3 text-gray-400">
+      <div class="flex items-center gap-2 overflow-x-auto text-[11px] sm:text-xs">
+        <span class="text-brand-accent font-semibold shrink-0">$</span>
+        <span class="text-gray-200 whitespace-nowrap">php artisan pinpoint:report</span>
       </div>
-      <span class="hidden sm:inline-block text-[11px] text-gray-500">Window: last 30m</span>
+      <span class="hidden sm:inline-block text-[11px] text-gray-500 shrink-0">Window: last 30m</span>
     </div>
 
-    <div class="mt-4 overflow-x-auto">
-      <table class="w-full text-left border-collapse">
+    <div class="mt-4 -mx-3.5 sm:mx-0 px-3.5 sm:px-0 overflow-x-auto">
+      <table class="w-full min-w-[540px] text-left border-collapse">
         <thead>
           <tr class="border-b border-white/[0.08] text-[11px] font-semibold uppercase tracking-wider text-gray-500">
             <th class="pb-2 text-left">Route</th>
@@ -278,7 +278,7 @@ const reportRoutes: ReportRow[] = [
                 data-report-row={i}
                 class="hover:bg-white/[0.02] transition-colors"
               >
-                <td class="py-2.5 font-medium text-white">
+                <td class="py-2.5 font-medium text-white whitespace-nowrap">
                   {r.pattern ? (
                     <button
                       type="button"
@@ -294,14 +294,14 @@ const reportRoutes: ReportRow[] = [
                     <span>{r.key}</span>
                   )}
                 </td>
-                <td class="py-2.5 text-right font-medium text-gray-200 tabular-nums">{r.p95}</td>
-                <td class="py-2.5 text-right tabular-nums">
+                <td class="py-2.5 text-right font-medium text-gray-200 tabular-nums whitespace-nowrap">{r.p95}</td>
+                <td class="py-2.5 text-right tabular-nums whitespace-nowrap">
                   <span class={r.memOverBudget ? 'text-rose-400 font-semibold flex items-center justify-end gap-1' : 'text-gray-400'}>
                     {r.mem}
                     {r.memOverBudget && <span class="text-[10px] text-rose-400">⚠</span>}
                   </span>
                 </td>
-                <td class="py-2.5 text-center">
+                <td class="py-2.5 text-center whitespace-nowrap">
                   <span class={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                     r.status === 'Needs Work'
                       ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
@@ -310,13 +310,13 @@ const reportRoutes: ReportRow[] = [
                     {r.status}
                   </span>
                 </td>
-                <td class="py-2.5 text-right">
+                <td class="py-2.5 text-right whitespace-nowrap">
                   {r.badgeType === 'n1' ? (
-                    <span class="rounded bg-rose-500/20 border border-rose-500/40 px-2 py-0.5 text-[10px] font-bold text-rose-300">
+                    <span class="inline-block rounded bg-rose-500/20 border border-rose-500/40 px-2 py-0.5 text-[10px] font-bold text-rose-300">
                       {r.repeatBadge}
                     </span>
                   ) : r.badgeType === 'cache' ? (
-                    <span class="rounded bg-cyan-500/20 border border-cyan-500/40 px-2 py-0.5 text-[10px] font-bold text-cyan-300">
+                    <span class="inline-block rounded bg-cyan-500/20 border border-cyan-500/40 px-2 py-0.5 text-[10px] font-bold text-cyan-300">
                       {r.repeatBadge}
                     </span>
                   ) : (
@@ -329,22 +329,22 @@ const reportRoutes: ReportRow[] = [
                 <tr data-report-detail={i} id={`report-detail-${i}`} class={i === 0 ? '' : 'hidden'}>
                   <td colspan="5" class="py-3 px-3 bg-black/40 border-b border-white/[0.04]">
                     <div class="space-y-1.5 text-[11px]">
-                      <div class="flex items-center justify-between text-gray-400">
+                      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-gray-400">
                         <span>{r.execs}:</span>
                         {r.source && (
-                          <span class="text-brand-accent hover:underline flex items-center gap-1 font-mono">
+                          <span class="text-brand-accent hover:underline flex items-center gap-1 font-mono break-all sm:break-normal">
                             {r.source}
-                            <ExternalLink class="h-3 w-3" />
+                            <ExternalLink class="h-3 w-3 shrink-0" />
                           </span>
                         )}
                       </div>
-                      <code class="block bg-[#040507] p-2 rounded text-gray-300 border border-white/5">
+                      <code class="block bg-[#040507] p-2 rounded text-gray-300 border border-white/5 break-all">
                         {r.pattern}
                       </code>
                       {r.fix && (
                         <div class="text-emerald-400 font-mono text-[11px] pt-1">
                           <span>Suggested fix: </span>
-                          <code>{r.fix}</code>
+                          <code class="break-all">{r.fix}</code>
                         </div>
                       )}
                     </div>
@@ -359,13 +359,13 @@ const reportRoutes: ReportRow[] = [
   </div>
 
   <!-- Tab 3: pinpoint:check (CI Gate) -->
-  <div role="tabpanel" id="terminal-panel-check" aria-labelledby="terminal-tab-check" tabindex="0" data-terminal-panel="check" class="hidden p-4 sm:p-5 font-mono text-xs focus:outline-none">
-    <div class="flex items-center justify-between gap-2 border-b border-white/[0.06] pb-3 text-gray-400">
-      <div class="flex items-center gap-2">
-        <span class="text-brand-accent font-semibold">$</span>
-        <span class="text-gray-200">php artisan pinpoint:check --fail-on-n1 --max-queries=20 --max-duration-ms=1000</span>
+  <div role="tabpanel" id="terminal-panel-check" aria-labelledby="terminal-tab-check" tabindex="0" data-terminal-panel="check" class="hidden p-3.5 sm:p-5 font-mono text-xs focus:outline-none">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/[0.06] pb-3 text-gray-400">
+      <div class="flex items-center gap-2 overflow-x-auto text-[11px] sm:text-xs">
+        <span class="text-brand-accent font-semibold shrink-0">$</span>
+        <span class="text-gray-200 whitespace-nowrap">php artisan pinpoint:check <span class="text-gray-400">--fail-on-n1 --max-queries=20 --max-duration-ms=1000</span></span>
       </div>
-      <span class="rounded bg-rose-500/20 text-rose-300 border border-rose-500/40 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider">
+      <span class="self-start sm:self-auto rounded bg-rose-500/20 text-rose-300 border border-rose-500/40 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider shrink-0">
         Exit Code 1
       </span>
     </div>
@@ -375,10 +375,10 @@ const reportRoutes: ReportRow[] = [
         Checking <span class="text-white font-medium">28 requests</span> recorded in PR test suite...
       </div>
 
-      <div class="rounded-xl border border-rose-500/30 bg-rose-950/20 p-4 space-y-2">
-        <div class="flex items-center gap-2 text-rose-400 font-bold">
+      <div class="rounded-xl border border-rose-500/30 bg-rose-950/20 p-3.5 sm:p-4 space-y-2">
+        <div class="flex flex-wrap items-center gap-1.5 sm:gap-2 text-rose-400 font-bold">
           <span>✗ VIOLATION DETECTED:</span>
-          <span class="text-white font-medium">api.orders.index</span>
+          <span class="text-white font-medium break-all">api.orders.index</span>
         </div>
         <ul class="list-disc list-inside text-gray-300 space-y-1 pl-1 text-[11.5px]">
           <li>
@@ -389,16 +389,16 @@ const reportRoutes: ReportRow[] = [
             <span class="text-rose-300 font-semibold">Query budget exceeded: </span>
             42 queries executed (configured budget: 20 queries).
           </li>
-          <li>
+          <li class="break-all">
             <span class="text-gray-400">Trigger: </span>
             <code class="text-gray-200">app/Http/Controllers/OrderController.php:84</code>
           </li>
         </ul>
       </div>
 
-      <div class="pt-2 border-t border-white/5 flex items-center justify-between text-gray-500 text-[11px]">
+      <div class="pt-2 border-t border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-gray-500 text-[11px]">
         <span>Process terminated with non-zero exit code (exit 1). CI check failed.</span>
-        <span>0.18s check duration</span>
+        <span class="shrink-0">0.18s check duration</span>
       </div>
     </div>
   </div>

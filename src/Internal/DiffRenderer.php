@@ -44,12 +44,15 @@ class DiffRenderer extends CliRenderer
             .'<th class="text-left">Status</th>'
             .'<th class="text-right">Baseline</th>'
             .'<th class="text-right">Current</th>'
-            .'<th class="text-right">Change</th>'
+            .'<th class="text-right">Delta</th>'
             .'</tr></thead><tbody>';
+
+        $termWidth = $this->terminalWidth();
+        $routeMax = max(18, min(40, $termWidth - 62));
 
         foreach ($visible as $diff) {
             $html .= '<tr>'
-                .'<td class="text-left text-white">'.$this->routeLink($diff['route']).'</td>'
+                .'<td class="text-left text-white">'.$this->routeLink($diff['route'], $routeMax).'</td>'
                 .'<td class="text-left">'.BadgeRenderer::diffStatus($diff['status']).'</td>'
                 .'<td class="text-right">'.$this->metricCell($diff['baseline']).'</td>'
                 .'<td class="text-right">'.$this->metricCell($diff['current']).'</td>'
@@ -89,11 +92,27 @@ class DiffRenderer extends CliRenderer
 
         // NEW/REMOVED rows carry an empty changes array — read defensively.
         if (($changes['p95_pct'] ?? null) !== null) {
-            $parts[] = $this->changeBadge(sprintf('%+.1f%%', $changes['p95_pct']));
+            $pct = (float) $changes['p95_pct'];
+            $pctStr = sprintf('%+.1f%%', $pct);
+
+            if ($pct > 0) {
+                $parts[] = '<span class="text-red-500 font-bold">↑ '.$pctStr.' ⚠</span>';
+            } elseif ($pct < 0) {
+                $parts[] = '<span class="text-green-500 font-bold">↓ '.$pctStr.' ✔</span>';
+            } else {
+                $parts[] = '<span class="text-gray-400 font-bold">~ '.$pctStr.'</span>';
+            }
         }
 
         if (($changes['query_delta'] ?? 0) !== 0) {
-            $parts[] = $this->changeBadge(sprintf('%+dq', $changes['query_delta']));
+            $qDelta = (int) $changes['query_delta'];
+            $qStr = sprintf('%+dq', $qDelta);
+
+            if ($qDelta > 0) {
+                $parts[] = '<span class="text-red-500 font-bold">'.$qStr.' ✗</span>';
+            } else {
+                $parts[] = '<span class="text-green-500 font-bold">'.$qStr.' ✔</span>';
+            }
         }
 
         if ($parts === []) {
@@ -101,7 +120,7 @@ class DiffRenderer extends CliRenderer
         }
 
         // Single parent span: Termwind drops sibling spans inside a cell.
-        return '<span>'.implode(' ', $parts).'</span>';
+        return '<span>'.implode('&nbsp;&nbsp;', $parts).'</span>';
     }
 
     protected function changeBadge(string $change): string
