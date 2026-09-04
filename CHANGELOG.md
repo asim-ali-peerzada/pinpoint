@@ -4,6 +4,13 @@ All notable changes to Pinpoint will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.1] - 2026-09-04
+
+### Fixed
+
+- **Summary banner now counts the full dataset**: the `N route(s) · N critical · N with N+1 · N with duplicate queries` line came from the `--limit`-truncated table, so a duplicate-carrying route pushed below the cutoff (e.g. the 21st-slowest route) was missing from the banner while Locate still listed it — banner and Locate disagreed (reported as "◆ 3 with duplicate queries" vs "◆ Duplicate queries · 4 routes" on a real app). The banner now counts from all summaries; the table alone is truncated.
+- **Drill-down table no longer wraps mid-cell**: long caller paths (and SQL) could exceed the terminal width in the compact table, forcing Termwind to wrap an unbreakable path mid-cell and break the column geometry (screenshot showed `…php` then `:90` fragmenting onto the next line). Callers are now capped at 40 chars and SQL at 52 (keeping the full-path hyperlink target), so the table fits a normal terminal.
+
 ## [1.6.0] - 2026-09-04
 
 ### Added

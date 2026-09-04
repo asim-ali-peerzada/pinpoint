@@ -225,7 +225,8 @@ class ReportCommand extends Command
             $title .= ' · last '.$sinceMinutes.' min';
         }
 
-        $this->cli->reportTable($title, $table);
+        // Banner counts come from ALL rows (the table may be --limit-cut).
+        $this->cli->reportTable($title, $table, null, $this->buildTableRows($allRows, $memoryBudgetKb));
         $this->printLocate($allRows);
     }
 

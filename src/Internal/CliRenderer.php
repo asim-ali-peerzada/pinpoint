@@ -59,7 +59,7 @@ class CliRenderer
      * The URI uses the ABSOLUTE path (VS Code falls back to workspace search
      * for relative paths); the label shows the workspace-relative path.
      */
-    protected function callerLink(?string $file, ?int $line): string
+    protected function callerLink(?string $file, ?int $line, int $max = 0): string
     {
         // Omit hyperlink when line number is missing.
         if (! $file || $line === null) {
@@ -67,6 +67,14 @@ class CliRenderer
         }
 
         $label = e(EditorLink::relativeCaller($file).':'.$line);
+
+        // Cap long paths (e.g. in the drill-down table) so Termwind never
+        // has to wrap an unbreakable path mid-cell — wrapping breaks the
+        // column geometry. The hyperlink still targets the full path.
+        if ($max > 0) {
+            $label = e(mb_strimwidth(EditorLink::relativeCaller($file).':'.$line, 0, $max, '…'));
+        }
+
         $token = $this->linkToken($label);
 
         if ($token === null) {
@@ -248,7 +256,11 @@ class CliRenderer
     /**
      * @param  array<int, array{route: string, p95: int, avg: int, samples: int, tier: string, n1: string, memory?: string|null, memory_over_budget?: bool, has_duplicate?: bool, health?: string|null}>  $rows
      */
-    public function reportTable(string $title, array $rows, ?string $emptyMessage = null): void
+    /**
+     * @param  array<int, array{route: string, p95: int, avg: int, samples: int, tier: string, n1: string, memory?: string|null, memory_over_budget?: bool, has_duplicate?: bool, health?: string|null}>  $rows
+     * @param  array<int, array{route: string, p95: int, avg: int, samples: int, tier: string, n1: string, memory?: string|null, memory_over_budget?: bool, has_duplicate?: bool, health?: string|null}>  $allRows  full dataset for the banner counts (the table itself may be truncated by --limit)
+     */
+    public function reportTable(string $title, array $rows, ?string $emptyMessage = null, array $allRows = []): void
     {
         if ($rows === []) {
             if ($emptyMessage) {
@@ -259,15 +271,18 @@ class CliRenderer
         }
 
         // Scannable summary first — the actionable numbers land before the
-        // table, same convention as Horizon/Octane/Pest output.
-        $critical = count(array_filter($rows, fn ($r) => $r['tier'] === TierClassifier::CRITICAL));
-        $n1 = count(array_filter($rows, fn ($r) => str_starts_with($r['n1'], 'Yes')));
-        $duplicate = count(array_filter($rows, fn ($r) => (bool) ($r['has_duplicate'] ?? false)));
+        // table, same convention as Horizon/Octane/Pest output. Counts come
+        // from the FULL dataset (never the --limit-truncated table), so the
+        // banner and the Locate block can never disagree.
+        $counted = $allRows !== [] ? $allRows : $rows;
+        $critical = count(array_filter($counted, fn ($r) => $r['tier'] === TierClassifier::CRITICAL));
+        $n1 = count(array_filter($counted, fn ($r) => str_starts_with($r['n1'], 'Yes')));
+        $duplicate = count(array_filter($counted, fn ($r) => (bool) ($r['has_duplicate'] ?? false)));
 
         $html = BadgeRenderer::header($title)
                     .sprintf(
                         '<div class="mt-1 mb-1 text-gray-400">%d route(s) · <span class="text-red-500">●</span> <span class="text-white">%d</span> critical · <span class="text-yellow-500">▲</span> <span class="text-white">%d</span> with N+1 · <span class="text-cyan-400">◆</span> <span class="text-white">%d</span> with duplicate queries</div>',
-                        count($rows),
+                        count($counted),
                         $critical,
                         $n1,
                         $duplicate
@@ -525,8 +540,10 @@ class CliRenderer
 
         foreach ($queries as $query) {
             $isN1 = $query->repeat_count >= $n1Threshold;
+            // Cap caller to 40 chars: long paths would otherwise wrap
+            // mid-cell in narrow terminals and break the column geometry.
             $caller = $query->caller_file
-                ? $this->callerLink($query->caller_file, $query->caller_line)
+                ? $this->callerLink($query->caller_file, $query->caller_line, 40)
                 : '<span class="text-gray-600">-</span>';
 
             // query_type is set by QueryReader::topQueries() for repeated groups.
@@ -535,7 +552,7 @@ class CliRenderer
                 : '<span class="text-gray-600">-</span>';
 
             $html .= '<tr>'
-                .'<td class="text-left text-white">'.e(str_replace("\n", ' ', mb_strimwidth($query->sql, 0, 60, '…'))).'</td>'
+                .'<td class="text-left text-white">'.e(str_replace("\n", ' ', mb_strimwidth($query->sql, 0, 52, '…'))).'</td>'
                 .'<td class="text-right">'.($isN1 ? '<span class="text-red-500 font-bold">'.$query->repeat_count.'</span>' : '<span class="text-gray-300">'.$query->repeat_count.'</span>').'</td>'
                 .'<td class="text-right text-white">'.(int) round($query->avg_ms).'</td>'
                 .'<td class="text-right text-white">'.$query->max_ms.'</td>'

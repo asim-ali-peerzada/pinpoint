@@ -283,3 +283,41 @@ test('report --json on an empty database emits a valid empty payload', function 
         ->and($payload['meta']['empty'])->toBeTrue()
         ->and($payload['routes'])->toBe([]);
 });
+
+test('banner counts the full dataset even when the table is limit-truncated', function () {
+    $hash = md5(json_encode(['theme']));
+
+    // 24 routes; the duplicate-carrying one is the FASTEST, so the default
+    // top-20 table cuts it — the banner and Locate must still count it.
+    for ($i = 1; $i <= 24; $i++) {
+        DB::table('pinpoint_requests')->insert([
+            'route_name' => 'api.route-'.$i, 'method' => 'GET', 'path' => 'api/route-'.$i,
+            'duration_ms' => 100 + $i, 'query_count' => 1, 'query_time_ms' => 1,
+            'has_n_plus_one' => false, 'created_at' => now(),
+        ]);
+    }
+
+    $id = DB::table('pinpoint_requests')->insertGetId([
+        'route_name' => 'api.quiet-dup', 'method' => 'GET', 'path' => 'api/quiet-dup',
+        'duration_ms' => 10, 'query_count' => 3, 'query_time_ms' => 1,
+        'has_n_plus_one' => true, 'created_at' => now(),
+    ]);
+
+    for ($i = 0; $i < 3; $i++) {
+        DB::table('pinpoint_queries')->insert([
+            'request_id' => $id, 'sql_fingerprint' => md5('select * from settings where key = ?'),
+            'sql' => 'select * from settings where key = ?', 'bindings_hash' => $hash,
+            'time_ms' => 1, 'caller_file' => 'app/Quiet.php', 'caller_line' => 3, 'created_at' => now(),
+        ]);
+    }
+
+    $output = runReport();
+
+    // 25 routes exist; the table shows 20. The banner must report the full
+    // 25 with the duplicate — and Locate must agree (never "1" vs "0").
+    expect($output)
+        ->toContain('25 route(s)')
+        ->toContain('1 with duplicate queries')
+        ->toContain('◆ Duplicate queries · 1 route')
+        ->toContain('api.quiet-dup — CACHE x3');
+});
