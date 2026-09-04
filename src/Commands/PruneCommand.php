@@ -9,6 +9,8 @@ use Throwable;
 
 class PruneCommand extends Command
 {
+    private const MAX_RETENTION_DAYS = 36500;
+
     protected $signature = 'pinpoint:prune {--days= : Override the retention window in days}';
 
     protected $description = 'Delete raw pinpoint data older than the retention window';
@@ -18,8 +20,11 @@ class PruneCommand extends Command
         try {
             $days = (int) ($this->option('days') ?? config('pinpoint.retention_days', 30));
 
-            if ($days < 1) {
-                $this->error('Retention window must be a positive number of days.');
+            if ($days < 1 || $days > self::MAX_RETENTION_DAYS) {
+                $this->error(sprintf(
+                    'Retention window must be between 1 and %d days.',
+                    self::MAX_RETENTION_DAYS
+                ));
 
                 return self::FAILURE;
             }

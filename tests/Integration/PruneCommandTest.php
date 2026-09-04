@@ -61,3 +61,15 @@ test('prune rejects invalid retention windows', function () {
 
     $this->assertDatabaseCount('pinpoint_requests', 1);
 });
+
+test('prune rejects retention windows that exceed the database date range', function () {
+    DB::table('pinpoint_requests')->insert([
+        ['route_name' => 'api.current', 'method' => 'GET', 'path' => 'api/current', 'duration_ms' => 100, 'query_count' => 1, 'query_time_ms' => 10, 'has_n_plus_one' => false, 'created_at' => now()],
+    ]);
+
+    $this->artisan('pinpoint:prune --days=999999')
+        ->assertFailed()
+        ->expectsOutput('Retention window must be between 1 and 36500 days.');
+
+    $this->assertDatabaseCount('pinpoint_requests', 1);
+});
