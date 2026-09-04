@@ -2,6 +2,8 @@
 
 namespace AsimAli\Pinpoint\Commands;
 
+use AsimAli\Pinpoint\Commands\Concerns\EmitsJson;
+use AsimAli\Pinpoint\Internal\BadgeRenderer;
 use AsimAli\Pinpoint\Internal\CliRenderer;
 use AsimAli\Pinpoint\Internal\QueryReader;
 use AsimAli\Pinpoint\Internal\SinceParser;
@@ -9,14 +11,14 @@ use AsimAli\Pinpoint\Internal\SuggestionBuilder;
 use AsimAli\Pinpoint\Internal\SummaryReader;
 use AsimAli\Pinpoint\TierClassifier;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
 use Throwable;
 
 class ReportCommand extends Command
 {
+    use EmitsJson;
+
     protected $signature = 'pinpoint:report
         {--tier= : Only show routes in this tier (good|acceptable|needs_improvement|critical)}
         {--route= : Drill into one route and show its top offending queries}
@@ -77,7 +79,16 @@ class ReportCommand extends Command
         $rows = $this->summaries->fromRaw($sinceMinutes);
 
         if ($rows === []) {
-            $this->cli->info('No requests recorded yet. Run some requests, then re-run this command.');
+            // The JSON contract must hold on empty data too — CI pipes this
+            // to jq, so plain text here would break parsers.
+            if ($this->option('json') || $this->option('json-to')) {
+                $this->emitJson([
+                    'meta' => ['window_minutes' => $sinceMinutes, 'empty' => true],
+                    'routes' => [],
+                ]);
+            } else {
+                $this->cli->info('No requests recorded yet. Run some requests, then re-run this command.');
+            }
 
             return self::SUCCESS;
         }
@@ -121,8 +132,8 @@ class ReportCommand extends Command
     }
 
     /**
-     * @param  array<int, array{route: string, p50: int, p95: int, p99: int, avg: int, samples: int, tier: string, n1_repeat: int, peak_memory_kb: int|null, has_duplicate_queries: bool}>  $rows
-     * @return array<int, array{route: string, p50: int, p95: int, p99: int, avg: int, samples: int, tier: string, n1_repeat: int, peak_memory_kb: int|null, has_duplicate_queries: bool}>
+     * @param  array<int, array{route: string, p50: int, p95: int, p99: int, avg: int, samples: int, tier: string, n1_repeat: int, peak_memory_kb: int|null, has_duplicate_queries: bool, duplicate_repeat: int, unknown_repeat: int}>  $rows
+     * @return array<int, array{route: string, p50: int, p95: int, p99: int, avg: int, samples: int, tier: string, n1_repeat: int, peak_memory_kb: int|null, has_duplicate_queries: bool, duplicate_repeat: int, unknown_repeat: int}>
      */
     protected function filterRows(array $rows, ?string $tier, int $limit): array
     {
@@ -140,7 +151,7 @@ class ReportCommand extends Command
     }
 
     /**
-     * @param  array<int, array{route: string, p50: int, p95: int, p99: int, avg: int, samples: int, tier: string, n1_repeat: int, peak_memory_kb: int|null, has_duplicate_queries: bool}>  $filtered
+     * @param  array<int, array{route: string, p50: int, p95: int, p99: int, avg: int, samples: int, tier: string, n1_repeat: int, peak_memory_kb: int|null, has_duplicate_queries: bool, duplicate_repeat: int, unknown_repeat: int}>  $filtered
      */
     protected function emitJsonSummary(array $filtered, ?int $sinceMinutes): void
     {
@@ -199,8 +210,8 @@ class ReportCommand extends Command
     }
 
     /**
-     * @param  array<int, array{route: string, p50: int, p95: int, p99: int, avg: int, samples: int, tier: string, n1_repeat: int, peak_memory_kb: int|null, has_duplicate_queries: bool}>  $filtered
-     * @param  array<int, array{route: string, p50: int, p95: int, p99: int, avg: int, samples: int, tier: string, n1_repeat: int, peak_memory_kb: int|null, has_duplicate_queries: bool}>  $allRows
+     * @param  array<int, array{route: string, p50: int, p95: int, p99: int, avg: int, samples: int, tier: string, n1_repeat: int, peak_memory_kb: int|null, has_duplicate_queries: bool, duplicate_repeat: int, unknown_repeat: int}>  $filtered
+     * @param  array<int, array{route: string, p50: int, p95: int, p99: int, avg: int, samples: int, tier: string, n1_repeat: int, peak_memory_kb: int|null, has_duplicate_queries: bool, duplicate_repeat: int, unknown_repeat: int}>  $allRows
      */
     protected function renderTableSummary(array $filtered, array $allRows, ?int $sinceMinutes): void
     {
@@ -219,7 +230,7 @@ class ReportCommand extends Command
     }
 
     /**
-     * @param  array<int, array{route: string, p50: int, p95: int, p99: int, avg: int, samples: int, tier: string, n1_repeat: int, peak_memory_kb: int|null, has_duplicate_queries: bool}>  $filtered
+     * @param  array<int, array{route: string, p50: int, p95: int, p99: int, avg: int, samples: int, tier: string, n1_repeat: int, peak_memory_kb: int|null, has_duplicate_queries: bool, duplicate_repeat: int, unknown_repeat: int}>  $filtered
      * @return array<int, array{route: string, p95: int, avg: int, samples: int, tier: string, n1: string, memory: string|null, memory_over_budget: bool, has_duplicate: bool}>
      */
     protected function buildTableRows(array $filtered, ?int $memoryBudgetKb): array
@@ -229,7 +240,23 @@ class ReportCommand extends Command
 
         foreach ($filtered as $row) {
             $repeat = $row['n1_repeat'];
-            $n1 = $repeat >= $threshold ? "Yes (x{$repeat})" : 'No';
+            $dupRepeat = $row['duplicate_repeat'];
+            $unknownRepeat = $row['unknown_repeat'];
+
+            // Exact duplicates (same bindings) are cache candidates, not
+            // N+1 — label them CACHE so they never read as "Yes (xN)".
+            // Null-binding groups are unclassifiable — label them REPEAT
+            // to match the drill-down, never N+1.
+            if ($repeat >= $threshold) {
+                $n1 = "Yes (x{$repeat})";
+            } elseif ($dupRepeat >= $threshold) {
+                $n1 = "CACHE (x{$dupRepeat})";
+            } elseif ($unknownRepeat >= $threshold) {
+                $n1 = "REPEAT (x{$unknownRepeat})";
+            } else {
+                $n1 = 'No';
+            }
+
             $memKb = $row['peak_memory_kb'];
 
             $table[] = [
@@ -239,7 +266,7 @@ class ReportCommand extends Command
                 'samples' => $row['samples'],
                 'tier' => $row['tier'],
                 'n1' => $n1,
-                'memory' => $memKb !== null ? $this->formatMemory($memKb) : null,
+                'memory' => $memKb !== null ? BadgeRenderer::formatMemory($memKb) : null,
                 'memory_over_budget' => $memKb !== null && $memoryBudgetKb !== null && $memKb > $memoryBudgetKb,
                 'has_duplicate' => $row['has_duplicate_queries'],
             ];
@@ -252,7 +279,7 @@ class ReportCommand extends Command
      * Collect the worst offenders (N+1 or critical routes) with their
      * highest-repeat caller, for the summary "Locate" block.
      *
-     * @param  array<int, array{route: string, p95: int, n1_repeat: int, tier: string}>  $summaries
+     * @param  array<int, array{route: string, p95: int, n1_repeat: int, tier: string, duplicate_repeat: int, unknown_repeat: int, has_duplicate_queries: bool}>  $summaries
      */
     protected function printLocate(array $summaries): void
     {
@@ -261,18 +288,37 @@ class ReportCommand extends Command
         $offenders = [];
 
         foreach ($summaries as $row) {
-            if ($row['n1_repeat'] < $threshold && $row['tier'] !== TierClassifier::CRITICAL) {
+            // duplicateRepeats()/unknownRepeats() only return groups at/above
+            // the threshold, so the flags imply their counts qualify.
+            $dupRepeat = $row['duplicate_repeat'];
+            $hasDuplicate = $row['has_duplicate_queries'];
+            $unknownRepeat = $row['unknown_repeat'];
+            $hasUnknown = $unknownRepeat >= $threshold;
+
+            if ($row['n1_repeat'] < $threshold && ! $hasDuplicate && ! $hasUnknown && $row['tier'] !== TierClassifier::CRITICAL) {
                 continue;
             }
 
             $caller = $this->worstCaller($row['route']);
 
+            if ($row['n1_repeat'] >= $threshold) {
+                $reason = 'N+1 x'.$row['n1_repeat'];
+                $repeat = $row['n1_repeat'];
+            } elseif ($hasDuplicate) {
+                $reason = 'CACHE x'.$dupRepeat;
+                $repeat = $dupRepeat;
+            } elseif ($hasUnknown) {
+                $reason = 'REPEAT x'.$unknownRepeat;
+                $repeat = $unknownRepeat;
+            } else {
+                $reason = 'critical tier (p95 '.$row['p95'].'ms)';
+                $repeat = $row['n1_repeat'];
+            }
+
             $offenders[] = [
                 'route' => $row['route'],
-                'reason' => $row['n1_repeat'] >= $threshold
-                    ? 'N+1 x'.$row['n1_repeat']
-                    : 'critical tier (p95 '.$row['p95'].'ms)',
-                'repeat' => $row['n1_repeat'],
+                'reason' => $reason,
+                'repeat' => $repeat,
                 'caller_file' => $caller['file'] ?? null,
                 'caller_line' => $caller['line'] ?? null,
             ];
@@ -289,35 +335,7 @@ class ReportCommand extends Command
      */
     protected function worstCaller(string $routeLabel): ?array
     {
-        $requestIds = QueryReader::scopeRouteLabel(
-            DB::table('pinpoint_requests')->select('id'),
-            $routeLabel
-        )->orderByDesc('id')->limit(100)->pluck('id');
-
-        if ($requestIds->isEmpty()) {
-            return null;
-        }
-
-        $lazyLoad = DB::table('pinpoint_lazy_loads')
-            ->whereIn('request_id', $requestIds)
-            ->whereNotNull('caller_file')
-            ->orderByDesc('id')
-            ->first(['caller_file', 'caller_line']);
-
-        if ($lazyLoad) {
-            return ['file' => $lazyLoad->caller_file, 'line' => (int) $lazyLoad->caller_line];
-        }
-
-        $query = DB::table('pinpoint_queries')
-            ->whereIn('request_id', $requestIds)
-            ->whereNotNull('caller_file')
-            ->select('caller_file', 'caller_line')
-            ->selectRaw('COUNT(*) as c')
-            ->groupBy('caller_file', 'caller_line')
-            ->orderByDesc('c')
-            ->first();
-
-        return $query ? ['file' => $query->caller_file, 'line' => (int) $query->caller_line] : null;
+        return QueryReader::worstCaller($routeLabel);
     }
 
     protected function drillInto(string $routeLabel, ?int $sinceMinutes = null): void
@@ -358,113 +376,11 @@ class ReportCommand extends Command
     }
 
     /**
-     * Emit the JSON payload. Two modes:
-     *
-     * - --json: pure JSON on stdout (the CI contract — scripts pipe it to jq
-     *   or write it to a file themselves).
-     * - --json-to: write to a file (auto-creating directories) and print a
-     *   clear message with the resolved location, for humans.
-     */
-    protected function emitJson(array $payload): void
-    {
-        if ($path = $this->option('json-to')) {
-            $path = $this->resolvePath($path);
-
-            File::ensureDirectoryExists(dirname($path));
-
-            file_put_contents($path, json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
-
-            $this->info(sprintf('JSON written to %s', $path));
-
-            return;
-        }
-
-        // CI contract: plain JSON on stdout, no ANSI/HTML markup.
-        $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
-    }
-
-    protected function resolvePath(string $path): string
-    {
-        return str_starts_with($path, DIRECTORY_SEPARATOR) ? $path : base_path($path);
-    }
-
-    /**
-     * Format a memory figure in KB into a human-readable string.
-     *
-     * Display tiers:
-     *   < 1 MB    → "512 KB"
-     *   >= 1 MB   → "4.2 MB" (one decimal)
-     *
-     * This keeps the Memory column narrow in most cases (most routes stay
-     * under 10 MB), while still being readable for large values.
-     */
-    protected function formatMemory(int $kb): string
-    {
-        if ($kb < 1024) {
-            return $kb.' KB';
-        }
-
-        return round($kb / 1024, 1).' MB';
-    }
-
-    /**
      * Eager-loading suggestion chains for a route label (deduped across the
      * most recent requests).
      */
     protected function buildChains(string $routeLabel, ?int $sinceMinutes = null): array
     {
-        // "METHOD path" fallback labels: match at the SQL level (grouped —
-        // see QueryReader::scopeRouteLabel).
-        //
-        // Bound the request set to the most recent ones: the whereIn lookup
-        // below would otherwise grow without bound on frequently recorded
-        // routes (SQLite bind limit / MySQL packet limit / memory), and
-        // chaining violations from different requests would fabricate chains
-        // that never occurred in a single request.
-        $requestIdsQuery = QueryReader::scopeRouteLabel(
-            DB::table('pinpoint_requests')->select('id'),
-            $routeLabel
-        )->orderByDesc('id')
-            ->limit((int) $this->option('limit'));
-
-        if ($sinceMinutes !== null) {
-            $requestIdsQuery->where('created_at', '>=', now()->subMinutes($sinceMinutes));
-        }
-
-        $requestIds = $requestIdsQuery->pluck('id');
-
-        if ($requestIds->isEmpty()) {
-            return [];
-        }
-
-        // Build chains per request, then merge: a suggestion must reflect a
-        // chain that actually happened inside one request.
-        $violations = DB::table('pinpoint_lazy_loads')
-            ->whereIn('request_id', $requestIds)
-            ->select('request_id', 'model', 'relation', 'caller_file', 'caller_line')
-            ->get()
-            ->map(fn ($row) => [
-                'request_id' => $row->request_id,
-                'model' => $row->model,
-                'relation' => $row->relation,
-                'caller_file' => $row->caller_file,
-                'caller_line' => $row->caller_line,
-            ])
-            ->unique(fn ($row) => $row['request_id'].'|'.$row['model'].'->'.$row['relation'])
-            ->groupBy('request_id');
-
-        $chains = [];
-
-        foreach ($violations as $rows) {
-            foreach ($this->suggestions->build($rows->values()->all()) as $chain) {
-                $key = $chain['model'].'|'.$chain['relations'];
-
-                if (! isset($chains[$key])) {
-                    $chains[$key] = $chain;
-                }
-            }
-        }
-
-        return array_values($chains);
+        return $this->suggestions->forRoute($routeLabel, (int) $this->option('limit'), $sinceMinutes);
     }
 }

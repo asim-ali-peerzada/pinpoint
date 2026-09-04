@@ -20,15 +20,17 @@ class SummaryReader
      * N+1-shaped scan inside the very tool that detects N+1s).
      *
      * @param  int|null  $sinceMinutes  only consider requests from the last N minutes
-     * @return array<int, array{route: string, p50: int, p95: int, p99: int, avg: int, samples: int, tier: string, n1_repeat: int, peak_memory_kb: int|null, has_duplicate_queries: bool}>
+     * @return array<int, array{route: string, p50: int, p95: int, p99: int, avg: int, samples: int, tier: string, n1_repeat: int, peak_memory_kb: int|null, query_count: int, has_duplicate_queries: bool, duplicate_repeat: int, unknown_repeat: int}>
      */
     public function fromRaw(?int $sinceMinutes = null): array
     {
         $counts = $this->maxRepeatCounts($sinceMinutes);
-        $duplicates = $this->routesWithDuplicateQueries($sinceMinutes);
+        $duplicates = $this->duplicateRepeats($sinceMinutes);
+        $unknowns = $this->unknownRepeats($sinceMinutes);
 
         $durationsByLabel = [];
         $peakMemoryByLabel = [];
+        $queryCountByLabel = [];
 
         $query = DB::table('pinpoint_requests')->orderBy('id');
 
@@ -38,7 +40,7 @@ class SummaryReader
 
         // chunkById keeps memory bounded for large datasets (cursor() would
         // hold open a connection and skip late rows under concurrent writes).
-        $query->chunkById(1000, function ($rows) use (&$durationsByLabel, &$peakMemoryByLabel) {
+        $query->chunkById(1000, function ($rows) use (&$durationsByLabel, &$peakMemoryByLabel, &$queryCountByLabel) {
             foreach ($rows as $row) {
                 $label = $row->route_name ?? sprintf('%s %s', $row->method, $row->path);
                 $durationsByLabel[$label][] = (int) $row->duration_ms;
@@ -51,6 +53,13 @@ class SummaryReader
                     $current = $peakMemoryByLabel[$label] ?? null;
                     $peakMemoryByLabel[$label] = $current === null ? $mem : max($current, $mem);
                 }
+
+                // Worst-case query count across samples (same convention as
+                // peak memory: the diff view wants the heaviest observed run).
+                $queryCountByLabel[$label] = max(
+                    $queryCountByLabel[$label] ?? 0,
+                    (int) ($row->query_count ?? 0)
+                );
             }
         });
 
@@ -74,9 +83,20 @@ class SummaryReader
                 // no requests for this route had memory data (pre-migration data
                 // or routes recorded before the feature was deployed).
                 'peak_memory_kb' => $peakMemoryByLabel[$label] ?? null,
+                // Worst-case query count across all recorded requests for this
+                // route (used by the regression diff view).
+                'query_count' => $queryCountByLabel[$label] ?? 0,
                 // True when at least one request for this route had a repeated
                 // query group classified as 'duplicate' (Cache::remember() fix).
-                'has_duplicate_queries' => in_array($label, $duplicates, true),
+                'has_duplicate_queries' => isset($duplicates[$label]),
+                // Max repeat count among duplicate-classified groups (for the
+                // summary CACHE cell and the Locate block reason).
+                'duplicate_repeat' => $duplicates[$label] ?? 0,
+                // Max repeat count among groups with no binding data
+                // ('unknown' in the drill-down — neither provable N+1 nor
+                // duplicate). Surfaced as REPEAT so the summary never calls
+                // them N+1, matching the drill-down classification.
+                'unknown_repeat' => $unknowns[$label] ?? 0,
             ];
         }
 
@@ -96,13 +116,12 @@ class SummaryReader
 
         $query = DB::table('pinpoint_requests as r')
             ->joinSub($perRequest, 'rc', 'rc.request_id', '=', 'r.id')
-            // Exact duplicates (same fingerprint AND same non-null bindings
-            // across all rows) are cache candidates, not N+1 — keep them out
-            // of the repeat count so the report doesn't label them N+1.
-            ->where(function ($q) {
-                $q->where('rc.distinct_hashes', '!=', 1)
-                    ->orWhere('rc.null_count', '>', 0);
-            })
+            // True N+1 only: same fingerprint with VARYING non-null bindings.
+            // Exact duplicates (cache candidates) and null-binding groups
+            // (unclassifiable) are counted separately so the summary never
+            // mislabels them as N+1.
+            ->where('rc.distinct_hashes', '!=', 1)
+            ->where('rc.null_count', 0)
             ->select('r.route_name', 'r.method', 'r.path', 'rc.repeat_count');
 
         if ($sinceMinutes !== null) {
@@ -122,21 +141,54 @@ class SummaryReader
     }
 
     /**
-     * Return route labels that have at least one request with an exact
-     * duplicate query (same fingerprint AND same bindings_hash across all
+     * Return route label => max repeat count for fingerprint groups that are
+     * exact duplicates (same fingerprint AND same bindings_hash across all
      * occurrences, meaning the fix is Cache::remember(), not with()).
      *
      * Only considers fingerprint groups that meet the repeat threshold.
      * Ignores fingerprint groups where any row has a null bindings_hash
      * (unknown — we cannot classify safely).
      *
-     * @return string[] route labels
+     * @return array<string, int>
      */
-    protected function routesWithDuplicateQueries(?int $sinceMinutes = null): array
+    protected function duplicateRepeats(?int $sinceMinutes = null): array
+    {
+        return $this->classifiedRepeats(
+            $sinceMinutes,
+            fn ($query) => $query
+                ->where('rq.distinct_hashes', 1)
+                ->where('rq.null_count', 0)
+        );
+    }
+
+    /**
+     * Return route label => max repeat count for fingerprint groups with no
+     * binding data (the drill-down 'unknown' type — neither provable N+1
+     * nor duplicate).
+     *
+     * @return array<string, int>
+     */
+    protected function unknownRepeats(?int $sinceMinutes = null): array
+    {
+        return $this->classifiedRepeats(
+            $sinceMinutes,
+            fn ($query) => $query->where('rq.null_count', '>', 0)
+        );
+    }
+
+    /**
+     * Shared per-route max-repeat aggregation over fingerprint groups that
+     * meet the repeat threshold. The $constrain callback picks which
+     * classification (duplicate / unknown) to keep — same rules as
+     * QueryReader::topQueries() so summary and drill-down always agree.
+     *
+     * @return array<string, int> route label => max repeat count
+     */
+    protected function classifiedRepeats(?int $sinceMinutes, callable $constrain): array
     {
         $threshold = (int) config('pinpoint.n_plus_one_repeat_threshold', 3);
 
-        // Step 1: find fingerprint+request combos that meet the repeat threshold.
+        // Find fingerprint+request combos that meet the repeat threshold.
         $repeatedSub = DB::table('pinpoint_queries')
             ->select('request_id', 'sql_fingerprint')
             ->selectRaw('COUNT(*) as repeat_count')
@@ -145,25 +197,28 @@ class SummaryReader
             ->groupBy('request_id', 'sql_fingerprint')
             ->havingRaw('COUNT(*) >= ?', [$threshold]);
 
-        // Step 2: join to requests to apply the time window filter and get the
-        // route label. Filter to ONLY exact duplicates (distinct_hashes == 1
-        // AND null_count == 0 → all rows have the same non-null bindings hash).
+        // Join to requests to apply the time window filter and get the
+        // route label, keeping only groups of the wanted classification.
         $query = DB::table('pinpoint_requests as r')
-            ->joinSub($repeatedSub, 'rq', 'rq.request_id', '=', 'r.id')
-            ->where('rq.distinct_hashes', 1)
-            ->where('rq.null_count', 0)
-            ->select('r.route_name', 'r.method', 'r.path');
+            ->joinSub($repeatedSub, 'rq', 'rq.request_id', '=', 'r.id');
+
+        $constrain($query);
+
+        $query->select('r.route_name', 'r.method', 'r.path')
+            ->selectRaw('MAX(rq.repeat_count) as max_repeat');
 
         if ($sinceMinutes !== null) {
             $query->where('r.created_at', '>=', now()->subMinutes($sinceMinutes));
         }
 
-        $labels = [];
+        $query->groupBy('r.route_name', 'r.method', 'r.path');
+
+        $counts = [];
 
         foreach ($query->get() as $row) {
-            $labels[] = $row->route_name ?? sprintf('%s %s', $row->method, $row->path);
+            $counts[$row->route_name ?? sprintf('%s %s', $row->method, $row->path)] = (int) $row->max_repeat;
         }
 
-        return array_unique($labels);
+        return $counts;
     }
 }

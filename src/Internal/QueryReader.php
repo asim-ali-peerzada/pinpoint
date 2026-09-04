@@ -105,6 +105,46 @@ class QueryReader
     }
 
     /**
+     * Worst (highest-repeat) caller for a route label, from lazy loads first
+     * then query repeats. Shared by the report's Locate block and the diff
+     * command's regression details.
+     *
+     * @return array{file: string, line: int}|null
+     */
+    public static function worstCaller(string $routeLabel, int $requestLimit = 100): ?array
+    {
+        $requestIds = self::scopeRouteLabel(
+            DB::table('pinpoint_requests')->select('id'),
+            $routeLabel
+        )->orderByDesc('id')->limit($requestLimit)->pluck('id');
+
+        if ($requestIds->isEmpty()) {
+            return null;
+        }
+
+        $lazyLoad = DB::table('pinpoint_lazy_loads')
+            ->whereIn('request_id', $requestIds)
+            ->whereNotNull('caller_file')
+            ->orderByDesc('id')
+            ->first(['caller_file', 'caller_line']);
+
+        if ($lazyLoad) {
+            return ['file' => $lazyLoad->caller_file, 'line' => (int) $lazyLoad->caller_line];
+        }
+
+        $query = DB::table('pinpoint_queries')
+            ->whereIn('request_id', $requestIds)
+            ->whereNotNull('caller_file')
+            ->select('caller_file', 'caller_line')
+            ->selectRaw('COUNT(*) as c')
+            ->groupBy('caller_file', 'caller_line')
+            ->orderByDesc('c')
+            ->first();
+
+        return $query ? ['file' => $query->caller_file, 'line' => (int) $query->caller_line] : null;
+    }
+
+    /**
      * Classify a repeated fingerprint group from DB-level aggregate counts.
      *
      *   null_binding_count > 0   → some rows have no binding data → 'unknown'

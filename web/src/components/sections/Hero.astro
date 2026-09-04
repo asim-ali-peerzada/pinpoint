@@ -1,7 +1,7 @@
 ---
 import GlowMesh from '../ui/GlowMesh.astro';
 import Button from '../ui/Button.astro';
-import TerminalPreview from './TerminalPreview.tsx';
+import TerminalPreview from './TerminalPreview.astro';
 import InstallSnippet from './InstallSnippet.astro';
 import { ArrowRight } from 'lucide-react';
 ---
@@ -11,17 +11,17 @@ import { ArrowRight } from 'lucide-react';
 
   <div class="relative z-10 mx-auto max-w-5xl px-4 text-center">
     <p class="text-sm font-medium uppercase tracking-[0.16em] text-brand-accent">
-      Laravel performance, in your terminal
+      Laravel Performance Diff & CI Guard
     </p>
 
     <h1 class="mx-auto mt-5 max-w-4xl text-balance text-4xl font-semibold leading-[1.1] tracking-[-0.03em] text-brand-fg sm:text-5xl md:text-6xl">
-      Find slow routes and N+1 queries
+      Find slow Laravel routes and repeated queries
       <br class="hidden sm:block" />
-      <span class="font-bold text-white sm:whitespace-nowrap">without leaving your IDE.</span>
+      <span class="font-bold text-white sm:whitespace-nowrap">before they reach production.</span>
     </h1>
 
-    <p class="mx-auto mt-6 max-w-xl text-sm sm:text-base md:text-lg leading-relaxed text-brand-muted text-pretty text-balance">
-      Profile route latency, detect N+1 loops, and jump to the offending line in your IDE. Per-route performance budgets with configurable alerts. Zero telemetry.
+    <p class="mx-auto mt-6 max-w-2xl text-sm sm:text-base md:text-lg leading-relaxed text-brand-muted text-pretty text-balance">
+      Capture request metrics locally, inspect repeated queries from the terminal, and enforce query, duration, and memory budgets in CI.
     </p>
 
     <!-- Focused 2-CTA Row -->
@@ -41,25 +41,10 @@ import { ArrowRight } from 'lucide-react';
       <InstallSnippet />
     </div>
 
-    <!-- Verified Trust & Status Strip (Linked to live CI & repo) -->
+    <!-- Compatibility & License Strip -->
     <div class="mt-6 flex justify-center px-4">
       <div class="inline-flex items-center justify-center whitespace-nowrap gap-2 sm:gap-3.5 rounded-full border border-white/10 bg-[#0C0E12]/95 px-3 py-1.5 sm:px-4 shadow-[0_4px_24px_rgba(0,0,0,0.5)] backdrop-blur-md text-[11px] sm:text-xs font-mono">
-        <a
-          href="https://github.com/asim-ali-peerzada/pinpoint/actions/workflows/run-tests.yml"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="flex items-center gap-1.5 text-gray-300 hover:text-white transition-colors"
-        >
-          <span class="h-1.5 w-1.5 rounded-full bg-emerald-400"></span>
-          <span class="hidden sm:inline">Tests </span>Passing
-        </a>
-        <span class="h-1 w-1 rounded-full bg-gray-600/80"></span>
-        <span class="flex items-center gap-1.5 text-gray-300">
-          <span class="h-1.5 w-1.5 rounded-full bg-sky-400"></span>
-          PHPStan <span class="hidden sm:inline">Level </span>5
-        </span>
-        <span class="h-1 w-1 rounded-full bg-gray-600/80"></span>
-        <span class="text-gray-300">Laravel 12–13</span>
+        <span class="text-gray-300">Laravel 12 (PHP 8.2+) · Laravel 13 (PHP 8.3+)</span>
         <span class="h-1 w-1 rounded-full bg-gray-600/80"></span>
         <a
           href="https://github.com/asim-ali-peerzada/pinpoint/blob/main/LICENSE"
@@ -73,28 +58,24 @@ import { ArrowRight } from 'lucide-react';
     </div>
 
     <!-- Primary Interactive Demo Terminal -->
-    <div class="mx-auto mt-16 max-w-5xl">
-      <TerminalPreview client:load />
+    <div class="mx-auto mt-14 max-w-5xl">
+      <TerminalPreview />
     </div>
 
-    <!-- Overhead Proof Note (hairline separation from the terminal above) -->
-    <div class="mx-auto mt-12 max-w-lg text-center">
+    <!-- Overhead Proof Note -->
+    <div class="mx-auto mt-12 max-w-xl text-center">
       <div class="mx-auto mb-6 h-px w-24 bg-white/10"></div>
-      <p class="text-[11px] uppercase tracking-[0.16em] text-gray-400">Measured runtime overhead</p>
+      <p class="text-[11px] uppercase tracking-[0.16em] text-gray-400 font-mono">Measured Runtime Overhead</p>
       <p class="mt-1 text-sm leading-6 text-brand-muted">
-        <span class="font-mono font-medium text-brand-fg">+0.29 <span class="text-gray-500">ms</span></span>
-        mean overhead. Telemetry flushes asynchronously
-        <span class="text-gray-200">after your HTTP response is dispatched</span>.
-        <a href="#benchmarks" class="inline-flex items-center gap-1 font-sans font-medium text-brand-accent hover:underline">
-          View benchmark code <ArrowRight class="h-3 w-3" />
-        </a>
+        In benchmark testing, Pinpoint added <span class="font-mono font-medium text-brand-fg">~0.3–0.4 <span class="text-gray-500">ms</span></span>
+        per request across 200 requests (10 queries/req in included Testbench suite). Flushes via Laravel <code class="text-gray-200 font-mono">terminating</code> callbacks after HTTP dispatch.
       </p>
     </div>
 
-    <!-- Directional Scroll Cue (Tightened spacing, clean phrasing) -->
+    <!-- Directional Scroll Cue -->
     <div class="mt-8 flex flex-col items-center justify-center gap-1.5 text-xs font-mono text-gray-400">
       <a href="#delta" class="inline-flex items-center gap-1 hover:text-white transition-colors">
-        <span>See the fix</span>
+        <span>See the example workload proof</span>
         <ArrowRight class="h-3 w-3 text-brand-accent" />
       </a>
     </div>

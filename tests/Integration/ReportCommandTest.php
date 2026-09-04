@@ -17,9 +17,9 @@ test('report shows per-route summary with tiers and n plus one', function () {
     ]);
 
     DB::table('pinpoint_queries')->insert([
-        ['request_id' => $id, 'sql_fingerprint' => 'abc', 'sql' => 'select * from orders where user_id = ?', 'time_ms' => 10, 'caller_file' => 'app/Models/Order.php', 'caller_line' => 12, 'created_at' => now()],
-        ['request_id' => $id, 'sql_fingerprint' => 'abc', 'sql' => 'select * from orders where user_id = ?', 'time_ms' => 10, 'caller_file' => 'app/Models/Order.php', 'caller_line' => 12, 'created_at' => now()],
-        ['request_id' => $id, 'sql_fingerprint' => 'abc', 'sql' => 'select * from orders where user_id = ?', 'time_ms' => 10, 'caller_file' => 'app/Models/Order.php', 'caller_line' => 12, 'created_at' => now()],
+        ['request_id' => $id, 'sql_fingerprint' => 'abc', 'sql' => 'select * from orders where user_id = ?', 'bindings_hash' => 'hash-1', 'time_ms' => 10, 'caller_file' => 'app/Models/Order.php', 'caller_line' => 12, 'created_at' => now()],
+        ['request_id' => $id, 'sql_fingerprint' => 'abc', 'sql' => 'select * from orders where user_id = ?', 'bindings_hash' => 'hash-2', 'time_ms' => 10, 'caller_file' => 'app/Models/Order.php', 'caller_line' => 12, 'created_at' => now()],
+        ['request_id' => $id, 'sql_fingerprint' => 'abc', 'sql' => 'select * from orders where user_id = ?', 'bindings_hash' => 'hash-3', 'time_ms' => 10, 'caller_file' => 'app/Models/Order.php', 'caller_line' => 12, 'created_at' => now()],
     ]);
 
     $output = runReport();
@@ -81,6 +81,7 @@ test('report prints a summary line with route, critical and N+1 counts', functio
     for ($i = 0; $i < 3; $i++) {
         DB::table('pinpoint_queries')->insert([
             'request_id' => $criticalId, 'sql_fingerprint' => 'fp1', 'sql' => 'select * from orders',
+            'bindings_hash' => 'hash-'.$i,
             'time_ms' => 5, 'caller_file' => null, 'caller_line' => null, 'created_at' => now(),
         ]);
     }
@@ -274,3 +275,11 @@ function runReport(array $parameters = []): string
 {
     return runArtisanCaptured('pinpoint:report', $parameters);
 }
+
+test('report --json on an empty database emits a valid empty payload', function () {
+    $payload = json_decode(runReport(['--json' => true]), true);
+
+    expect(json_last_error())->toBe(JSON_ERROR_NONE)
+        ->and($payload['meta']['empty'])->toBeTrue()
+        ->and($payload['routes'])->toBe([]);
+});

@@ -1,25 +1,11 @@
 ---
 import { ArrowUpRight, Github } from 'lucide-react';
-import { execSync } from 'node:child_process';
-
-// Version baked at build time — refreshed live from GitHub tags by the
-// script below. The static value guarantees something correct on first
-// paint / offline; the fetch overwrites it when a newer tag exists.
-let version = 'latest release';
-
-try {
-    // web/ is its own git repo; the package tags live in the parent repo, so
-    // describe from the checkout root (web's parent).
-    version = execSync('git -C ../ describe --tags --abbrev=0').toString().trim();
-} catch {
-    // not in a git checkout — keep the neutral fallback
-}
 
 const navigation = {
   highlights: [
-    { label: 'Features', href: '#features' },
-    { label: 'Benchmarks', href: '#benchmarks' },
-    { label: 'Interactive Terminal', href: '#delta' },
+    { label: 'Capabilities', href: '#features' },
+    { label: 'Workload Proof', href: '#delta' },
+    { label: 'Companion Matrix', href: '#comparison' },
     { label: 'N+1 Query Detection', href: '#features' },
   ],
   resources: [
@@ -29,10 +15,10 @@ const navigation = {
     { label: 'Packagist Package', href: 'https://packagist.org/packages/asimali/pinpoint', external: true },
   ],
   ecosystem: [
-    { label: 'Laravel 12–13' },
-    { label: 'PHP 8.2+' },
-    { label: 'MySQL & Postgres' },
-    { label: 'Comparison Matrix', href: '#diff' },
+    { label: 'Laravel 12 (PHP 8.2+)' },
+    { label: 'Laravel 13 (PHP 8.3+)' },
+    { label: 'MySQL, PostgreSQL, SQLite' },
+    { label: 'Companion Matrix', href: '#comparison' },
   ],
   community: [
     { label: 'Issue Tracker', href: 'https://github.com/asim-ali-peerzada/pinpoint/issues', external: true },
@@ -58,23 +44,19 @@ const navigation = {
           </span>
         </div>
         <span class="font-display text-xl font-bold tracking-tight text-white">Pinpoint</span>
-        <span
-          id="pinpoint-version"
-          class="rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-0.5 font-mono text-[11px] font-medium text-gray-300"
-        >
-          {version} Stable
-        </span>
         <a
           href="https://github.com/asim-ali-peerzada/pinpoint/releases"
           target="_blank"
           rel="noopener noreferrer"
-          class="text-[11px] text-gray-500 transition-colors duration-150 hover:text-brand-accent"
-        >Releases on GitHub</a>
+          class="rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-0.5 font-mono text-[11px] font-medium text-gray-400 hover:text-white transition-colors"
+        >
+          Releases on GitHub ↗
+        </a>
       </div>
 
       <!-- Constrained paragraph block -->
       <p class="max-w-md text-sm leading-relaxed text-gray-400">
-        Pinpoint finds slow routes and N+1 queries in your Laravel app with one terminal command, pointing directly to the exact file and line to fix. Zero browser context-switching, zero external telemetry.
+        Pinpoint identifies slow routes and N+1 queries in your Laravel application from your terminal, pointing directly to the exact file and line to fix. Local-first: request data stays in your application database.
       </p>
     </div>
 
@@ -178,7 +160,7 @@ const navigation = {
     <div class="mt-6 flex flex-col items-center justify-between gap-2 border-t border-white/[0.06] pt-6 text-xs text-gray-500 sm:flex-row">
       <p>© {new Date().getFullYear()} Pinpoint. All rights reserved.</p>
       <p>
-        Crafted with care by <a
+        Created by <a
           href="https://github.com/asim-ali-peerzada"
           target="_blank"
           rel="noopener noreferrer"
@@ -188,24 +170,3 @@ const navigation = {
     </div>
   </div>
 </footer>
-
-<script>
-  // Live version from GitHub tags — if a newer tag exists than the one baked
-  // into the build, overwrite it. No GitHub Releases are created (only tags),
-  // so /releases/latest would 404 — the tags endpoint always works.
-  const el = document.getElementById('pinpoint-version');
-
-  if (el) {
-    const cooked = el.textContent.trim();
-
-    fetch('https://api.github.com/repos/asim-ali-peerzada/pinpoint/tags?per_page=1')
-      .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then((tags) => {
-        if (Array.isArray(tags) && tags[0]?.name) {
-          const latest = tags[0].name + ' Stable';
-          if (latest !== cooked) el.textContent = latest;
-        }
-      })
-      .catch(() => {});
-  }
-</script>

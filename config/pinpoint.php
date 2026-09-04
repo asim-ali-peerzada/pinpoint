@@ -83,6 +83,29 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Regression diff thresholds
+    |--------------------------------------------------------------------------
+    |
+    | pinpoint:diff flags a regression when the change EXCEEDS these thresholds.
+    | Set to null to disable a specific check.
+    |
+    | regression_duration_pct — percentage increase in p95 latency (e.g. 20 = flag at +20%)
+    | regression_query_count  — absolute increase in N+1 repeat count (e.g. 3 = flag at +3 more)
+    | regression_memory_pct   — percentage increase in peak_memory_kb (e.g. 50 = flag at +50%)
+    */
+    'diff' => [
+        'regression_duration_pct' => env('PINPOINT_DIFF_DURATION_PCT', 20),
+        'regression_query_count' => env('PINPOINT_DIFF_QUERY_COUNT', 3),
+        'regression_memory_pct' => env('PINPOINT_DIFF_MEMORY_PCT', 50),
+        // Minimum recorded samples on BOTH sides before a route is judged.
+        // Default 1 compares single samples (the snapshot → one-request →
+        // diff loop); real CI gates should raise this (e.g. 10) so a lone
+        // noisy request can't flag a route.
+        'min_samples' => env('PINPOINT_DIFF_MIN_SAMPLES', 1),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Retention
     |--------------------------------------------------------------------------
     |

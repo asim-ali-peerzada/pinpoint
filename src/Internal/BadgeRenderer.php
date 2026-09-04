@@ -31,12 +31,22 @@ class BadgeRenderer
     }
 
     /**
+     * Composite health verdict. The display rule is "verdict · reasons":
+     * HEALTHY, or NEEDS WORK followed by each contributing signal —
+     * a bad tier, an N+1, an over-budget memory reading.
+     *
+     * The parenthetical lists REASONS, never a healthy tier label, so the
+     * cell can never read as the contradictory "NEEDS WORK (GOOD)".
+     * Examples: NEEDS WORK · N+1 · NEEDS WORK · MEMORY ·
+     * NEEDS WORK · CRITICAL · NEEDS WORK · CRITICAL · N+1 · MEMORY.
+     *
+     * Presentation only: tier calculation, composite-health semantics and
+     * the JSON vocabulary (needs_improvement) are untouched.
+     *
      * @param  array{tier: string, n1?: string, memory_over_budget?: bool, health?: string|null}  $row
      */
     public static function health(array $row): string
     {
-        $tierLabel = strtoupper($row['tier']);
-
         $isHealthyTier = in_array($row['tier'], [TierClassifier::GOOD, TierClassifier::ACCEPTABLE], true);
         $hasN1 = isset($row['n1']) && str_starts_with($row['n1'], 'Yes');
         $overMemory = (bool) ($row['memory_over_budget'] ?? false);
@@ -45,13 +55,27 @@ class BadgeRenderer
             return '<span class="px-1 bg-green-600 text-white font-bold">HEALTHY</span>';
         }
 
+        $reasons = [];
+
+        if (! $isHealthyTier) {
+            $reasons[] = self::tierLabel($row['tier']);
+        }
+
+        if ($hasN1) {
+            $reasons[] = 'N+1';
+        }
+
+        if ($overMemory) {
+            $reasons[] = 'MEMORY';
+        }
+
         return '<span><span class="px-1 bg-red-600 text-white font-bold">NEEDS WORK</span>'
-            .'<span class="text-gray-600"> ('.$tierLabel.')</span></span>';
+            .'<span class="text-gray-600"> · '.implode(' · ', $reasons).'</span></span>';
     }
 
     public static function tier(string $tier): string
     {
-        $label = strtoupper($tier);
+        $label = self::tierLabel($tier);
 
         return match ($tier) {
             TierClassifier::GOOD => '<span class="px-1 bg-green-600 text-white font-bold">'.$label.'</span>',
@@ -62,10 +86,28 @@ class BadgeRenderer
         };
     }
 
+    /**
+     * Human display label for a tier. The internal vocabulary (config keys,
+     * JSON values, TierClassifier constants) keeps `needs_improvement`;
+     * the CLI never shows an underscore-joined enum to humans.
+     */
+    protected static function tierLabel(string $tier): string
+    {
+        return $tier === TierClassifier::NEEDS_IMPROVEMENT ? 'NEEDS IMPROVEMENT' : strtoupper($tier);
+    }
+
     public static function n1(string $n1): string
     {
         if (str_starts_with($n1, 'Yes')) {
             return '<span class="text-red-500 font-bold">'.$n1.'</span>';
+        }
+
+        if (str_starts_with($n1, 'CACHE')) {
+            return '<span class="text-cyan-400 font-bold">'.$n1.'</span>';
+        }
+
+        if (str_starts_with($n1, 'REPEAT')) {
+            return '<span class="text-yellow-500 font-bold">'.$n1.'</span>';
         }
 
         return '<span class="text-gray-600">No</span>';
@@ -89,5 +131,33 @@ class BadgeRenderer
         return $overBudget
             ? '<span class="text-red-500 font-bold">'.$formatted.'</span>'
             : '<span class="text-gray-300">'.$formatted.'</span>';
+    }
+
+    /**
+     * Format a memory figure in KB into a human-readable string.
+     *
+     * Display tiers:
+     *   < 1 MB    → "512 KB"
+     *   >= 1 MB   → "4.2 MB" (one decimal)
+     */
+    public static function formatMemory(int $kb): string
+    {
+        if ($kb < 1024) {
+            return $kb.' KB';
+        }
+
+        return round($kb / 1024, 1).' MB';
+    }
+
+    public static function diffStatus(string $status): string
+    {
+        return match ($status) {
+            'regression' => '<span class="px-1 bg-red-600 text-white font-bold">REGRESSION</span>',
+            'improvement' => '<span class="px-1 bg-green-600 text-white font-bold">IMPROVEMENT</span>',
+            'stable' => '<span class="px-1 bg-gray-600 text-white font-bold">STABLE</span>',
+            'new' => '<span class="px-1 bg-blue-600 text-white font-bold">NEW</span>',
+            'removed' => '<span class="px-1 bg-gray-500 text-white font-bold">REMOVED</span>',
+            default => '<span class="text-gray-400">'.e(strtoupper($status)).'</span>',
+        };
     }
 }

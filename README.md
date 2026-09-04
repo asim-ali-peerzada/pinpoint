@@ -20,7 +20,7 @@ Terminal output is rendered with **Termwind** (ships with Laravel): tier pills a
 ## Installation
 
 ```bash
-composer require asimali/pinpoint
+composer require --dev asimali/pinpoint
 ```
 
 Publish and run the migrations:
@@ -78,7 +78,9 @@ php artisan pinpoint:reset --force                     # or wipe history entirel
 | Command                | What it does                                                                                                 | Options                                                                                                                                 | Exit codes                                   |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
 | `pinpoint:report`    | Per-route summary (p50/p95/p99/avg, tier, N+1) + a "Locate" block for the worst offenders                    | `--tier=`, `--route=`, `--since=`, `--limit=`, `--json`, `--json-to=`                                                       | `0` normal, `1` invalid input / DB error |
-| `pinpoint:check`     | CI gate: fail the build on N+1s or query/duration budget violations                                          | `--fail-on-n1`, `--max-queries=`, `--max-duration-ms=`, `--since=`, `--allow-empty`, `--json`, `--json-to=`, `--limit=` | `0` pass, `1` fail                       |
+| `pinpoint:check`     | CI gate: fail the build on N+1s or query/duration budget violations                                          | `--fail-on-n1`, `--fail-on-duplicates`, `--max-queries=`, `--max-duration-ms=`, `--since=`, `--allow-empty`, `--json`, `--json-to=`, `--limit=` | `0` pass, `1` fail                       |
+| `pinpoint:snapshot`  | Capture current per-route metrics as a named baseline for later diffs                                        | `--tag=main`, `--since=`, `--no-overwrite`                                                                                                     | `0` success, `1` failure                 |
+| `pinpoint:diff`      | Compare current metrics against a baseline snapshot (regression table + detail block)                        | `--baseline=main`, `--since=`, `--fail-on-regression`, `--show-stable`, `--json`, `--json-to=`                                                 | `0` clean, `1` regression/invalid input  |
 | `pinpoint:aggregate` | Roll recent raw requests into the `pinpoint_summaries` table (offline percentiles, all-or-nothing per run) | —                                                                                                                                      | `0` success, `1` failure                 |
 | `pinpoint:prune`     | Delete recorded data older than the retention window (`pinpoint.retention_days`, default 30)               | `--days=`                                                                                                                             | `0` success, `1` failure                 |
 | `pinpoint:reset`     | Wipe ALL recorded data (requests, queries, lazy loads, summaries)                                            | `--force` (skip the confirmation prompt)                                                                                              | `0` success, `1` failure                 |
@@ -118,13 +120,13 @@ PINPOINT                                                             Performance
 
 > **Each column is an independent signal.** The tier reflects **latency only** (p95 against `thresholds_ms`) — it does *not* factor in N+1s or memory. That's why `api.changelogs.mark-read` shows `GOOD` while carrying `Yes (x17)`: the route responds fast, but 17 near-identical queries per request is still a fixable problem. Read the row as: tier = speed, N+1? = query pattern, Memory = hydration cost. A route is only truly clean when all three are unremarkable.
 
-**Prefer one verdict?** Set `PINPOINT_COMPOSITE_TIER=true` and the column becomes **Health** — `HEALTHY` only when the p95 tier is good/acceptable AND no N+1 AND memory is within budget; anything else shows `NEEDS WORK (GOOD)`-style with the latency tier kept in parentheses. The header changes to `Health (tier + N+1 + memory)` so it always states what it measures. `--json` rows gain `health` and a `health_reason` breakdown for scripts.
+**Prefer one verdict?** Set `PINPOINT_COMPOSITE_TIER=true` and the column becomes **Health** — `HEALTHY` only when the p95 tier is good/acceptable AND no N+1 AND memory is within budget; anything else shows `NEEDS WORK` followed by its reasons (`NEEDS WORK · N+1`, `NEEDS WORK · MEMORY`, `NEEDS WORK · CRITICAL`, combined with `·`). `--json` rows gain `health` and a `health_reason` breakdown for scripts.
 
 - **Memory** — the **peak RAM the PHP process used while serving the request** (`memory_get_peak_usage(true)`), NOT the size of your response/payload. A 4 MB reading does *not* mean the endpoint returns 4 MB of JSON — it means serving that request made the process allocate up to 4 MB at its worst moment (models hydrated, collections built, big arrays held). Large readings usually mean you're hydrating far more rows than you need — the fix is chunking, `select()` only the columns you use, or cursor-based iteration, not trimming the response body.
   - Each request records its own peak; the report shows the **max** observed across that route's samples.
   - Values over `pinpoint.memory_budget_kb` (default 20 MB; `PINPOINT_MEMORY_BUDGET_KB=10240` for a 10 MB cap, `null`/`-1` disables) are shown bold red.
   - Baseline note: a plain Laravel request typically sits around 2–4 MB. Don't expect 0 MB — read the column as "how far above baseline this route pushes memory," and compare routes against each other rather than against an absolute number.
-- **N+1?** — `Yes (xN)` when a repeated query shape runs with **varying** bindings (true N+1, fix with eager loading). Repeated queries with **identical** bindings are counted separately in the summary line (`with duplicate queries`) — those are cache candidates, not N+1s (see drill-down badges below).
+- **N+1?** — `Yes (xN)` when a repeated query shape runs with **varying** bindings (true N+1, fix with eager loading). `CACHE (xN)` when the repeats use **identical** bindings (cache candidates, fix with `Cache::remember()` — counted separately in the summary line as `with duplicate queries`, and shown in the Locate block as `CACHE xN`). `REPEAT (xN)` when repeats carry **no binding data** (raw SQL — unclassifiable, shown conservatively). All three agree with the `--route` drill-down badges below.
 
 ### Drill-down: CACHE vs N+1 badges
 
@@ -197,7 +199,8 @@ steps:
 
 Options:
 
-- `--fail-on-n1` — fail when any request repeats the same SQL ≥ `pinpoint.n_plus_one_repeat_threshold` times (Eloquent lazy loads are included via the violation callback).
+- `--fail-on-n1` — fail on true N+1 patterns: same SQL with **varying** bindings, Eloquent lazy-load violations, and repeats with no binding data (cannot be proven safe). Exact duplicates are excluded — they fail only under `--fail-on-duplicates`.
+- `--fail-on-duplicates` — fail on exact-duplicate queries (identical bindings, `Cache::remember()` candidates).
 - `--max-queries=N` — fail when any request exceeds N queries.
 - `--max-duration-ms=N` — fail when any request exceeds N ms.
 - `--since=MINUTES` (default 30) — only inspect recent requests; stale rows from previous runs can't false-fail a PR.
@@ -210,6 +213,21 @@ Notes for CI:
 - The check reads raw tables, so it's meant for the **same job that just ran the tests** (fresh data, `--since` guards the window). Use `sample_rate = 1.0` in the CI environment so the gate is deterministic — the command warns if sampling is on.
 - **No data in the window → the gate fails closed** (a check that evaluated nothing is a false green). If an empty run is legitimate for your pipeline, add `--allow-empty`.
 
+### Performance regression diff — "did this PR make it slower?"
+
+Two-step workflow: snapshot the baseline on `main`, then diff after your change (run the suite in between so fresh requests are recorded):
+
+```bash
+# on main, after exercising the app:
+php artisan pinpoint:snapshot --tag=main
+
+# on the PR branch, after running the test suite:
+php artisan pinpoint:diff --baseline=main
+php artisan pinpoint:diff --baseline=main --fail-on-regression  # exit 1 for CI
+```
+
+The table shows every route's status (`REGRESSION` / `IMPROVEMENT` / `STABLE` / `NEW` / `REMOVED`) with baseline vs current p95 and query counts; regressions get a detail block with the exact deltas, the caller file:line, and the suggested fix (`Model::with(...)` for N+1s). Thresholds live in `pinpoint.diff` (`PINPOINT_DIFF_DURATION_PCT=20`, `PINPOINT_DIFF_QUERY_COUNT=3`, `PINPOINT_DIFF_MEMORY_PCT=50`); an introduced N+1 always flags regardless of the count threshold. A route is only judged when both sides have at least `pinpoint.diff.min_samples` samples (`PINPOINT_DIFF_MIN_SAMPLES`, default 1) — raise it in CI so a lone noisy request can't flag a route.
+
 ### Configuration reference
 
 All env vars (publish the config for full control: `php artisan vendor:publish --tag=pinpoint-config`):
@@ -220,7 +238,9 @@ All env vars (publish the config for full control: `php artisan vendor:publish -
 | `PINPOINT_CAPTURE_CALLER` | `capture_caller` | auto — same environments as above | `debug_backtrace` file:line capture; `true` to force on for staging, `false` to disable even locally |
 | `PINPOINT_MEMORY_BUDGET_KB` | `memory_budget_kb` | `20480` (20 MB) | routes whose peak memory exceeds this are flagged red in the Memory column; `null`/`-1` disables the check |
 | `PINPOINT_EDITOR` | `editor` | `vscode` | URI scheme for clickable file:line links (`phpstorm`, `cursor`, `windsurf`, `devin`, …) |
-| `PINPOINT_COMPOSITE_TIER` | `composite_tier` | `false` | replace the p95-only tier column with a composite Health verdict (`HEALTHY` / `NEEDS WORK (tier)`) that factors in N+1 and memory too |
+| `PINPOINT_COMPOSITE_TIER` | `composite_tier` | `false` | replace the p95-only tier column with a composite Health verdict (`HEALTHY` / `NEEDS WORK · <reasons>`) that factors in N+1 and memory too |
+| `PINPOINT_DIFF_DURATION_PCT` / `PINPOINT_DIFF_QUERY_COUNT` / `PINPOINT_DIFF_MEMORY_PCT` | `diff.regression_*` | `20` / `3` / `50` | `pinpoint:diff` regression thresholds (p95 % increase, N+1 count increase, memory % increase) |
+| `PINPOINT_DIFF_MIN_SAMPLES` | `diff.min_samples` | `1` | minimum samples on both sides before a route is judged in `pinpoint:diff` |
 | — | `sample_rate` | `1.0` | fraction of requests recorded; use `0.1`–`0.2` in staging, keep `1.0` in local and CI |
 | — | `n_plus_one_repeat_threshold` | `3` | repeats of a query shape before N+1/duplicate flagging |
 | — | `thresholds_ms` | `good: 150, acceptable: 400, needs_improvement: 1000` | tier boundaries (milliseconds) |

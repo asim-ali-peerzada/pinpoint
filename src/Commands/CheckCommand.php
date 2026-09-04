@@ -2,21 +2,24 @@
 
 namespace AsimAli\Pinpoint\Commands;
 
+use AsimAli\Pinpoint\Commands\Concerns\EmitsJson;
 use AsimAli\Pinpoint\Internal\CliRenderer;
 use AsimAli\Pinpoint\Internal\SinceParser;
 use AsimAli\Pinpoint\Internal\SuggestionBuilder;
 use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
 use Throwable;
 
 class CheckCommand extends Command
 {
+    use EmitsJson;
+
     protected $signature = 'pinpoint:check
-        {--fail-on-n1 : Fail when N+1 patterns are detected}
+        {--fail-on-n1 : Fail on N+1 patterns (excludes exact duplicates — see --fail-on-duplicates)}
+        {--fail-on-duplicates : Fail on exact-duplicate queries (identical bindings)}
         {--max-queries= : Fail when any request exceeds this query count}
         {--max-duration-ms= : Fail when any request exceeds this duration in ms}
         {--since=30 : Only check requests from the last N (e.g. 5m, 1h, 2d; bare number = minutes)}
@@ -59,6 +62,7 @@ class CheckCommand extends Command
         $maxQueries = $this->option('max-queries') !== null ? (int) $this->option('max-queries') : null;
         $maxDurationMs = $this->option('max-duration-ms') !== null ? (int) $this->option('max-duration-ms') : null;
         $failOnN1 = (bool) $this->option('fail-on-n1');
+        $failOnDuplicates = (bool) $this->option('fail-on-duplicates');
         $limit = (int) $this->option('limit');
 
         $cutoff = now()->subMinutes($sinceMinutes);
@@ -103,8 +107,8 @@ class CheckCommand extends Command
 
         $n1Threshold = (int) config('pinpoint.n_plus_one_repeat_threshold', 3);
 
-        if ($failOnN1) {
-            $violations = array_merge($violations, $this->n1Violations($requests, $n1Threshold, $limit));
+        if ($failOnN1 || $failOnDuplicates) {
+            $violations = array_merge($violations, $this->n1Violations($requests, $n1Threshold, $failOnN1, $failOnDuplicates));
         }
 
         if ($maxQueries !== null) {
@@ -145,9 +149,20 @@ class CheckCommand extends Command
     }
 
     /**
+     * Repeat-pattern violations, filtered by the enabled gates.
+     *
+     * --fail-on-n1 covers true N+1 (varying bindings, lazy loads) plus
+     * unclassifiable repeats (no binding data — cannot be proven safe).
+     * Proven duplicates fail only under --fail-on-duplicates: the flag
+     * must mean what it says, and duplicates are cache candidates, not N+1.
+     *
+     * Detection is deliberately untruncated: the --limit only caps display
+     * (printResult slices), so a gate can never false-green because the
+     * offending group sat below a top-N cutoff.
+     *
      * @param  Collection<int, \stdClass>  $requests
      */
-    protected function n1Violations($requests, int $threshold, int $limit): array
+    protected function n1Violations($requests, int $threshold, bool $includeN1, bool $includeDuplicates): array
     {
         $ids = $requests->pluck('id');
 
@@ -155,10 +170,11 @@ class CheckCommand extends Command
             ->whereIn('request_id', $ids)
             ->select('request_id', 'sql', 'caller_file', 'caller_line')
             ->selectRaw('COUNT(*) as repeat_count')
+            ->selectRaw('COUNT(DISTINCT bindings_hash) as distinct_binding_count')
+            ->selectRaw('SUM(CASE WHEN bindings_hash IS NULL THEN 1 ELSE 0 END) as null_binding_count')
             ->groupBy('request_id', 'sql', 'caller_file', 'caller_line')
             ->havingRaw('COUNT(*) >= ?', [$threshold])
             ->orderByDesc('repeat_count')
-            ->limit($limit)
             ->get();
 
         $requestsById = $requests->keyBy('id');
@@ -167,8 +183,15 @@ class CheckCommand extends Command
             ->map(function ($group) use ($requestsById) {
                 $request = $requestsById[$group->request_id];
 
+                // Same classification as QueryReader: identical bindings mean
+                // a cache candidate, not an N+1 — label it correctly so the
+                // suggested fix is Cache::remember(), not with().
+                $type = $group->null_binding_count > 0
+                    ? 'unknown'
+                    : ($group->distinct_binding_count == 1 ? 'duplicate' : 'n_plus_one');
+
                 return [
-                    'type' => 'n_plus_one',
+                    'type' => $type,
                     'route' => $this->label($request),
                     'request_id' => $group->request_id,
                     'sql' => $group->sql,
@@ -177,22 +200,45 @@ class CheckCommand extends Command
                     'caller_line' => $group->caller_line,
                 ];
             })
+            ->filter(fn ($violation) => match ($violation['type']) {
+                'n_plus_one' => $includeN1,
+                'duplicate' => $includeDuplicates,
+                // Unclassifiable repeats fail the N+1 gate (cannot be proven
+                // safe) but never the duplicates-only gate.
+                default => $includeN1,
+            })
+            ->values()
             ->all();
 
         // Eloquent lazy-load violations are the primary N+1 signal — the
         // request is flagged has_n_plus_one even when the repeat count is
         // below the fingerprint threshold (e.g. 2 lazy loads, threshold 3).
-        foreach ($requests as $request) {
-            if ($request->has_n_plus_one && ! in_array($request->id, array_column($violations, 'request_id'), true)) {
-                $violations[] = [
-                    'type' => 'n_plus_one',
-                    'route' => $this->label($request),
-                    'request_id' => $request->id,
-                    'sql' => 'Eloquent lazy-loading violation (see request query log)',
-                    'repeat_count' => null,
-                    'caller_file' => null,
-                    'caller_line' => null,
-                ];
+        // They belong to the N+1 gate only, never the duplicates gate.
+        // The flag alone is not enough: it is also set by duplicate
+        // repeats, so require actual lazy-load rows.
+        if ($includeN1) {
+            $lazyRequestIds = DB::table('pinpoint_lazy_loads')
+                ->whereIn('request_id', $ids)
+                ->distinct()
+                ->pluck('request_id')
+                ->all();
+
+            foreach ($requests as $request) {
+                if (! in_array($request->id, $lazyRequestIds, true)) {
+                    continue;
+                }
+
+                if (! in_array($request->id, array_column($violations, 'request_id'), true)) {
+                    $violations[] = [
+                        'type' => 'n_plus_one',
+                        'route' => $this->label($request),
+                        'request_id' => $request->id,
+                        'sql' => 'Eloquent lazy-loading violation (see request query log)',
+                        'repeat_count' => null,
+                        'caller_file' => null,
+                        'caller_line' => null,
+                    ];
+                }
             }
         }
 
@@ -269,17 +315,23 @@ class CheckCommand extends Command
                     'n_plus_one' => $v['repeat_count'] !== null
                         ? sprintf('Repeated x%s — %s', $v['repeat_count'], str_replace("\n", ' ', mb_strimwidth($v['sql'], 0, 70, '…')))
                         : 'Eloquent lazy-loading violation (see request query log)',
+                    'duplicate' => sprintf('Duplicated x%s (identical bindings) — %s', $v['repeat_count'], str_replace("\n", ' ', mb_strimwidth($v['sql'], 0, 70, '…'))),
+                    'unknown' => sprintf('Repeated x%s (no binding data) — %s', $v['repeat_count'], str_replace("\n", ' ', mb_strimwidth($v['sql'], 0, 70, '…'))),
                     'query_budget' => sprintf('%d queries (budget %d)', $v['query_count'], $v['budget']),
                     'duration_budget' => sprintf('%dms (budget %dms)', $v['duration_ms'], $v['budget_ms']),
                     default => '',
                 };
 
-                if ($v['type'] === 'n_plus_one' && $v['caller_file']) {
+                if (in_array($v['type'], ['n_plus_one', 'duplicate', 'unknown'], true) && $v['caller_file']) {
                     $detail .= sprintf(' at %s:%d', $v['caller_file'], $v['caller_line']);
                 }
 
                 if ($v['type'] === 'n_plus_one' && ($v['suggestions'][0]['suggested'] ?? null) !== null) {
                     $detail .= ' | '.$v['suggestions'][0]['suggested'];
+                }
+
+                if ($v['type'] === 'duplicate') {
+                    $detail .= ' | Cache::remember(...) candidate';
                 }
 
                 return [
@@ -292,36 +344,5 @@ class CheckCommand extends Command
         );
 
         $this->cli->checkReport($rows, $meta['requests'], $meta['window_minutes'], $violations === []);
-    }
-
-    /**
-     * Emit the JSON payload. Two modes:
-     *
-     * - --json: pure JSON on stdout (the CI contract — scripts pipe it to jq
-     *   or write it to a file themselves).
-     * - --json-to: write to a file (auto-creating directories) and print a
-     *   clear message with the resolved location, for humans.
-     */
-    protected function emitJson(array $payload): void
-    {
-        if ($path = $this->option('json-to')) {
-            $path = $this->resolvePath($path);
-
-            File::ensureDirectoryExists(dirname($path));
-
-            file_put_contents($path, json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
-
-            $this->info(sprintf('JSON written to %s', $path));
-
-            return;
-        }
-
-        // CI contract: plain JSON on stdout, no ANSI/HTML markup.
-        $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
-    }
-
-    protected function resolvePath(string $path): string
-    {
-        return str_starts_with($path, DIRECTORY_SEPARATOR) ? $path : base_path($path);
     }
 }

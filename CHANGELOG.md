@@ -4,6 +4,29 @@ All notable changes to Pinpoint will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2026-09-04
+
+### Added
+
+- **Performance regression diff** (`pinpoint:snapshot` / `pinpoint:diff`): capture per-route metrics as a named baseline, then compare after a change. The diff table shows `REGRESSION` / `IMPROVEMENT` / `STABLE` / `NEW` / `REMOVED` per route with baseline-vs-current p95 and query counts; regressions get a detail block with exact deltas, caller file:line, and the suggested fix. `--fail-on-regression` exits 1 for CI, `--json` emits a machine-readable payload. Thresholds in `pinpoint.diff` (`PINPOINT_DIFF_DURATION_PCT=20`, `PINPOINT_DIFF_QUERY_COUNT=3`, `PINPOINT_DIFF_MEMORY_PCT=50`); an introduced N+1 always flags. `pinpoint.diff.min_samples` (`PINPOINT_DIFF_MIN_SAMPLES`, default 1) requires N samples per side before judging a route.
+- **`--fail-on-duplicates` CI gate**: fails only on exact-duplicate queries (identical bindings, `Cache::remember()` candidates).
+- **Three-state N+1 column**: `Yes (xN)` for true N+1, `CACHE (xN)` (cyan) for exact duplicates, `REPEAT (xN)` (yellow) for repeats with no binding data — the summary, Locate block (`CACHE xN` / `REPEAT xN`), drill-down badges, and `pinpoint:check` types now agree everywhere.
+- **Composite Health verdict reasons**: the Health column reads `HEALTHY` or `NEEDS WORK · <reasons>` (`CRITICAL`, `N+1`, `MEMORY`, joined with `·`) instead of the contradictory `NEEDS WORK (GOOD)`; the header is simply `Health`. Presentation only — tier calculation, JSON vocabulary, and config keys are unchanged.
+- **Per-route worst-case query counts** in summaries (max `query_count` across samples), available in `pinpoint:report --json` and used by the diff view.
+
+### Fixed
+
+- **`--fail-on-n1` no longer fails on exact duplicates**: the flag now covers true N+1 (varying bindings, lazy-load violations, unclassifiable repeats) — duplicates fail only under `--fail-on-duplicates`.
+- **No-binding repeats no longer labeled N+1** in the summary table or Locate block (they are `unknown` in the drill-down; now `REPEAT` everywhere).
+- **`pinpoint:report --json` and `pinpoint:diff --json` on empty/missing data** now emit valid JSON (`{"meta": {"empty": true}, "routes": []}` / `{"meta": {"error": ...}, "routes": []}`) instead of plain text that broke `jq` and CI parsers.
+- **Flush no longer re-runs in long-running processes**: the terminating callback is registered once at boot and flushes a payload staged on the scoped recorder, instead of registering a new callback per request (Laravel re-runs every registered callback, which duplicated rows under Octane/workers/tests).
+- **CI detection is complete**: repeat-pattern detection no longer stops at a top-20 cutoff, so a gate can never false-green because the offending group sat below it.
+
+### Docs
+
+- README: `pinpoint:snapshot` / `pinpoint:diff` workflow, `--fail-on-duplicates` semantics, the three-state N+1 column, and the Health verdict format.
+- New `AGENTS.md` testing mandate (full suite + Pint + PHPStan before/after every change, adversarial coverage rules per `docs/testing-plan.md`).
+
 ## [1.4.3] - 2026-09-02
 
 ### Fixed

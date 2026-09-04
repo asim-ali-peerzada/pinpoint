@@ -1,0 +1,107 @@
+---
+---
+
+<section id="comparison" class="relative py-20 sm:py-24 overflow-hidden scroll-mt-20">
+  <div class="relative z-10 mx-auto max-w-5xl px-4 sm:px-6">
+    <div class="text-center max-w-2xl mx-auto mb-10">
+      <p class="text-sm font-medium uppercase tracking-[0.16em] text-brand-accent font-mono">
+        Where Pinpoint Fits
+      </p>
+      <h2 class="mt-3 text-2xl sm:text-3xl font-bold tracking-tight text-white">
+        A focused tool for your terminal and CI.
+      </h2>
+      <p class="mt-3 text-sm text-gray-300 leading-relaxed">
+        Pinpoint doesn't replace browser debuggers or deep system monitors. It complements them by focusing specifically on terminal request inspection, baseline diffing, and automated CI performance gates.
+      </p>
+    </div>
+
+    <!-- Clean Workflow Matrix -->
+    <div class="overflow-hidden rounded-2xl border border-white/10 bg-[#090B0E] shadow-xl">
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs sm:text-sm border-collapse font-mono">
+          <thead>
+            <tr class="border-b border-white/[0.08] bg-[#0E1015] text-[11px] uppercase tracking-wider text-gray-400">
+              <th class="py-3 px-4 sm:px-6 font-semibold">Workflow & Use Case</th>
+              <th class="py-3 px-4 sm:px-6 text-center font-bold text-brand-accent bg-white/[0.02]">Pinpoint</th>
+              <th class="py-3 px-4 sm:px-6 font-semibold text-gray-400">Recommended Ecosystem Tool</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-white/[0.05] text-xs">
+            <!-- Row 1: Terminal Tiers -->
+            <tr class="hover:bg-white/[0.01] transition-colors">
+              <td class="py-3.5 px-4 sm:px-6 font-sans text-gray-200">
+                <span class="font-semibold block font-mono text-[13px] text-white">Terminal Request Reports & Tiers</span>
+                <span class="text-gray-500 text-[11px]">p95/avg latency percentiles, memory alerts, and IDE jump links</span>
+              </td>
+              <td class="py-3.5 px-4 sm:px-6 text-center font-semibold text-emerald-400 bg-white/[0.02]">
+                ✔ <code class="text-white font-mono">pinpoint:report</code>
+              </td>
+              <td class="py-3.5 px-4 sm:px-6 font-sans text-gray-400">
+                Primary use case for local CLI profiling
+              </td>
+            </tr>
+
+            <!-- Row 2: Baseline Diffs -->
+            <tr class="hover:bg-white/[0.01] transition-colors">
+              <td class="py-3.5 px-4 sm:px-6 font-sans text-gray-200">
+                <span class="font-semibold block font-mono text-[13px] text-white">Named Baseline Diffs</span>
+                <span class="text-gray-500 text-[11px]">Compare current test runs against a tagged snapshot (e.g. main)</span>
+              </td>
+              <td class="py-3.5 px-4 sm:px-6 text-center font-semibold text-emerald-400 bg-white/[0.02]">
+                ✔ <code class="text-white font-mono">pinpoint:diff</code>
+              </td>
+              <td class="py-3.5 px-4 sm:px-6 font-sans text-gray-400">
+                Automated regression delta detection
+              </td>
+            </tr>
+
+            <!-- Row 3: CI Gates -->
+            <tr class="hover:bg-white/[0.01] transition-colors">
+              <td class="py-3.5 px-4 sm:px-6 font-sans text-gray-200">
+                <span class="font-semibold block font-mono text-[13px] text-white">CI Performance Budget Gates</span>
+                <span class="text-gray-500 text-[11px]">Exit code 1 on N+1 queries or query count budget violations (blocks CI when required)</span>
+              </td>
+              <td class="py-3.5 px-4 sm:px-6 text-center font-semibold text-emerald-400 bg-white/[0.02]">
+                ✔ <code class="text-white font-mono">pinpoint:check</code>
+              </td>
+              <td class="py-3.5 px-4 sm:px-6 font-sans text-gray-400">
+                Headless CI check without browser or UI
+              </td>
+            </tr>
+
+            <!-- Row 4: Browser Debugging -->
+            <tr class="hover:bg-white/[0.01] transition-colors">
+              <td class="py-3.5 px-4 sm:px-6 font-sans text-gray-200">
+                <span class="font-semibold block font-mono text-[13px] text-white">Browser Request & DOM Inspection</span>
+                <span class="text-gray-500 text-[11px]">In-page tabs for rendered views, request headers, and live queries</span>
+              </td>
+              <td class="py-3.5 px-4 sm:px-6 text-center text-gray-500 bg-white/[0.02]">
+                —
+              </td>
+              <td class="py-3.5 px-4 sm:px-6 font-sans text-gray-300">
+                Use <strong class="text-white font-mono">Laravel Debugbar</strong>
+              </td>
+            </tr>
+
+            <!-- Row 5: Deep Application Monitoring -->
+            <tr class="hover:bg-white/[0.01] transition-colors">
+              <td class="py-3.5 px-4 sm:px-6 font-sans text-gray-200">
+                <span class="font-semibold block font-mono text-[13px] text-white">Queues, Jobs, Events & Mails</span>
+                <span class="text-gray-500 text-[11px]">Deep application lifecycle insight via local web dashboard</span>
+              </td>
+              <td class="py-3.5 px-4 sm:px-6 text-center text-gray-500 bg-white/[0.02]">
+                —
+              </td>
+              <td class="py-3.5 px-4 sm:px-6 font-sans text-gray-300">
+                Use <strong class="text-white font-mono">Laravel Telescope</strong>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <p class="mt-4 text-center text-xs text-gray-400 font-mono">
+      Pinpoint is focused on local development and CI regression checks; it is not a distributed tracing or production alerting system.
+    </p>
+  </div>
+</section>

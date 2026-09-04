@@ -1,0 +1,472 @@
+---
+import { ChevronDown, ExternalLink } from 'lucide-react';
+
+interface DiffRow {
+  route: string;
+  baseline: string;
+  current: string;
+  change: string;
+  isRegression: boolean;
+  isImprovement: boolean;
+}
+
+const diffRows: DiffRow[] = [
+  {
+    route: 'orders.index',
+    baseline: 'p95 182ms · 2q',
+    current: 'p95 241ms · 51q',
+    change: '+32.4% ⚠  +49q ✗',
+    isRegression: true,
+    isImprovement: false,
+  },
+  {
+    route: 'orders.show',
+    baseline: 'p95 94ms · 3q',
+    current: 'p95 91ms · 3q',
+    change: '-3.2% ✓',
+    isRegression: false,
+    isImprovement: true,
+  },
+  {
+    route: 'users.index',
+    baseline: 'p95 45ms · 8q',
+    current: 'p95 48ms · 27q',
+    change: '+6.7%  +19q ⚠',
+    isRegression: true,
+    isImprovement: false,
+  },
+  {
+    route: 'dashboard',
+    baseline: 'p95 310ms · 4q',
+    current: 'p95 305ms · 4q',
+    change: '-1.6% ✓',
+    isRegression: false,
+    isImprovement: true,
+  },
+];
+
+interface ReportRow {
+  key: string;
+  p95: string;
+  avg: string;
+  queries: number;
+  mem: string;
+  memOverBudget: boolean;
+  status: 'Needs Work' | 'Healthy';
+  repeatBadge: 'N+1 ×42' | 'CACHE ×3' | '—';
+  badgeType: 'n1' | 'cache' | 'none';
+  pattern: string | null;
+  execs: string | null;
+  source: string | null;
+  fix: string | null;
+}
+
+const reportRoutes: ReportRow[] = [
+  {
+    key: 'api.orders.index',
+    p95: '1.42s',
+    avg: '890ms',
+    queries: 42,
+    mem: '24.2 MB',
+    memOverBudget: true,
+    status: 'Needs Work',
+    repeatBadge: 'N+1 ×42',
+    badgeType: 'n1',
+    pattern: 'select * from `items` where `order_id` = ?',
+    execs: 'Executed 42× with varying IDs',
+    source: 'app/Http/Controllers/OrderController.php:84',
+    fix: "Order::with('items')",
+  },
+  {
+    key: 'api.settings.all',
+    p95: '34ms',
+    avg: '28ms',
+    queries: 4,
+    mem: '4.1 MB',
+    memOverBudget: false,
+    status: 'Healthy',
+    repeatBadge: 'CACHE ×3',
+    badgeType: 'cache',
+    pattern: 'select * from `settings` where `key` = ?',
+    execs: 'Executed 3× with identical bindings',
+    source: 'app/Providers/AppServiceProvider.php:32',
+    fix: "Cache::remember('app_settings', 3600, fn() => ...)",
+  },
+  {
+    key: 'api.orders.show',
+    p95: '89ms',
+    avg: '64ms',
+    queries: 3,
+    mem: '6.2 MB',
+    memOverBudget: false,
+    status: 'Healthy',
+    repeatBadge: '—',
+    badgeType: 'none',
+    pattern: null,
+    execs: null,
+    source: null,
+    fix: null,
+  },
+];
+---
+
+<div id="terminal-preview-container" class="mx-auto max-w-5xl overflow-hidden rounded-2xl border border-white/15 bg-[#08090C] shadow-[0_24px_70px_rgba(0,0,0,0.95)] ring-1 ring-white/5 text-left">
+  <!-- Window Chrome & Pill Switches -->
+  <div class="flex flex-wrap items-center justify-between gap-3 border-b border-white/[0.08] bg-[#0C0E12] px-4 py-2.5 sm:py-3">
+    <!-- Terminal dots & title -->
+    <div class="flex items-center gap-2.5 text-sm">
+      <div class="flex items-center gap-1.5 mr-1">
+        <div class="h-2.5 w-2.5 rounded-full bg-[#EC6A5E]/80"></div>
+        <div class="h-2.5 w-2.5 rounded-full bg-[#F5BF4F]/80"></div>
+        <div class="h-2.5 w-2.5 rounded-full bg-[#62C554]/80"></div>
+      </div>
+      <span class="font-semibold text-white font-mono text-xs sm:text-sm">Pinpoint</span>
+      <span class="text-gray-600">/</span>
+      <span class="text-gray-400 font-mono text-xs hidden sm:inline">Terminal Diagnostics</span>
+    </div>
+
+    <!-- Command Pill Switches -->
+    <div role="tablist" aria-label="Terminal diagnostic commands" class="flex items-center gap-1 sm:gap-1.5 bg-black/50 p-1 rounded-lg border border-white/[0.06]">
+      <button
+        type="button"
+        role="tab"
+        id="terminal-tab-diff"
+        aria-selected="true"
+        aria-controls="terminal-panel-diff"
+        data-terminal-btn="diff"
+        class="terminal-pill-btn rounded-md px-2.5 py-1 font-mono text-[11px] sm:text-xs transition-colors flex items-center gap-1.5 bg-brand-accent text-white font-semibold shadow-sm"
+      >
+        <span>pinpoint:diff</span>
+        <span class="hidden md:inline rounded bg-white/20 px-1 py-0.2 text-[9px] uppercase tracking-wider font-bold">PR Diff</span>
+      </button>
+
+      <button
+        type="button"
+        role="tab"
+        id="terminal-tab-report"
+        aria-selected="false"
+        aria-controls="terminal-panel-report"
+        data-terminal-btn="report"
+        class="terminal-pill-btn rounded-md px-2.5 py-1 font-mono text-[11px] sm:text-xs transition-colors flex items-center gap-1.5 text-gray-400 hover:text-gray-200 hover:bg-white/[0.04]"
+      >
+        <span>pinpoint:report</span>
+      </button>
+
+      <button
+        type="button"
+        role="tab"
+        id="terminal-tab-check"
+        aria-selected="false"
+        aria-controls="terminal-panel-check"
+        data-terminal-btn="check"
+        class="terminal-pill-btn rounded-md px-2.5 py-1 font-mono text-[11px] sm:text-xs transition-colors flex items-center gap-1.5 text-gray-400 hover:text-gray-200 hover:bg-white/[0.04]"
+      >
+        <span>pinpoint:check</span>
+        <span class="hidden md:inline rounded bg-rose-500/30 text-rose-200 px-1 py-0.2 text-[9px] uppercase tracking-wider font-bold">CI Gate</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Tab 1: Performance Regression Diff (Active by default) -->
+  <div role="tabpanel" id="terminal-panel-diff" aria-labelledby="terminal-tab-diff" tabindex="0" data-terminal-panel="diff" class="p-4 sm:p-5 font-mono text-xs focus:outline-none">
+    <div class="flex items-center justify-between gap-2 border-b border-white/[0.06] pb-3 text-gray-400">
+      <div class="flex items-center gap-2">
+        <span class="text-brand-accent font-semibold">$</span>
+        <span class="text-gray-200">php artisan pinpoint:diff --baseline=main</span>
+      </div>
+      <span class="hidden sm:inline-block text-[11px] text-gray-500">Comparing the current recorded workload against the main baseline</span>
+    </div>
+
+    <!-- Diff Table -->
+    <div class="mt-4 overflow-x-auto">
+      <table class="w-full text-left border-collapse">
+        <thead>
+          <tr class="border-b border-white/[0.08] text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+            <th class="pb-2 text-left">Route</th>
+            <th class="pb-2 text-right">Baseline (main)</th>
+            <th class="pb-2 text-right">Current (Workload)</th>
+            <th class="pb-2 text-right">Change</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-white/[0.04]">
+          {diffRows.map((r) => (
+            <tr class="hover:bg-white/[0.02] transition-colors">
+              <td class="py-2.5 font-medium text-white">{r.route}</td>
+              <td class="py-2.5 text-right text-gray-400 tabular-nums">{r.baseline}</td>
+              <td class="py-2.5 text-right font-medium text-gray-200 tabular-nums">{r.current}</td>
+              <td class="py-2.5 text-right tabular-nums">
+                <span class={r.isRegression ? 'font-semibold text-rose-400' : r.isImprovement ? 'font-semibold text-emerald-400' : 'text-gray-400'}>
+                  {r.change}
+                </span>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Regression Detail Block -->
+    <div class="mt-5 rounded-xl border border-rose-500/30 bg-rose-950/20 p-4 space-y-2">
+      <div class="flex items-center justify-between border-b border-rose-500/20 pb-2">
+        <div class="flex items-center gap-2 font-bold text-rose-300">
+          <span>✗ REGRESSION DETECTED</span>
+          <span class="text-gray-400 font-normal">•</span>
+          <span class="text-white font-medium">orders.index</span>
+        </div>
+        <span class="rounded bg-rose-500/20 text-rose-300 border border-rose-500/40 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider">
+          +49 queries
+        </span>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 text-[11.5px] text-gray-300">
+        <div>
+          <span class="text-gray-500">Duration: </span>
+          <span class="text-gray-300">182ms → </span>
+          <span class="text-rose-400 font-semibold">241ms (+32.4%)</span>
+        </div>
+        <div>
+          <span class="text-gray-500">Queries: </span>
+          <span class="text-gray-300">2 → </span>
+          <span class="text-rose-400 font-semibold">51 (+49)</span>
+        </div>
+        <div>
+          <span class="text-gray-500">N+1 Candidate: </span>
+          <span class="text-rose-400 font-semibold">none in baseline → 50 repeats in current</span>
+        </div>
+        <div>
+          <span class="text-gray-500">RAM: </span>
+          <span class="text-gray-300">4.0 MB → 4.1 MB (+2.5%)</span>
+        </div>
+      </div>
+
+      <div class="pt-2 border-t border-rose-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[11px]">
+        <div class="text-gray-400">
+          <span class="text-gray-500">Trigger: </span>
+          <code class="text-gray-200">app/Http/Controllers/OrderController.php:42</code>
+        </div>
+        <div class="text-emerald-400 font-medium">
+          <span class="text-gray-500">Likely fix: </span>
+          <code class="bg-black/50 px-1.5 py-0.5 rounded border border-emerald-500/30">Order::with('customer')</code>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab 2: pinpoint:report (Per-Route Summary) -->
+  <div role="tabpanel" id="terminal-panel-report" aria-labelledby="terminal-tab-report" tabindex="0" data-terminal-panel="report" class="hidden p-4 sm:p-5 font-mono text-xs focus:outline-none">
+    <div class="flex items-center justify-between gap-2 border-b border-white/[0.06] pb-3 text-gray-400">
+      <div class="flex items-center gap-2">
+        <span class="text-brand-accent font-semibold">$</span>
+        <span class="text-gray-200">php artisan pinpoint:report</span>
+      </div>
+      <span class="hidden sm:inline-block text-[11px] text-gray-500">Window: last 30m</span>
+    </div>
+
+    <div class="mt-4 overflow-x-auto">
+      <table class="w-full text-left border-collapse">
+        <thead>
+          <tr class="border-b border-white/[0.08] text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+            <th class="pb-2 text-left">Route</th>
+            <th class="pb-2 text-right">P95</th>
+            <th class="pb-2 text-right">Peak RAM</th>
+            <th class="pb-2 text-center">Status</th>
+            <th class="pb-2 text-right">Repeats</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-white/[0.04]">
+          {reportRoutes.map((r, i) => (
+            <>
+              <tr
+                data-report-row={i}
+                class="hover:bg-white/[0.02] transition-colors"
+              >
+                <td class="py-2.5 font-medium text-white">
+                  {r.pattern ? (
+                    <button
+                      type="button"
+                      aria-expanded={i === 0 ? "true" : "false"}
+                      aria-controls={`report-detail-${i}`}
+                      data-report-toggle={i}
+                      class="flex items-center gap-1.5 text-left font-medium text-white hover:text-brand-accent focus:outline-none focus-visible:underline"
+                    >
+                      <span>{r.key}</span>
+                      <ChevronDown class={`report-chevron h-3 w-3 text-gray-500 transition-transform ${i === 0 ? 'rotate-180 text-brand-accent' : ''}`} />
+                    </button>
+                  ) : (
+                    <span>{r.key}</span>
+                  )}
+                </td>
+                <td class="py-2.5 text-right font-medium text-gray-200 tabular-nums">{r.p95}</td>
+                <td class="py-2.5 text-right tabular-nums">
+                  <span class={r.memOverBudget ? 'text-rose-400 font-semibold flex items-center justify-end gap-1' : 'text-gray-400'}>
+                    {r.mem}
+                    {r.memOverBudget && <span class="text-[10px] text-rose-400">⚠</span>}
+                  </span>
+                </td>
+                <td class="py-2.5 text-center">
+                  <span class={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                    r.status === 'Needs Work'
+                      ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                      : 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+                  }`}>
+                    {r.status}
+                  </span>
+                </td>
+                <td class="py-2.5 text-right">
+                  {r.badgeType === 'n1' ? (
+                    <span class="rounded bg-rose-500/20 border border-rose-500/40 px-2 py-0.5 text-[10px] font-bold text-rose-300">
+                      {r.repeatBadge}
+                    </span>
+                  ) : r.badgeType === 'cache' ? (
+                    <span class="rounded bg-cyan-500/20 border border-cyan-500/40 px-2 py-0.5 text-[10px] font-bold text-cyan-300">
+                      {r.repeatBadge}
+                    </span>
+                  ) : (
+                    <span class="text-gray-600">—</span>
+                  )}
+                </td>
+              </tr>
+
+              {r.pattern && (
+                <tr data-report-detail={i} id={`report-detail-${i}`} class={i === 0 ? '' : 'hidden'}>
+                  <td colspan="5" class="py-3 px-3 bg-black/40 border-b border-white/[0.04]">
+                    <div class="space-y-1.5 text-[11px]">
+                      <div class="flex items-center justify-between text-gray-400">
+                        <span>{r.execs}:</span>
+                        {r.source && (
+                          <span class="text-brand-accent hover:underline flex items-center gap-1 font-mono">
+                            {r.source}
+                            <ExternalLink class="h-3 w-3" />
+                          </span>
+                        )}
+                      </div>
+                      <code class="block bg-[#040507] p-2 rounded text-gray-300 border border-white/5">
+                        {r.pattern}
+                      </code>
+                      {r.fix && (
+                        <div class="text-emerald-400 font-mono text-[11px] pt-1">
+                          <span>Suggested fix: </span>
+                          <code>{r.fix}</code>
+                        </div>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              )}
+            </>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Tab 3: pinpoint:check (CI Gate) -->
+  <div role="tabpanel" id="terminal-panel-check" aria-labelledby="terminal-tab-check" tabindex="0" data-terminal-panel="check" class="hidden p-4 sm:p-5 font-mono text-xs focus:outline-none">
+    <div class="flex items-center justify-between gap-2 border-b border-white/[0.06] pb-3 text-gray-400">
+      <div class="flex items-center gap-2">
+        <span class="text-brand-accent font-semibold">$</span>
+        <span class="text-gray-200">php artisan pinpoint:check --fail-on-n1 --max-queries=20 --max-duration-ms=1000</span>
+      </div>
+      <span class="rounded bg-rose-500/20 text-rose-300 border border-rose-500/40 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider">
+        Exit Code 1
+      </span>
+    </div>
+
+    <div class="mt-4 space-y-3">
+      <div class="text-gray-400">
+        Checking <span class="text-white font-medium">28 requests</span> recorded in PR test suite...
+      </div>
+
+      <div class="rounded-xl border border-rose-500/30 bg-rose-950/20 p-4 space-y-2">
+        <div class="flex items-center gap-2 text-rose-400 font-bold">
+          <span>✗ VIOLATION DETECTED:</span>
+          <span class="text-white font-medium">api.orders.index</span>
+        </div>
+        <ul class="list-disc list-inside text-gray-300 space-y-1 pl-1 text-[11.5px]">
+          <li>
+            <span class="text-rose-300 font-semibold">N+1 violation: </span>
+            Relationship <code class="text-white">Order → items</code> executed 42× with varying IDs.
+          </li>
+          <li>
+            <span class="text-rose-300 font-semibold">Query budget exceeded: </span>
+            42 queries executed (configured budget: 20 queries).
+          </li>
+          <li>
+            <span class="text-gray-400">Trigger: </span>
+            <code class="text-gray-200">app/Http/Controllers/OrderController.php:84</code>
+          </li>
+        </ul>
+      </div>
+
+      <div class="pt-2 border-t border-white/5 flex items-center justify-between text-gray-500 text-[11px]">
+        <span>Process terminated with non-zero exit code (exit 1). CI check failed.</span>
+        <span>0.18s check duration</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function setupTerminalTabs() {
+    const container = document.getElementById('terminal-preview-container');
+    if (!container || container.dataset.bound === 'true') return;
+    container.dataset.bound = 'true';
+
+    const buttons = container.querySelectorAll('.terminal-pill-btn');
+    const panels = container.querySelectorAll('[data-terminal-panel]');
+
+    buttons.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const targetTab = btn.getAttribute('data-terminal-btn');
+        if (!targetTab) return;
+
+        // Update Buttons
+        buttons.forEach((b) => {
+          const isTarget = b.getAttribute('data-terminal-btn') === targetTab;
+          b.setAttribute('aria-selected', isTarget ? 'true' : 'false');
+          if (isTarget) {
+            b.classList.add('bg-brand-accent', 'text-white', 'font-semibold', 'shadow-sm');
+            b.classList.remove('text-gray-400', 'hover:text-gray-200', 'hover:bg-white/[0.04]');
+          } else {
+            b.classList.remove('bg-brand-accent', 'text-white', 'font-semibold', 'shadow-sm');
+            b.classList.add('text-gray-400', 'hover:text-gray-200', 'hover:bg-white/[0.04]');
+          }
+        });
+
+        // Update Panels
+        panels.forEach((p) => {
+          if (p.getAttribute('data-terminal-panel') === targetTab) {
+            p.classList.remove('hidden');
+          } else {
+            p.classList.add('hidden');
+          }
+        });
+      });
+    });
+
+    // Handle row expansion inside report tab
+    const reportRows = container.querySelectorAll('[data-report-row]');
+    reportRows.forEach((row) => {
+      row.addEventListener('click', (e) => {
+        const toggleBtn = e.target.closest('[data-report-toggle]');
+        if (!toggleBtn) return;
+        
+        const index = toggleBtn.getAttribute('data-report-toggle');
+        const detailRow = container.querySelector(`[data-report-detail="${index}"]`);
+        const chevron = toggleBtn.querySelector('.report-chevron');
+        if (detailRow) {
+          const isHidden = detailRow.classList.contains('hidden');
+          detailRow.classList.toggle('hidden', !isHidden);
+          toggleBtn.setAttribute('aria-expanded', isHidden ? 'true' : 'false');
+          if (chevron) {
+            chevron.classList.toggle('rotate-180', isHidden);
+            chevron.classList.toggle('text-brand-accent', isHidden);
+          }
+        }
+      });
+    });
+  }
+
+  setupTerminalTabs();
+  document.addEventListener('astro:after-swap', setupTerminalTabs);
+</script>

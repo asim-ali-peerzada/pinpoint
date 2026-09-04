@@ -7,7 +7,7 @@ interface Props {
   class?: string;
 }
 
-const { command = 'composer require asimali/pinpoint', class: className } = Astro.props;
+const { command = 'composer require --dev asimali/pinpoint', class: className } = Astro.props;
 ---
 
 <div class={cn('group relative max-w-full', className)}>
@@ -15,10 +15,12 @@ const { command = 'composer require asimali/pinpoint', class: className } = Astr
     data-install
     class="inline-flex max-w-full items-center gap-2 rounded-lg bg-[#101317] px-3 sm:px-4 py-2 sm:py-2.5 font-mono text-xs sm:text-sm text-gray-200 transition-colors hover:text-white shadow-xl"
     title="Copy command"
+    aria-label="Copy composer require command"
   >
     <span class="text-brand-accent select-none font-semibold shrink-0">$</span>
     <span class="truncate whitespace-nowrap">{command}</span>
     <Copy data-icon-copy strokeWidth={1.5} class="h-3.5 w-3.5 text-gray-500 transition-colors hover:text-white shrink-0 ml-1" />
+    <span data-copied-status class="sr-only" aria-live="polite"></span>
   </button>
 </div>
 
@@ -38,9 +40,12 @@ const { command = 'composer require asimali/pinpoint', class: className } = Astr
         try {
           await navigator.clipboard.writeText(text);
         } catch {}
+        const status = btn.querySelector<HTMLElement>('[data-copied-status]');
         btn.dataset.copied = 'true';
+        if (status) status.textContent = 'Copied to clipboard';
         setTimeout(() => {
           btn.dataset.copied = 'false';
+          if (status) status.textContent = '';
         }, 1600);
       });
     });

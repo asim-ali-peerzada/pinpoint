@@ -2,14 +2,14 @@
 import GlowMesh from '../ui/GlowMesh.astro';
 import Button from '../ui/Button.astro';
 import InstallSnippet from './InstallSnippet.astro';
-import { Copy, Zap, Route } from 'lucide-react';
+import { Copy } from 'lucide-react';
 
 const steps = [
   {
     n: '01',
-    rawCmd: 'composer require asimali/pinpoint --dev',
+    rawCmd: 'composer require --dev asimali/pinpoint',
     label: 'Install as a dev dependency',
-    html: '<span class="text-brand-accent font-semibold">composer</span> <span class="text-white">require</span> <span class="text-white font-medium">asimali/pinpoint</span> <span class="text-gray-400">--dev</span>',
+    html: '<span class="text-brand-accent font-semibold">composer</span> <span class="text-white">require</span> <span class="text-gray-400">--dev</span> <span class="text-white font-medium">asimali/pinpoint</span>',
   },
   {
     n: '02',
@@ -26,162 +26,95 @@ const steps = [
   },
 ];
 
-const toolkit = [
+const coreToolkit = [
   {
     cmd: 'pinpoint:report',
-    tag: 'Primary Diagnostic',
-    desc: 'Generate terminal summary tables with percentile rollups (p95/avg), peak memory per route with budget alerts, N+1 vs CACHE classification (exact-duplicate detection), clickable IDE links, and machine-readable JSON payloads.',
+    tag: 'Interactive Diagnostic',
+    desc: 'Generate terminal summary tables with percentile rollups (p95/avg), peak memory per route with budget alerts, N+1 vs CACHE classification (exact-duplicate detection), terminal IDE links, and machine-readable JSON payloads.',
     flags: ['--tier=critical', '--route=<name>', '--since=30m', '--limit=10', '--json', '--json-to=<file>'],
     featured: true,
   },
   {
-    cmd: 'pinpoint:check',
-    desc: 'Evaluate query counts, durations, and N+1 violations as an automated CI regression gate, exiting with code 1 upon failure.',
-    flags: ['--fail-on-n1', '--max-queries', '--max-duration-ms', '--allow-empty', '--json'],
+    cmd: 'pinpoint:diff',
+    tag: 'Baseline Diffing',
+    desc: 'Compare current test run performance against a baseline snapshot (main). Flags regressions in p95 latency, repeated-query increases, and peak memory in terminal and CI with exit code 1.',
+    flags: ['--baseline=main', '--since=30m', '--fail-on-regression', '--json', '--show-stable'],
+    featured: true,
   },
   {
+    cmd: 'pinpoint:check',
+    tag: 'CI Performance Gate',
+    desc: 'Evaluate query counts, durations, and repeated-query violations (N+1 candidates and duplicate queries) as an automated CI gate, exiting with code 1 upon violation.',
+    flags: ['--fail-on-n1', '--fail-on-repeat', '--max-queries=<n>', '--max-duration-ms=<ms>', '--since=30', '--allow-empty', '--json', '--json-to=<file>'],
+  },
+  {
+    cmd: 'pinpoint:snapshot',
+    tag: 'Baseline Capture',
+    desc: 'Capture current performance metrics as a named baseline tag for future regression diffing (e.g. before merging to main).',
+    flags: ['--tag=main', '--since=1h', '--no-overwrite'],
+  },
+];
+
+const maintenanceToolkit = [
+  {
     cmd: 'pinpoint:aggregate',
-    desc: 'Batch-compute historical hourly and daily percentile rollups in worker jobs with transaction-safe chunking.',
-    flags: ['--force'],
+    desc: 'Compute raw request rollups and persist an offline percentile snapshot in pinpoint_summaries for external tools or reporting integrations (CLI reports compute on-demand from raw rows).',
+    flags: [],
   },
   {
     cmd: 'pinpoint:prune',
-    desc: 'Delete request and query samples older than the retention window (default 7 days) via database cascade.',
-    flags: ['--days=7', '--force'],
+    desc: 'Delete recorded request and query data older than the retention window (default 30 days).',
+    flags: ['--days=30'],
   },
   {
     cmd: 'pinpoint:reset',
-    desc: 'Truncate and purge all recorded telemetry data from the database with confirmation prompt.',
+    desc: 'Delete all recorded Pinpoint data (requests, queries, lazy loads, summaries) with confirmation prompt.',
     flags: ['--force'],
   },
 ];
-
-const table = [
-  { dim: 'Primary focus', d: 'Route & N+1 latency', t: 'General debug assistant', p: 'Server health & queues', s: 'Slow queries + AI fixes' },
-  { dim: 'CI regression gate', d: 'Yes — blocks PR before merge', t: '—', p: '—', s: '—' },
-  { dim: 'Fix guidance', d: 'Exact eager-load fix (deterministic, free)', t: 'Raw query view only', p: 'Aggregate metrics only', s: 'AI-generated: indexes, rewrites, eager-loads' },
-  { dim: 'N+1 query precision', d: 'Exact relation & model, plus exact-duplicate (CACHE) vs true-N+1 classification', t: 'Manual query count logs', p: 'Aggregate slow query list', s: 'Duration-threshold + fingerprint grouping' },
-  { dim: 'Source line traceback', d: 'Exact file and line', t: 'Backtrace in web modal', p: '—', s: 'Exact file and line' },
-  { dim: 'Memory visibility', d: 'Peak RAM per route with configurable budget alerts', t: '—', p: '—', s: '—' },
-  { dim: 'Execution environment', d: 'CLI and native IDE', t: 'Local web dashboard', p: 'Central web dashboard', s: 'Self-hosted dashboard (/slower)' },
-  { dim: 'Telemetry residency', d: 'Local machine only', t: 'In-app database', p: 'Redis / app database', s: 'Local by default; SQL/schema to LLM on demand' },
-  { dim: 'Request overhead', d: '0.29ms mean (deferred)', t: 'High (inline recording)', p: 'Low (sampled)', s: 'Threshold-gated; sampling + circuit breaker' },
-];
 ---
 
-<section id="diff" class="relative py-24 overflow-hidden scroll-mt-16">
+<section id="docs" class="relative py-20 sm:py-24 scroll-mt-16">
   <div class="section-ambient pointer-events-none absolute inset-x-0 top-0 -z-10 h-[480px]"></div>
   <div class="relative z-10 mx-auto max-w-5xl px-4 sm:px-6">
     <div class="mx-auto max-w-2xl text-center">
-      <p class="text-sm font-medium uppercase tracking-[0.16em] text-brand-accent">04 / Comparison</p>
-      <h2 class="mt-4 text-3xl font-semibold tracking-tight text-brand-fg sm:text-4xl text-balance">Built around the Laravel runtime.</h2>
-      <p class="mt-4 leading-relaxed text-gray-300 text-sm sm:text-base max-w-xl mx-auto text-pretty text-balance">
-        Actionable terminal diagnostics and CI regression gates without the overhead of external SaaS observability stacks.
-      </p>
-    </div>
-
-    <!-- Comparison Table Container with Mobile Scroll-Snap -->
-    <div class="relative mt-12">
-      <!-- Mobile Swipe Hint -->
-      <div id="table-swipe-hint" class="flex sm:hidden items-center justify-end gap-1.5 pb-2 text-[11px] font-mono text-brand-accent animate-pulse">
-        <span>Swipe to compare</span>
-        <span>→</span>
-      </div>
-
-      <div id="table-scroll-container" class="overflow-x-auto scroll-smooth snap-x snap-mandatory rounded-xl border border-white/10 bg-[#08090C]">
-        <table class="w-full min-w-[640px] border-separate border-spacing-0 text-sm">
-          <thead>
-            <tr class="text-left text-xs uppercase tracking-wider">
-              <th class="py-4 px-3 font-medium text-gray-400 border-b border-white/10"></th>
-              <!-- Pinpoint First (Continuous Highlighted Surface) -->
-              <th class="py-4 px-4 font-bold text-white bg-[#0F1115] border-x border-t-2 border-x-white/[0.12] border-t-brand-accent rounded-t-xl shadow-[0_-4px_16px_rgba(245,48,3,0.15)] text-sm normal-case">
-                Pinpoint
-              </th>
-              <th class="py-4 px-3 font-semibold text-white border-b border-white/10 text-sm normal-case">Telescope</th>
-              <th class="py-4 px-3 font-semibold text-white border-b border-white/10 text-sm normal-case">Pulse</th>
-              <th class="py-4 px-3 font-semibold text-white border-b border-white/10 text-sm normal-case">Laravel Slower</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-white/[0.06] text-xs">
-            {table.map((row, idx) => (
-              <tr class={idx % 2 === 0 ? 'bg-transparent' : 'bg-white/[0.01]'}>
-                <td class="py-3 px-3 font-medium text-gray-400 whitespace-nowrap">{row.dim}</td>
-                <td class="py-3 px-4 font-semibold text-brand-accent bg-[#0F1115] border-x border-white/[0.12]">
-                  {row.d}
-                </td>
-                <td class="py-3 px-3 text-gray-400">{row.t}</td>
-                <td class="py-3 px-3 text-gray-400">{row.p}</td>
-                <td class="py-3 px-3 text-gray-400">{row.s}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- Post-Comparison Decision CTA -->
-    <div class="mt-12 flex flex-col sm:flex-row items-center justify-between gap-6 rounded-2xl border border-white/10 bg-[#0A0C10] p-6 sm:p-8 shadow-2xl">
-      <div>
-        <h3 class="text-base sm:text-lg font-semibold text-white">Ready to profile your routes locally?</h3>
-        <p class="mt-1 text-xs sm:text-sm text-gray-400">Zero telemetry, zero dashboard overhead. Up and running in 60 seconds.</p>
-      </div>
-      <div class="flex items-center gap-3 shrink-0">
-        <Button href="#docs" size="sm" variant="primary">
-          Get started <span class="transition-transform duration-200 group-hover:translate-x-0.5">→</span>
-        </Button>
-        <Button href="https://github.com/asim-ali-peerzada/pinpoint" target="_blank" rel="noopener" variant="secondary" size="sm">
-          View source
-        </Button>
-      </div>
-    </div>
-
-  </div>
-</section>
-
-<section id="docs" class="relative py-24 scroll-mt-16">
-  <div class="section-ambient pointer-events-none absolute inset-x-0 top-0 -z-10 h-[480px]"></div>
-  <div class="relative z-10 mx-auto max-w-4xl px-4 sm:px-6">
-    <div class="mx-auto max-w-2xl text-center">
-      <p class="text-sm font-medium uppercase tracking-[0.16em] text-brand-accent">05 / Documentation</p>
+      <p class="text-sm font-medium uppercase tracking-[0.16em] text-brand-accent font-mono">Quickstart & Commands</p>
       <h2 class="mt-4 text-3xl font-semibold tracking-tight text-brand-fg sm:text-4xl text-balance">Get started in minutes.</h2>
       <p class="mt-4 leading-relaxed text-gray-300 text-sm sm:text-base max-w-lg mx-auto text-pretty text-balance">
         Install, migrate, run your app. Then one command tells you what's slow.
       </p>
     </div>
 
-    <!-- Enterprise-grade Clean Commands Cards (Matching Max Width) -->
+    <!-- Clean Commands Cards -->
     <div class="mt-14 space-y-4">
       {steps.map((s) => (
         <div class="group rounded-xl border border-white/[0.09] bg-[#0D0F12] p-4 sm:p-5 transition-all duration-200 hover:border-white/[0.18] hover:bg-[#101317] shadow-xl">
-          <!-- Top Row: Exact baseline vertical alignment -->
           <div class="flex items-center justify-between gap-3">
             <div class="flex items-center gap-3 min-w-0">
               <span class="flex h-6 w-6 sm:h-7 sm:w-7 shrink-0 items-center justify-center rounded-md bg-brand-accent/15 font-mono text-[11px] sm:text-xs font-bold text-brand-accent">
                 {s.n}
               </span>
-              <p class="min-w-0 text-[11px] sm:text-xs font-semibold uppercase tracking-[0.14em] text-gray-300 font-sans leading-snug">
+              <p class="min-w-0 text-[11px] sm:text-xs font-semibold uppercase tracking-[0.14em] text-gray-200 font-sans leading-snug">
                 {s.label}
               </p>
             </div>
 
-            <!-- Standalone Single Copy Icon Action (No Tick Overlap) -->
             <button
               data-step-copy={s.rawCmd}
-              class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/[0.03] text-gray-400 transition-colors hover:bg-white/[0.08] hover:text-white active:scale-95"
+              class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/[0.03] text-gray-400 transition-colors hover:bg-white/[0.08] hover:text-white active:scale-95 cursor-pointer"
               title="Copy command"
               aria-label={`Copy command: ${s.rawCmd}`}
             >
-              <Copy data-icon-copy strokeWidth={1.5} class="h-3.5 w-3.5 transition-colors" />
+              <Copy class="h-3.5 w-3.5" />
             </button>
           </div>
 
-          <!-- Command Line Container: 100% Dedicated Width, Zero Text Collisions -->
-          <div class="mt-3.5 flex items-center rounded-lg border border-white/[0.08] bg-[#050709] px-3.5 py-3 font-mono text-xs sm:text-sm text-gray-100 shadow-[inset_0_1px_3px_rgba(0,0,0,0.5)] overflow-x-auto">
-            <span class="mr-2.5 select-none font-medium text-gray-500 shrink-0">$</span>
-            <code class="whitespace-nowrap font-mono leading-relaxed" set:html={s.html} />
+          <div class="mt-3 flex items-center justify-between gap-2 overflow-x-auto rounded-lg bg-[#050608] px-3.5 py-2.5 font-mono text-xs border border-white/5">
+            <code class="whitespace-nowrap select-all text-gray-300 font-medium" set:html={s.html} />
           </div>
+
           {s.hint && (
-            <p class="mt-2.5 text-[11px] text-gray-400 leading-relaxed">
+            <p class="mt-2.5 text-[11px] text-gray-400 font-sans">
               {s.hint}
             </p>
           )}
@@ -189,15 +122,15 @@ const table = [
       ))}
     </div>
 
-    <!-- Complete 5-Command Artisan Toolkit -->
+    <!-- Core Artisan Commands -->
     <div class="mt-16">
       <div class="text-center max-w-xl mx-auto">
-        <h3 class="text-xl font-bold text-white tracking-tight text-balance">Complete Artisan Toolkit</h3>
-        <p class="mt-2 text-xs sm:text-sm text-gray-400 text-pretty text-balance">Everything needed to profile locally, gate in CI, and manage retention.</p>
+        <h3 class="text-xl font-bold text-white tracking-tight text-balance">Core Artisan Commands</h3>
+        <p class="mt-2 text-xs sm:text-sm text-gray-400 text-pretty text-balance">The essential commands for local diagnostics, CI gating, and baseline diffing.</p>
       </div>
 
       <div class="mt-8 grid grid-cols-1 md:grid-cols-2 gap-5 text-xs">
-        {toolkit.map((t) => (
+        {coreToolkit.map((t) => (
           <div class:list={[
             'rounded-xl border border-white/10 bg-[#0A0C10] p-4 sm:p-5 space-y-3 shadow-lg overflow-hidden transition-all duration-200 hover:border-white/20 hover:bg-[#0E1117] hover:shadow-2xl',
             t.featured && 'md:col-span-2',
@@ -213,10 +146,9 @@ const table = [
                 </span>
               )}
             </div>
-            <p class="text-gray-400 font-sans text-xs sm:text-sm leading-relaxed max-w-2xl">
+            <p class="text-gray-300 font-sans text-xs sm:text-sm leading-relaxed max-w-2xl">
               {t.desc}
             </p>
-            <!-- Dedicated flag panel per command -->
             <div class="rounded-lg border border-white/[0.06] bg-black/20 px-3 py-2.5 flex flex-wrap items-center gap-x-2 gap-y-1.5">
               <span class="text-gray-500 text-[10px] font-semibold uppercase tracking-wider mr-1">Flags</span>
               {t.flags.map((f) => (
@@ -228,52 +160,43 @@ const table = [
           </div>
         ))}
       </div>
+
+      <!-- Collapsible Maintenance Commands -->
+      <details class="group mt-6 rounded-xl border border-white/[0.08] bg-[#0A0C10]/60 p-4 transition-colors hover:border-white/15">
+        <summary class="cursor-pointer list-none flex items-center justify-between text-xs font-mono text-gray-400 hover:text-white select-none">
+          <span class="font-semibold text-gray-300">Maintenance Commands (aggregate, prune, reset)</span>
+          <span class="text-[11px] text-gray-500 group-open:rotate-180 transition-transform">▼</span>
+        </summary>
+        <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4 pt-3 border-t border-white/[0.06]">
+          {maintenanceToolkit.map((m) => (
+            <div class="rounded-lg border border-white/5 bg-black/30 p-3.5 space-y-2">
+              <div class="font-mono text-xs font-bold text-white">
+                php artisan <span class="text-brand-accent">{m.cmd}</span>
+              </div>
+              <p class="text-gray-400 text-[11px] leading-relaxed">
+                {m.desc}
+              </p>
+              {m.flags.length > 0 && (
+                <div class="flex flex-wrap gap-1 pt-1">
+                  {m.flags.map((f) => (
+                    <code class="rounded bg-white/[0.05] px-1.5 py-0.2 font-mono text-[10px] text-gray-300">
+                      {f}
+                    </code>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </details>
     </div>
   </div>
 </section>
 
-<!-- Animated Benchmark & Final Call to Action Section -->
-<section id="benchmarks" class="relative py-20 overflow-hidden scroll-mt-16">
+<!-- Final Call to Action Section -->
+<section class="relative py-20 sm:py-24 overflow-hidden">
   <GlowMesh />
-  <div class="relative z-10 mx-auto max-w-4xl px-4 sm:px-6 space-y-12">
-    <!-- What Pinpoint adds to each request (Benchmark Card) -->
-    <div class="rounded-xl border border-white/[0.08] bg-[#0D0F12]/90 backdrop-blur-sm px-6 py-8 md:px-8 shadow-2xl">
-      <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-        <div>
-          <p class="text-sm font-semibold text-white">What Pinpoint adds to each request</p>
-          <p class="mt-1 text-sm text-brand-muted max-w-lg">
-            Recording runs <span class="text-gray-200 font-medium">after your response is sent</span> via <code class="text-gray-300 text-xs">app()->terminating()</code>.
-            A 1,420ms route measures 1,420.29ms with Pinpoint on — 0ms added to TTFB.
-          </p>
-        </div>
-        <!-- Visual separator between description and stats -->
-        <div class="hidden lg:block w-px self-stretch bg-white/10"></div>
-        <div class="flex items-center justify-center gap-4 sm:gap-5 lg:shrink-0">
-          <!-- Pinpoint stat card (accent) -->
-          <div class="flex flex-col items-center rounded-lg border border-brand-accent/30 bg-brand-accent/[0.06] px-6 py-4">
-            <p class="font-mono text-4xl font-bold tabular-nums text-brand-accent">
-              0.29<span class="text-sm font-normal text-gray-400">ms</span>
-            </p>
-            <p class="mt-2 flex items-center gap-1.5 text-xs font-semibold tracking-wide text-gray-300">
-              <Zap class="h-3.5 w-3.5 text-brand-accent" />
-              Pinpoint
-            </p>
-          </div>
-          <!-- Route stat card (neutral) -->
-          <div class="flex flex-col items-center rounded-lg border border-white/10 bg-white/[0.03] px-6 py-4">
-            <p class="font-mono text-4xl font-normal tabular-nums text-gray-300">
-              1,420<span class="text-sm text-gray-500">ms</span>
-            </p>
-            <p class="mt-2 flex items-center gap-1.5 text-xs font-normal tracking-wide text-gray-400">
-              <Route class="h-3.5 w-3.5 text-gray-500" />
-              api.orders.index
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Final High-Conversion CTA Banner (Elevated) -->
+  <div class="relative z-10 mx-auto max-w-5xl px-4 sm:px-6">
     <div class="rounded-2xl border border-brand-accent/30 bg-gradient-to-b from-[#161A22] to-[#0A0C10] p-8 sm:p-12 text-center shadow-[0_24px_70px_rgba(0,0,0,0.8)] ring-1 ring-white/10 relative overflow-hidden">
       <div class="absolute -top-24 -right-24 h-48 w-48 rounded-full bg-brand-accent/20 blur-3xl pointer-events-none"></div>
       <div class="absolute -bottom-24 -left-24 h-48 w-48 rounded-full bg-brand-accent/15 blur-3xl pointer-events-none"></div>
@@ -283,10 +206,10 @@ const table = [
           Start profiling your Laravel routes today.
         </h3>
         <p class="text-sm text-gray-300 leading-relaxed max-w-xl mx-auto">
-          Zero external telemetry. 100% self-hosted in your existing database. Actionable terminal diagnostics in 60 seconds.
+          Local-first: request data stays in your application database. Install, exercise a route, and inspect the resulting report.
         </p>
 
-        <!-- Focused 2-CTA Row: primary solid vs clear outline for hierarchy -->
+        <!-- Focused 2-CTA Row -->
         <div class="mx-auto pt-4 flex flex-col items-center justify-center gap-3 sm:flex-row">
           <Button href="#docs">
             Get started <span class="transition-transform duration-200 group-hover:translate-x-0.5">→</span>
@@ -302,9 +225,9 @@ const table = [
           </Button>
         </div>
 
-        <!-- Quick install snippet (slightly lighter bg to pop as distinct element) -->
+        <!-- Quick install snippet -->
         <div class="mt-6 flex justify-center">
-          <InstallSnippet command="composer require asimali/pinpoint --dev" />
+          <InstallSnippet command="composer require --dev asimali/pinpoint" />
         </div>
       </div>
     </div>
@@ -319,7 +242,7 @@ const table = [
 
 <script>
   function bindStepCopy() {
-    document.querySelectorAll<HTMLButtonElement>('[data-step-copy]').forEach((btn) => {
+    document.querySelectorAll('[data-step-copy]').forEach((btn) => {
       if (btn.dataset.bound) return;
       btn.dataset.bound = 'true';
       btn.addEventListener('click', async () => {
@@ -333,15 +256,6 @@ const table = [
         }, 1600);
       });
     });
-
-    // Mobile Swipe Dismiss
-    const scrollContainer = document.getElementById('table-scroll-container');
-    const swipeHint = document.getElementById('table-swipe-hint');
-    if (scrollContainer && swipeHint) {
-      scrollContainer.addEventListener('scroll', () => {
-        swipeHint.classList.add('opacity-0', 'pointer-events-none');
-      }, { once: true });
-    }
   }
   bindStepCopy();
   document.addEventListener('astro:after-swap', bindStepCopy);

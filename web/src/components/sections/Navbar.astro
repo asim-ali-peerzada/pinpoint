@@ -25,7 +25,7 @@ import { Copy } from 'lucide-react';
     <nav class="hidden items-center gap-6 lg:gap-8 text-[13px] font-medium text-gray-300 md:flex">
       <a href="#features" class="transition-colors hover:text-white">Capabilities</a>
       <a href="#ci" class="transition-colors hover:text-white">CI Gate</a>
-      <a href="#diff" class="transition-colors hover:text-white">Comparison</a>
+      <a href="#comparison" class="transition-colors hover:text-white">Companion</a>
       <a href="#docs" class="transition-colors hover:text-white">Documentation</a>
     </nav>
 
@@ -34,11 +34,11 @@ import { Copy } from 'lucide-react';
       <!-- Compact Copyable Command (xl:flex) -->
       <button
         class="group hidden items-center gap-2 rounded-md border border-white/10 bg-white/[0.03] px-3 py-1 font-mono text-xs text-gray-300 transition-colors hover:border-white/20 hover:text-white xl:flex"
-        data-copy="composer require asimali/pinpoint"
+        data-copy="composer require --dev asimali/pinpoint"
         title="Copy install command"
       >
         <span class="text-brand-accent select-none">$</span>
-        <span class="truncate">composer require asimali/pinpoint</span>
+        <span class="truncate">composer require --dev asimali/pinpoint</span>
         <Copy strokeWidth={1.5} class="h-3.5 w-3.5 text-gray-400 group-hover:text-white transition-colors" />
       </button>
 

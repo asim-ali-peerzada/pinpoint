@@ -6,7 +6,9 @@
  */
 
 use AsimAli\Pinpoint\Internal\Recorder;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
+use Symfony\Component\Console\Output\BufferedOutput;
 
 beforeEach(function () {
     DB::table('pinpoint_requests')->truncate();
@@ -446,4 +448,242 @@ test('SummaryReader reports peak memory as max across multiple samples', functio
     );
 
     expect($payload['routes'][0]['peak_memory_kb'])->toBe(12288);
+});
+
+// ─── Summary + Locate + Check use the duplicate classification ───────────────
+
+test('report summary shows CACHE (not Yes/No) for duplicate-only routes', function () {
+    $hash = md5(json_encode(['theme']));
+
+    $id = DB::table('pinpoint_requests')->insertGetId([
+        'route_name' => 'api.settings',
+        'method' => 'GET',
+        'path' => 'api/settings',
+        'duration_ms' => 50,
+        'query_count' => 3,
+        'query_time_ms' => 15,
+        'has_n_plus_one' => true,
+        'peak_memory_kb' => null,
+        'created_at' => now(),
+    ]);
+
+    for ($i = 0; $i < 3; $i++) {
+        DB::table('pinpoint_queries')->insert([
+            'request_id' => $id,
+            'sql_fingerprint' => md5('select * from settings where key = ?'),
+            'sql' => 'select * from settings where key = ?',
+            'bindings_hash' => $hash,
+            'time_ms' => 5,
+            'caller_file' => null,
+            'caller_line' => null,
+            'created_at' => now(),
+        ]);
+    }
+
+    $output = runArtisanCaptured('pinpoint:report', []);
+
+    // Same bindings 3x is a cache candidate, never an N+1 label.
+    expect($output)->toContain('CACHE (x3)');
+    expect($output)->not->toContain('Yes (x3)');
+});
+
+test('report locate block shows duplicate routes with CACHE reason', function () {
+    $hash = md5(json_encode(['theme']));
+
+    $id = DB::table('pinpoint_requests')->insertGetId([
+        'route_name' => 'api.settings',
+        'method' => 'GET',
+        'path' => 'api/settings',
+        'duration_ms' => 50,
+        'query_count' => 3,
+        'query_time_ms' => 15,
+        'has_n_plus_one' => true,
+        'peak_memory_kb' => null,
+        'created_at' => now(),
+    ]);
+
+    for ($i = 0; $i < 4; $i++) {
+        DB::table('pinpoint_queries')->insert([
+            'request_id' => $id,
+            'sql_fingerprint' => md5('select * from settings where key = ?'),
+            'sql' => 'select * from settings where key = ?',
+            'bindings_hash' => $hash,
+            'time_ms' => 5,
+            'caller_file' => 'app/Settings.php',
+            'caller_line' => 12,
+            'created_at' => now(),
+        ]);
+    }
+
+    $output = runArtisanCaptured('pinpoint:report', []);
+
+    expect($output)->toContain('CACHE x4');
+    expect($output)->toContain('api.settings');
+});
+
+test('check labels exact duplicates as duplicate type, not n_plus_one', function () {
+    $hash = md5(json_encode(['theme']));
+
+    $id = DB::table('pinpoint_requests')->insertGetId([
+        'route_name' => 'api.settings',
+        'method' => 'GET',
+        'path' => 'api/settings',
+        'duration_ms' => 50,
+        'query_count' => 3,
+        'query_time_ms' => 15,
+        'has_n_plus_one' => true,
+        'peak_memory_kb' => null,
+        'created_at' => now(),
+    ]);
+
+    for ($i = 0; $i < 3; $i++) {
+        DB::table('pinpoint_queries')->insert([
+            'request_id' => $id,
+            'sql_fingerprint' => md5('select * from settings where key = ?'),
+            'sql' => 'select * from settings where key = ?',
+            'bindings_hash' => $hash,
+            'time_ms' => 5,
+            'caller_file' => null,
+            'caller_line' => null,
+            'created_at' => now(),
+        ]);
+    }
+
+    // --fail-on-n1 must NOT fail on proven duplicates (they are cache
+    // candidates, not N+1) — the dedicated duplicates gate does.
+    $buffer = new BufferedOutput;
+    Artisan::call('pinpoint:check --fail-on-n1 --json', [], $buffer);
+
+    expect(json_decode($buffer->fetch(), true)['passed'])->toBeTrue();
+
+    $buffer = new BufferedOutput;
+    Artisan::call('pinpoint:check --fail-on-duplicates --json', [], $buffer);
+
+    $payload = json_decode($buffer->fetch(), true);
+
+    expect($payload['passed'])->toBeFalse();
+    expect($payload['violations'][0]['type'])->toBe('duplicate');
+});
+
+test('check --fail-on-n1 still fails on unclassifiable repeats', function () {
+    $id = DB::table('pinpoint_requests')->insertGetId([
+        'route_name' => 'api.raw',
+        'method' => 'GET',
+        'path' => 'api/raw',
+        'duration_ms' => 50,
+        'query_count' => 3,
+        'query_time_ms' => 15,
+        'has_n_plus_one' => true,
+        'peak_memory_kb' => null,
+        'created_at' => now(),
+    ]);
+
+    for ($i = 0; $i < 3; $i++) {
+        DB::table('pinpoint_queries')->insert([
+            'request_id' => $id,
+            'sql_fingerprint' => md5('select 1'),
+            'sql' => 'select 1',
+            'bindings_hash' => null,
+            'time_ms' => 5,
+            'caller_file' => null,
+            'caller_line' => null,
+            'created_at' => now(),
+        ]);
+    }
+
+    // Unknown repeats cannot be proven safe — the N+1 gate fails, while
+    // the duplicates-only gate passes.
+    $buffer = new BufferedOutput;
+    Artisan::call('pinpoint:check --fail-on-n1 --json', [], $buffer);
+
+    $payload = json_decode($buffer->fetch(), true);
+
+    expect($payload['passed'])->toBeFalse();
+    expect($payload['violations'][0]['type'])->toBe('unknown');
+
+    $buffer = new BufferedOutput;
+    Artisan::call('pinpoint:check --fail-on-duplicates --json', [], $buffer);
+
+    expect(json_decode($buffer->fetch(), true)['passed'])->toBeTrue();
+});
+
+test('check --fail-on-duplicates finds duplicates crowded out of the top-N display', function () {
+    // 25 loud N+1 groups would push a quiet duplicate below any top-20
+    // cutoff — detection must be complete, only display is truncated.
+    for ($g = 0; $g < 25; $g++) {
+        $id = DB::table('pinpoint_requests')->insertGetId([
+            'route_name' => 'api.loud-'.$g, 'method' => 'GET', 'path' => 'api/loud-'.$g,
+            'duration_ms' => 50, 'query_count' => 10, 'query_time_ms' => 15,
+            'has_n_plus_one' => true, 'peak_memory_kb' => null, 'created_at' => now(),
+        ]);
+
+        for ($i = 0; $i < 10; $i++) {
+            DB::table('pinpoint_queries')->insert([
+                'request_id' => $id, 'sql_fingerprint' => 'fp-loud', 'sql' => 'select * from loud where id = ?',
+                'bindings_hash' => 'hash-'.$g.'-'.$i, 'time_ms' => 1,
+                'caller_file' => null, 'caller_line' => null, 'created_at' => now(),
+            ]);
+        }
+    }
+
+    $hash = md5(json_encode(['theme']));
+
+    $id = DB::table('pinpoint_requests')->insertGetId([
+        'route_name' => 'api.settings', 'method' => 'GET', 'path' => 'api/settings',
+        'duration_ms' => 50, 'query_count' => 3, 'query_time_ms' => 15,
+        'has_n_plus_one' => true, 'peak_memory_kb' => null, 'created_at' => now(),
+    ]);
+
+    for ($i = 0; $i < 3; $i++) {
+        DB::table('pinpoint_queries')->insert([
+            'request_id' => $id, 'sql_fingerprint' => md5('select * from settings where key = ?'),
+            'sql' => 'select * from settings where key = ?',
+            'bindings_hash' => $hash, 'time_ms' => 5,
+            'caller_file' => null, 'caller_line' => null, 'created_at' => now(),
+        ]);
+    }
+
+    $buffer = new BufferedOutput;
+    Artisan::call('pinpoint:check --fail-on-duplicates --json', [], $buffer);
+
+    $payload = json_decode($buffer->fetch(), true);
+
+    expect($payload['passed'])->toBeFalse()
+        ->and(collect($payload['violations'])->pluck('type')->all())->toContain('duplicate');
+});
+
+test('report summary shows REPEAT (not Yes) for unknown-binding repeats', function () {
+    $id = DB::table('pinpoint_requests')->insertGetId([
+        'route_name' => 'api.raw',
+        'method' => 'GET',
+        'path' => 'api/raw',
+        'duration_ms' => 50,
+        'query_count' => 3,
+        'query_time_ms' => 15,
+        'has_n_plus_one' => true,
+        'peak_memory_kb' => null,
+        'created_at' => now(),
+    ]);
+
+    for ($i = 0; $i < 3; $i++) {
+        DB::table('pinpoint_queries')->insert([
+            'request_id' => $id,
+            'sql_fingerprint' => md5('select 1'),
+            'sql' => 'select 1',
+            'bindings_hash' => null,
+            'time_ms' => 5,
+            'caller_file' => 'app/Raw.php',
+            'caller_line' => 7,
+            'created_at' => now(),
+        ]);
+    }
+
+    $output = runArtisanCaptured('pinpoint:report', []);
+
+    // No binding data: unclassifiable — must never read as N+1.
+    expect($output)->toContain('REPEAT (x3)');
+    expect($output)->not->toContain('Yes (x3)');
+
+    // And the Locate block names it with the caller.
+    expect($output)->toContain('REPEAT x3');
 });

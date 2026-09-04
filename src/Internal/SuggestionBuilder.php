@@ -4,6 +4,7 @@ namespace AsimAli\Pinpoint\Internal;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Support\Facades\DB;
 
 /**
  * @internal Not part of Pinpoint's public API contract.
@@ -32,10 +33,7 @@ class SuggestionBuilder
             // the model equals the chain's root (self-referential guard).
             $chained = false;
 
-            // Index-based mutation, not foreach-by-reference: the & alias +
-            // unset dance is the classic PHP reference trap (remove the
-            // unset in a future refactor and the last element silently
-            // aliases the loop variable).
+            // Mutate by index to avoid foreach-by-reference aliasing.
             foreach ($chains as $i => $chain) {
                 if ($chain['model'] === $model || $this->relatedClass($chain['model'], $chain['relations']) !== $model) {
                     continue;
@@ -72,6 +70,63 @@ class SuggestionBuilder
         }
 
         return $unique;
+    }
+
+    /**
+     * Eager-loading suggestion chains for a route label, deduped across the
+     * most recent requests. A chain must reflect a violation that actually
+     * happened inside one request — merging across requests would fabricate
+     * chains that never occurred.
+     *
+     * @return array<int, array{model: string, relations: string, caller_file: string|null, caller_line: int|null}>
+     */
+    public function forRoute(string $routeLabel, int $requestLimit = 20, ?int $sinceMinutes = null): array
+    {
+        // Bound the request set: the whereIn lookup below would otherwise
+        // grow without bound on frequently recorded routes (SQLite bind
+        // limit / MySQL packet limit / memory).
+        $requestIdsQuery = QueryReader::scopeRouteLabel(
+            DB::table('pinpoint_requests')->select('id'),
+            $routeLabel
+        )->orderByDesc('id')->limit($requestLimit);
+
+        if ($sinceMinutes !== null) {
+            $requestIdsQuery->where('created_at', '>=', now()->subMinutes($sinceMinutes));
+        }
+
+        $requestIds = $requestIdsQuery->pluck('id');
+
+        if ($requestIds->isEmpty()) {
+            return [];
+        }
+
+        $violations = DB::table('pinpoint_lazy_loads')
+            ->whereIn('request_id', $requestIds)
+            ->select('request_id', 'model', 'relation', 'caller_file', 'caller_line')
+            ->get()
+            ->map(fn ($row) => [
+                'request_id' => $row->request_id,
+                'model' => $row->model,
+                'relation' => $row->relation,
+                'caller_file' => $row->caller_file,
+                'caller_line' => $row->caller_line,
+            ])
+            ->unique(fn ($row) => $row['request_id'].'|'.$row['model'].'->'.$row['relation'])
+            ->groupBy('request_id');
+
+        $chains = [];
+
+        foreach ($violations as $rows) {
+            foreach ($this->build($rows->values()->all()) as $chain) {
+                $key = $chain['model'].'|'.$chain['relations'];
+
+                if (! isset($chains[$key])) {
+                    $chains[$key] = $chain;
+                }
+            }
+        }
+
+        return array_values($chains);
     }
 
     /**

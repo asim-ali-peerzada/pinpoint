@@ -19,6 +19,7 @@ test('report since filter excludes stale samples from tiers', function () {
     for ($i = 0; $i < 4; $i++) {
         DB::table('pinpoint_queries')->insert([
             'request_id' => $old, 'sql_fingerprint' => 'abc', 'sql' => 'select * from orders where user_id = ?',
+            'bindings_hash' => 'hash-'.$i,
             'time_ms' => 10, 'caller_file' => null, 'caller_line' => null, 'created_at' => now()->subHours(2),
         ]);
     }
@@ -92,9 +93,9 @@ test('drill-down respects the since window', function () {
         'has_n_plus_one' => true, 'created_at' => now()->subHours(2),
     ]);
     DB::table('pinpoint_queries')->insert([
-        ['request_id' => $old, 'sql_fingerprint' => md5('select * from orders where user_id = ?'), 'sql' => 'select * from orders where user_id = ?', 'time_ms' => 10, 'caller_file' => null, 'caller_line' => null, 'created_at' => now()->subHours(2)],
-        ['request_id' => $old, 'sql_fingerprint' => md5('select * from orders where user_id = ?'), 'sql' => 'select * from orders where user_id = ?', 'time_ms' => 10, 'caller_file' => null, 'caller_line' => null, 'created_at' => now()->subHours(2)],
-        ['request_id' => $old, 'sql_fingerprint' => md5('select * from orders where user_id = ?'), 'sql' => 'select * from orders where user_id = ?', 'time_ms' => 10, 'caller_file' => null, 'caller_line' => null, 'created_at' => now()->subHours(2)],
+        ['request_id' => $old, 'sql_fingerprint' => md5('select * from orders where user_id = ?'), 'sql' => 'select * from orders where user_id = ?', 'bindings_hash' => 'hash-1', 'time_ms' => 10, 'caller_file' => null, 'caller_line' => null, 'created_at' => now()->subHours(2)],
+        ['request_id' => $old, 'sql_fingerprint' => md5('select * from orders where user_id = ?'), 'sql' => 'select * from orders where user_id = ?', 'bindings_hash' => 'hash-2', 'time_ms' => 10, 'caller_file' => null, 'caller_line' => null, 'created_at' => now()->subHours(2)],
+        ['request_id' => $old, 'sql_fingerprint' => md5('select * from orders where user_id = ?'), 'sql' => 'select * from orders where user_id = ?', 'bindings_hash' => 'hash-3', 'time_ms' => 10, 'caller_file' => null, 'caller_line' => null, 'created_at' => now()->subHours(2)],
     ]);
 
     // Fresh request WITHOUT the N+1 (inside the window).

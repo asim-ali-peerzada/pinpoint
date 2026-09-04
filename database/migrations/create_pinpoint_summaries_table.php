@@ -19,10 +19,23 @@ return new class extends Migration
             $table->string('tier', 30);
             $table->timestamp('last_computed_at');
         });
+
+        // Baseline snapshots for regression diffing (pinpoint:snapshot / pinpoint:diff).
+        // Unique tag: the --no-overwrite race (two CI jobs writing the same tag)
+        // must fail on a constraint, not silently produce two rows.
+        Schema::create('pinpoint_baselines', function (Blueprint $table) {
+            $table->id();
+            $table->string('tag', 100)->unique();
+            $table->json('snapshot'); // serialised array of per-route metrics
+            $table->unsignedInteger('route_count');
+            $table->timestamp('created_at');
+            $table->index('created_at');
+        });
     }
 
     public function down(): void
     {
+        Schema::dropIfExists('pinpoint_baselines');
         Schema::dropIfExists('pinpoint_summaries');
     }
 };

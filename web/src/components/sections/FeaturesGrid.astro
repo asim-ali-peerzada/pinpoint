@@ -1,99 +1,127 @@
 ---
-import { ArrowRight, Terminal } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 ---
 
-<section id="features" class="relative py-24">
+<section id="features" class="relative py-20 sm:py-24 scroll-mt-16">
   <div class="section-ambient pointer-events-none absolute inset-x-0 top-0 -z-10 h-[480px]"></div>
   <div class="relative z-10 mx-auto max-w-6xl px-4 sm:px-6">
     <div class="mx-auto max-w-2xl text-center">
-      <p class="text-sm font-medium uppercase tracking-[0.16em] text-brand-accent">01 / Core Capabilities</p>
+      <p class="text-sm font-medium uppercase tracking-[0.16em] text-brand-accent font-mono">Core Capabilities</p>
       <h2 class="mt-4 text-3xl font-semibold tracking-tight text-brand-fg sm:text-4xl text-balance">
-        Runtime visibility without the runtime tax.
+        Focused performance diagnostics for local dev and CI.
       </h2>
-      <p class="mt-4 leading-relaxed text-brand-muted text-sm sm:text-base max-w-xl mx-auto text-pretty text-balance">
-        Pinpoint connects runtime performance directly to the source lines responsible for them.
+      <p class="mt-4 leading-relaxed text-gray-300 text-sm sm:text-base max-w-xl mx-auto text-pretty text-balance">
+        Pinpoint connects each performance finding directly to the source line responsible.
       </p>
     </div>
 
     <!-- Scrollytelling Container -->
     <div class="mt-16 grid grid-cols-1 gap-12 lg:grid-cols-12 lg:gap-10 items-start">
       <!-- Left Column: Scroll Triggers (5 cols on lg) -->
-      <div class="space-y-6 lg:col-span-5 lg:py-4" id="scrolly-steps">
+      <div class="space-y-5 lg:col-span-5 lg:py-2" id="scrolly-steps">
         
         <!-- Step 01: Detect (Active by default) -->
-        <div class="scrolly-step active group cursor-pointer rounded-2xl border border-white/20 border-l-2 border-l-brand-accent bg-[#111418] p-6 sm:p-8 transition-all duration-300 opacity-100 shadow-xl" data-step="1">
+        <div class="scrolly-step active group cursor-pointer rounded-2xl border border-white/20 border-l-2 border-l-brand-accent bg-[#111418] p-5 sm:p-6 transition-all duration-300 opacity-100 shadow-xl" data-step="1">
           <div class="flex items-center gap-3">
             <span class="step-num flex h-7 w-7 items-center justify-center rounded-md bg-brand-accent/20 font-mono text-xs font-bold text-brand-accent">01</span>
-            <span class="text-xs font-semibold uppercase tracking-[0.14em] text-gray-300">Detect</span>
+            <span class="text-xs font-semibold uppercase tracking-[0.14em] text-gray-200 font-mono">Detect</span>
           </div>
-          <h3 class="mt-4 text-xl font-bold tracking-tight text-white">
-            N+1 and query anomalies
+          <h3 class="mt-3 text-lg sm:text-xl font-bold tracking-tight text-white">
+            N+1 loops & exact duplicates
           </h3>
-          <p class="mt-3 text-sm leading-relaxed text-gray-400">
-            Find repeated relationship queries before they become production bottlenecks. Repeats with identical bindings are flagged <span class="text-cyan-300">CACHE</span> (reach for <code class="text-gray-300">Cache::remember</code>); varying bindings are true N+1s (reach for eager loading).
+          <p class="mt-2.5 text-xs sm:text-sm leading-relaxed text-gray-300">
+            Find repeated relationship queries before production. Repeats with identical bindings are flagged <span class="text-cyan-300 font-semibold">CACHE</span> (reach for <code class="text-gray-200">Cache::remember</code>); varying bindings indicate N+1 candidates (reach for eager loading).
           </p>
-          <div class="mt-5 flex flex-wrap items-center gap-1 sm:gap-1.5 text-[10px] sm:text-[11px] font-medium">
-            <span class="whitespace-nowrap rounded-full border border-white/10 bg-white/[0.03] px-2 py-0.5 sm:px-2.5 sm:py-1 text-gray-300">Eloquent signal</span>
-            <span class="whitespace-nowrap rounded-full border border-white/10 bg-white/[0.03] px-2 py-0.5 sm:px-2.5 sm:py-1 text-gray-300">SQL fingerprint</span>
-            <span class="whitespace-nowrap rounded-full border border-white/10 bg-white/[0.03] px-2 py-0.5 sm:px-2.5 sm:py-1 text-gray-300">Bindings-hash match</span>
+          <div class="mt-4 flex flex-wrap items-center gap-1.5 text-[10px] sm:text-[11px] font-medium font-mono">
+            <span class="whitespace-nowrap rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-0.5 text-gray-300">Eloquent signal</span>
+            <span class="whitespace-nowrap rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-0.5 text-gray-300">SQL fingerprint</span>
+            <span class="whitespace-nowrap rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-0.5 text-cyan-300">Bindings hash</span>
           </div>
 
-          <!-- Mobile Inline View (only visible on mobile) -->
-          <div class="mt-6 block lg:hidden">
+          <!-- Mobile Inline View -->
+          <div class="mt-5 block lg:hidden">
             <div class="rounded-lg border border-white/10 bg-[#08090C] p-4 font-mono text-xs text-gray-300">
-              <div class="flex items-center justify-between border-b border-white/[0.06] pb-2.5">
+              <div class="flex items-center justify-between border-b border-white/[0.06] pb-2">
                 <span class="text-[11px] uppercase tracking-wider text-gray-400">Query pattern</span>
-                <span class="inline-flex items-center justify-center font-mono text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40 shadow-[0_0_10px_rgba(244,63,94,0.15)] shrink-0">
+                <span class="inline-flex items-center justify-center font-mono text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40">
                   N+1 ×14
                 </span>
               </div>
-              <div class="mt-3 text-white font-medium">Order → items</div>
-              <div class="mt-2 text-gray-400 text-[11px]">SELECT * FROM `items` WHERE `order_id` = ?</div>
-              <div class="mt-3 pt-3 border-t border-white/[0.06] flex items-center justify-between">
+              <div class="mt-2.5 text-white font-medium">Order → items</div>
+              <div class="mt-1 text-gray-400 text-[11px]">SELECT * FROM `items` WHERE `order_id` = ?</div>
+              <div class="mt-2.5 pt-2.5 border-t border-white/[0.06] flex items-center justify-between">
                 <span class="text-white font-medium">Identical bindings</span>
-                <span class="inline-flex items-center justify-center font-mono text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-[0_0_10px_rgba(6,182,212,0.15)] shrink-0">
+                <span class="inline-flex items-center justify-center font-mono text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/40">
                   CACHE ×3
                 </span>
               </div>
-              <div class="mt-2 text-gray-400 text-[11px]">SELECT * FROM `settings` WHERE `key` = ? → <span class="text-cyan-300">Cache::remember(...)</span></div>
             </div>
           </div>
         </div>
 
-        <!-- Step 02: Measure -->
-        <div class="scrolly-step group cursor-pointer rounded-2xl border border-white/[0.08] border-l-2 border-l-transparent bg-[#0D0F12] p-6 sm:p-8 transition-all duration-300 opacity-60 hover:opacity-100" data-step="2">
+        <!-- Step 02: Diff -->
+        <div class="scrolly-step group cursor-pointer rounded-2xl border border-white/[0.08] border-l-2 border-l-transparent bg-[#0D0F12] p-5 sm:p-6 transition-all duration-300 opacity-60 hover:opacity-100" data-step="2">
           <div class="flex items-center gap-3">
             <span class="step-num flex h-7 w-7 items-center justify-center rounded-md bg-white/[0.05] font-mono text-xs font-bold text-gray-400">02</span>
-            <span class="text-xs font-semibold uppercase tracking-[0.14em] text-gray-400">Measure</span>
+            <span class="text-xs font-semibold uppercase tracking-[0.14em] text-gray-200 font-mono">Diff</span>
           </div>
-          <h3 class="mt-4 text-xl font-bold tracking-tight text-white">
+          <h3 class="mt-3 text-lg sm:text-xl font-bold tracking-tight text-white">
+            Performance regression diff
+          </h3>
+          <p class="mt-2.5 text-xs sm:text-sm leading-relaxed text-gray-300">
+            Compare current test-run metrics against a named baseline snapshot (<code class="text-gray-200">main</code>). Instantly flags when a refactor drops an eager load and spikes queries.
+          </p>
+          <div class="mt-4 flex flex-wrap items-center gap-1.5 text-[10px] sm:text-[11px] font-medium font-mono">
+            <span class="whitespace-nowrap rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-0.5 text-gray-300">pinpoint:diff</span>
+            <span class="whitespace-nowrap rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-0.5 text-rose-300">+Query spike alert</span>
+            <span class="whitespace-nowrap rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-0.5 text-emerald-300">Baseline snapshot</span>
+          </div>
+
+          <!-- Mobile Inline View -->
+          <div class="mt-5 block lg:hidden">
+            <div class="rounded-lg border border-white/10 bg-[#08090C] p-4 font-mono text-xs text-gray-300">
+              <div class="flex items-center justify-between border-b border-white/[0.06] pb-2">
+                <span class="text-white font-medium">orders.index</span>
+                <span class="text-rose-400 font-bold">+32.4% ⚠ +49q ✗</span>
+              </div>
+              <div class="mt-2 text-gray-400 text-[11px]">Duration: 182ms → 241ms | Queries: 2 → 51</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 03: Measure -->
+        <div class="scrolly-step group cursor-pointer rounded-2xl border border-white/[0.08] border-l-2 border-l-transparent bg-[#0D0F12] p-5 sm:p-6 transition-all duration-300 opacity-60 hover:opacity-100" data-step="3">
+          <div class="flex items-center gap-3">
+            <span class="step-num flex h-7 w-7 items-center justify-center rounded-md bg-white/[0.05] font-mono text-xs font-bold text-gray-400">03</span>
+            <span class="text-xs font-semibold uppercase tracking-[0.14em] text-gray-200 font-mono">Measure</span>
+          </div>
+          <h3 class="mt-3 text-lg sm:text-xl font-bold tracking-tight text-white">
             Route latency & percentile rollups
           </h3>
-          <p class="mt-3 text-sm leading-relaxed text-gray-400">
-            Understand request performance with p95/avg latency and sample counts. Rollups compute on-demand via a single indexed SQL pass, or batched via <code class="text-gray-300">pinpoint:aggregate</code>.
+          <p class="mt-2.5 text-xs sm:text-sm leading-relaxed text-gray-300">
+            Profile request latency with p50, p95, and average percentiles. Computed on demand from raw request rows in bounded chunks, or snapshotted with <code class="text-gray-200">pinpoint:aggregate</code>.
           </p>
-          <div class="mt-5">
-            <a href="#benchmarks" class="inline-flex items-center gap-1 text-xs font-medium text-brand-accent hover:underline">
-              Overhead methodology (0.29ms mean) <ArrowRight class="h-3 w-3" />
+          <div class="mt-4">
+            <a href="#delta" class="inline-flex items-center gap-1 text-xs font-medium text-brand-accent hover:underline">
+              Overhead methodology (~0.3–0.4ms mean) <ArrowRight class="h-3 w-3" />
             </a>
           </div>
 
           <!-- Mobile Inline View -->
-          <div class="mt-6 block lg:hidden">
+          <div class="mt-5 block lg:hidden">
             <div class="rounded-lg border border-white/10 bg-[#08090C] p-4 font-mono text-xs text-gray-300">
-              <div class="uppercase tracking-wider text-gray-500 text-[11px] border-b border-white/[0.06] pb-2">Request Diagnostics</div>
-              <div class="mt-3 grid grid-cols-3 gap-3">
+              <div class="grid grid-cols-3 gap-2 text-center">
                 <div>
-                  <div class="text-[10px] text-gray-500 uppercase">P95</div>
+                  <div class="text-[10px] text-gray-400 uppercase">P95</div>
                   <div class="text-white font-bold">1.42s</div>
                 </div>
                 <div>
-                  <div class="text-[10px] text-gray-500 uppercase">Avg</div>
-                  <div class="text-gray-300">890ms</div>
+                  <div class="text-[10px] text-gray-400 uppercase">Avg</div>
+                  <div class="text-gray-200">890ms</div>
                 </div>
                 <div>
-                  <div class="text-[10px] text-gray-500 uppercase">Queries</div>
-                  <div class="text-gray-300">42</div>
+                  <div class="text-[10px] text-gray-400 uppercase">Queries</div>
+                  <div class="text-gray-200">42</div>
                 </div>
               </div>
             </div>
@@ -101,61 +129,54 @@ import { ArrowRight, Terminal } from 'lucide-react';
         </div>
 
         <!-- Step 04: Memory -->
-        <div class="scrolly-step group cursor-pointer rounded-2xl border border-white/[0.08] border-l-2 border-l-transparent bg-[#0D0F12] p-6 sm:p-8 transition-all duration-300 opacity-60 hover:opacity-100" data-step="4">
+        <div class="scrolly-step group cursor-pointer rounded-2xl border border-white/[0.08] border-l-2 border-l-transparent bg-[#0D0F12] p-5 sm:p-6 transition-all duration-300 opacity-60 hover:opacity-100" data-step="4">
           <div class="flex items-center gap-3">
             <span class="step-num flex h-7 w-7 items-center justify-center rounded-md bg-white/[0.05] font-mono text-xs font-bold text-gray-400">04</span>
-            <span class="text-xs font-semibold uppercase tracking-[0.14em] text-gray-400">Memory</span>
+            <span class="text-xs font-semibold uppercase tracking-[0.14em] text-gray-200 font-mono">Memory</span>
           </div>
-          <h3 class="mt-4 text-xl font-bold tracking-tight text-white">
-            Peak RAM per route, budget-guarded
+          <h3 class="mt-3 text-lg sm:text-xl font-bold tracking-tight text-white">
+            Peak PHP memory per route
           </h3>
-          <p class="mt-3 text-sm leading-relaxed text-gray-400">
-            Every request captures peak memory at flush time. Routes crossing your configured budget (<code class="text-gray-300">pinpoint.memory_budget_kb</code>, default 20 MB) are highlighted in red in the report.
+          <p class="mt-2.5 text-xs sm:text-sm leading-relaxed text-gray-300">
+            The report highlights routes crossing your configured memory budget (<code class="text-gray-200">pinpoint.memory_budget_kb</code>, default 20 MB) in red; baseline diffs can also detect memory growth.
           </p>
-          <div class="mt-5 flex flex-wrap items-center gap-1.5 text-[11px] font-medium">
-            <span class="whitespace-nowrap rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 text-gray-300">Peak RSS per route</span>
-            <span class="whitespace-nowrap rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 text-gray-300">Configurable budget</span>
+          <div class="mt-4 flex flex-wrap items-center gap-1.5 text-[11px] font-medium font-mono">
+            <span class="whitespace-nowrap rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-0.5 text-gray-300">Peak PHP memory</span>
+            <span class="whitespace-nowrap rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-0.5 text-rose-300">20 MB Budget</span>
           </div>
 
           <!-- Mobile Inline View -->
-          <div class="mt-6 block lg:hidden">
+          <div class="mt-5 block lg:hidden">
             <div class="rounded-lg border border-white/10 bg-[#08090C] p-4 font-mono text-xs text-gray-300">
-              <div class="uppercase tracking-wider text-gray-500 text-[11px] border-b border-white/[0.06] pb-2">Memory Report</div>
-              <div class="mt-3 flex items-center justify-between">
+              <div class="flex items-center justify-between">
                 <span class="text-white font-medium">api.reports.export</span>
                 <span class="text-red-400 font-bold">64.2 MB</span>
               </div>
-              <div class="mt-1 text-[11px] text-rose-400">Budget exceeded — over 20 MB (configurable)</div>
-              <div class="mt-3 pt-3 border-t border-white/[0.06] flex items-center justify-between">
-                <span class="text-white font-medium">api.orders.index</span>
-                <span class="text-emerald-400 font-bold">12.4 MB</span>
-              </div>
-              <div class="mt-1 text-[11px] text-gray-500">Within budget</div>
+              <div class="mt-1 text-[11px] text-rose-400 font-medium">Budget exceeded (over 20 MB)</div>
             </div>
           </div>
         </div>
 
-        <!-- Step 03: Locate -->
-        <div class="scrolly-step group cursor-pointer rounded-2xl border border-white/[0.08] border-l-2 border-l-transparent bg-[#0D0F12] p-6 sm:p-8 transition-all duration-300 opacity-60 hover:opacity-100" data-step="3">
+        <!-- Step 05: Locate -->
+        <div class="scrolly-step group cursor-pointer rounded-2xl border border-white/[0.08] border-l-2 border-l-transparent bg-[#0D0F12] p-5 sm:p-6 transition-all duration-300 opacity-60 hover:opacity-100" data-step="5">
           <div class="flex items-center gap-3">
-            <span class="step-num flex h-7 w-7 items-center justify-center rounded-md bg-white/[0.05] font-mono text-xs font-bold text-gray-400">03</span>
-            <span class="text-xs font-semibold uppercase tracking-[0.14em] text-gray-400">Locate</span>
+            <span class="step-num flex h-7 w-7 items-center justify-center rounded-md bg-white/[0.05] font-mono text-xs font-bold text-gray-400">05</span>
+            <span class="text-xs font-semibold uppercase tracking-[0.14em] text-gray-200 font-mono">Locate</span>
           </div>
-          <h3 class="mt-4 text-xl font-bold tracking-tight text-white">
+          <h3 class="mt-3 text-lg sm:text-xl font-bold tracking-tight text-white">
             Source-level context & IDE jump
           </h3>
-          <p class="mt-3 text-sm leading-relaxed text-gray-400">
-            Ctrl/⌘-click any route or caller in your terminal to jump directly to the controller method and offending line in VS Code or PhpStorm. Zero telemetry, 100% local.
+          <p class="mt-2.5 text-xs sm:text-sm leading-relaxed text-gray-300">
+            Where source locations are available, Ctrl/⌘-click a route or caller in your terminal to jump directly to the controller method and offending line in VS Code or PhpStorm. Local-first: data stays in your database.
           </p>
-          <div class="mt-5 flex items-center gap-2 text-xs font-mono text-brand-accent">
+          <div class="mt-4 flex items-center gap-2 text-xs font-mono text-brand-accent">
             <span>vscode:// · phpstorm:// terminal links</span>
           </div>
 
           <!-- Mobile Inline View -->
-          <div class="mt-6 block lg:hidden">
+          <div class="mt-5 block lg:hidden">
             <div class="rounded-lg border border-white/10 bg-[#08090C] p-4 font-mono text-xs text-gray-300">
-              <div class="uppercase tracking-wider text-gray-500 text-[11px] border-b border-white/[0.06] pb-2">Source Origin</div>
-              <div class="mt-3 text-white font-medium">OrderController.php:84</div>
+              <div class="text-white font-medium">OrderController.php:84</div>
               <div class="mt-1 text-emerald-400">Suggested: Order::with('items')</div>
             </div>
           </div>
@@ -166,152 +187,172 @@ import { ArrowRight, Terminal } from 'lucide-react';
       <!-- Right Column: Sticky Terminal Panel (7 cols on lg, Desktop Only) -->
       <div class="hidden lg:block lg:col-span-7 lg:sticky lg:top-24">
         <div class="overflow-hidden rounded-2xl border border-white/15 bg-[#08090C] shadow-[0_24px_70px_rgba(0,0,0,0.85)] ring-1 ring-white/5">
-          <!-- Window Chrome Top Bar -->
-          <div class="flex items-center justify-between border-b border-white/[0.08] bg-[#0C0E12] px-4 py-3">
-            <div class="flex items-center gap-3">
-              <div class="flex items-center gap-1.5">
-                <div class="h-2.5 w-2.5 rounded-full bg-[#EC6A5E]/80"></div>
-                <div class="h-2.5 w-2.5 rounded-full bg-[#F5BF4F]/80"></div>
-                <div class="h-2.5 w-2.5 rounded-full bg-[#62C554]/80"></div>
-              </div>
-              <span class="ml-2 font-mono text-xs font-medium text-gray-400 flex items-center gap-1.5">
-                <Terminal class="h-3.5 w-3.5 text-brand-accent" />
-                <span id="terminal-step-badge">pinpoint:report --tier=critical</span>
-              </span>
+          <!-- Window Chrome Top Bar (Fixed height, no text wrapping) -->
+          <div class="flex items-center justify-between border-b border-white/[0.08] bg-[#0C0E12] px-4 py-3 shrink-0">
+            <!-- Left: Terminal Dots + Fixed Label -->
+            <div class="flex items-center gap-2 shrink-0">
+              <div class="h-2.5 w-2.5 rounded-full bg-[#EC6A5E]/80"></div>
+              <div class="h-2.5 w-2.5 rounded-full bg-[#F5BF4F]/80"></div>
+              <div class="h-2.5 w-2.5 rounded-full bg-[#62C554]/80"></div>
+              <span class="ml-1.5 font-mono text-xs font-semibold text-gray-300 tracking-wide">Diagnostics</span>
             </div>
             
-            <div class="flex items-center gap-3 font-mono text-[11px]">
-              <button class="step-tab-btn bg-transparent border-none p-0 text-white border-b-2 border-brand-accent cursor-default" data-target-step="1">01 Detect</button>
-              <button class="step-tab-btn bg-transparent border-none p-0 text-gray-500 hover:text-gray-300 border-b-2 border-transparent cursor-default transition-colors" data-target-step="2">02 Measure</button>
-              <button class="step-tab-btn bg-transparent border-none p-0 text-gray-500 hover:text-gray-300 border-b-2 border-transparent cursor-default transition-colors" data-target-step="3">03 Locate</button>
-              <button class="step-tab-btn bg-transparent border-none p-0 text-gray-500 hover:text-gray-300 border-b-2 border-transparent cursor-default transition-colors" data-target-step="4">04 Memory</button>
+            <!-- Right: 5 Strict Single-Row Non-Wrapping Step Tabs -->
+            <div class="flex items-center gap-1.5 font-mono text-[11px] shrink-0">
+              <button class="step-tab-btn whitespace-nowrap bg-transparent border-none px-2 py-0.5 text-white border-b-2 border-brand-accent font-semibold cursor-pointer" data-target-step="1">01 Detect</button>
+              <button class="step-tab-btn whitespace-nowrap bg-transparent border-none px-2 py-0.5 text-gray-400 hover:text-white border-b-2 border-transparent cursor-pointer transition-colors" data-target-step="2">02 Diff</button>
+              <button class="step-tab-btn whitespace-nowrap bg-transparent border-none px-2 py-0.5 text-gray-400 hover:text-white border-b-2 border-transparent cursor-pointer transition-colors" data-target-step="3">03 Measure</button>
+              <button class="step-tab-btn whitespace-nowrap bg-transparent border-none px-2 py-0.5 text-gray-400 hover:text-white border-b-2 border-transparent cursor-pointer transition-colors" data-target-step="4">04 Memory</button>
+              <button class="step-tab-btn whitespace-nowrap bg-transparent border-none px-2 py-0.5 text-gray-400 hover:text-white border-b-2 border-transparent cursor-pointer transition-colors" data-target-step="5">05 Locate</button>
             </div>
           </div>
 
-          <!-- Dynamic Panel Content Container -->
-          <div class="p-6 font-mono text-xs leading-relaxed min-h-[340px] flex flex-col justify-center">
+          <!-- Dynamic Panel Content: Consistent top baseline, zero vertical jumping -->
+          <div class="p-5 sm:p-6 font-mono text-xs leading-relaxed min-h-[380px] flex flex-col justify-start">
             
             <!-- Panel View 1: Detect State -->
-            <div id="panel-view-1" class="panel-view space-y-4 transition-opacity duration-300">
-              <div class="flex items-center justify-between border-b border-white/[0.06] pb-3">
+            <div id="panel-view-1" class="panel-view space-y-3.5 transition-opacity duration-200">
+              <!-- Command Header inside panel -->
+              <div class="flex items-center gap-2 text-xs font-mono text-gray-400 border-b border-white/[0.06] pb-2.5">
+                <span class="text-brand-accent font-semibold select-none">$</span>
+                <span class="text-gray-200">php artisan pinpoint:report --tier=critical</span>
+              </div>
+
+              <div class="flex items-center justify-between pt-1">
                 <div class="flex items-center gap-2">
                   <span class="h-2 w-2 rounded-full bg-rose-500 animate-pulse"></span>
                   <span class="font-bold text-white text-sm">api.orders.index</span>
                 </div>
-                <span class="rounded bg-rose-500/20 px-2 py-0.5 text-[10px] font-bold text-rose-400 uppercase tracking-wider">
-                  N+1 Violation Detected
+                <span class="rounded-full bg-rose-500/20 px-2.5 py-0.5 text-[10px] font-bold text-rose-300 uppercase tracking-wider border border-rose-500/30">
+                  N+1 Loop Flagged
                 </span>
               </div>
 
-              <div class="rounded-xl border border-rose-500/25 bg-rose-950/20 p-4 space-y-2">
+              <div class="rounded-xl border border-rose-500/25 bg-rose-950/20 p-3.5 space-y-2">
                 <div class="text-rose-300 font-semibold text-xs flex items-center justify-between">
                   <span>Relationship: Order → items</span>
-                  <span class="inline-flex items-center justify-center font-mono text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40 shadow-[0_0_10px_rgba(244,63,94,0.15)] shrink-0">
+                  <span class="inline-flex items-center justify-center font-mono text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40">
                     N+1 ×14
                   </span>
                 </div>
-                <div class="pt-1 text-gray-300 text-[11px] break-all bg-black/40 p-2.5 rounded border border-white/5">
+                <div class="pt-0.5 text-gray-300 text-[11px] break-all bg-black/40 p-2.5 rounded border border-white/5">
                   <span class="text-gray-500">SQL: </span>
                   <span class="text-gray-200">SELECT * FROM `items` WHERE `order_id` = ?</span>
                 </div>
-                <div class="text-gray-400 text-[11px] pt-1">
-                  Bindings vary per order → <span class="text-white">eager-load fix:</span> <code class="text-emerald-300">Order::with('items')</code>
+                <div class="text-gray-400 text-[11px] pt-0.5">
+                  Bindings vary per order → <span class="text-white">eager-load fix:</span> <code class="text-emerald-300 font-bold">Order::with('items')</code>
                 </div>
               </div>
 
-              <div class="rounded-xl border border-cyan-500/25 bg-cyan-950/20 p-4 space-y-2">
+              <div class="rounded-xl border border-cyan-500/25 bg-cyan-950/20 p-3.5 space-y-2">
                 <div class="text-cyan-300 font-semibold text-xs flex items-center justify-between">
                   <span>Identical query, identical bindings</span>
-                  <span class="inline-flex items-center justify-center font-mono text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-[0_0_10px_rgba(6,182,212,0.15)] shrink-0">
+                  <span class="inline-flex items-center justify-center font-mono text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/40">
                     CACHE ×3
                   </span>
                 </div>
-                <div class="pt-1 text-gray-300 text-[11px] break-all bg-black/40 p-2.5 rounded border border-white/5">
+                <div class="pt-0.5 text-gray-300 text-[11px] break-all bg-black/40 p-2.5 rounded border border-white/5">
                   <span class="text-gray-500">SQL: </span>
                   <span class="text-gray-200">SELECT * FROM `settings` WHERE `key` = ?</span>
                 </div>
-                <div class="text-gray-400 text-[11px] pt-1">
-                  bindings_hash identical across hits → <span class="text-white">suggested fix:</span> <code class="text-cyan-300">Cache::remember(...)</code>
+                <div class="text-gray-400 text-[11px] pt-0.5">
+                  bindings_hash match across hits → <span class="text-white">suggested fix:</span> <code class="text-cyan-300 font-bold">Cache::remember(...)</code>
                 </div>
               </div>
             </div>
 
-            <!-- Panel View 2: Measure State -->
-            <div id="panel-view-2" class="panel-view hidden space-y-4 transition-opacity duration-300">
-              <div class="flex items-center justify-between border-b border-white/[0.06] pb-3">
+            <!-- Panel View 2: Diff State -->
+            <div id="panel-view-2" class="panel-view hidden space-y-3.5 transition-opacity duration-200">
+              <!-- Command Header inside panel -->
+              <div class="flex items-center gap-2 text-xs font-mono text-gray-400 border-b border-white/[0.06] pb-2.5">
+                <span class="text-brand-accent font-semibold select-none">$</span>
+                <span class="text-gray-200">php artisan pinpoint:diff --baseline=main</span>
+              </div>
+
+              <div class="flex items-center justify-between pt-1">
+                <div class="flex items-center gap-2">
+                  <span class="h-2 w-2 rounded-full bg-rose-500 animate-pulse"></span>
+                  <span class="font-bold text-white text-sm">Performance Regression Diff</span>
+                </div>
+                <span class="rounded-full bg-rose-500/20 px-2.5 py-0.5 text-[10px] font-bold text-rose-300 uppercase tracking-wider border border-rose-500/30">
+                  Regression Detected
+                </span>
+              </div>
+
+              <div class="rounded-xl border border-rose-500/30 bg-rose-950/20 p-4 space-y-2.5">
+                <div class="flex items-center justify-between text-xs">
+                  <span class="text-white font-bold">orders.index</span>
+                  <span class="text-rose-400 font-semibold">+32.4% ⚠  +49q ✗</span>
+                </div>
+                <div class="text-[11.5px] text-gray-300 space-y-1">
+                  <div><span class="text-gray-500">Baseline (main): </span><span class="text-gray-300">p95 182ms · 2 queries</span></div>
+                  <div><span class="text-gray-500">Current (PR): </span><span class="text-rose-300 font-semibold">p95 241ms · 51 queries</span></div>
+                </div>
+                <div class="pt-2 border-t border-rose-500/20 text-[11px] flex items-center justify-between">
+                  <span class="text-gray-400">Trigger: OrderController.php:42</span>
+                  <span class="text-emerald-400 font-medium">Fix: Order::with('customer')</span>
+                </div>
+              </div>
+
+              <div class="rounded-lg border border-white/5 bg-white/[0.02] p-3 text-[11px] text-gray-400 flex items-center justify-between">
+                <span>Exit code 1 in GitHub Actions when <code class="text-white">--fail-on-regression</code></span>
+                <span class="text-rose-400 font-medium">Exit code 1 (blocks merge if required)</span>
+              </div>
+            </div>
+
+            <!-- Panel View 3: Measure State -->
+            <div id="panel-view-3" class="panel-view hidden space-y-3.5 transition-opacity duration-200">
+              <!-- Command Header inside panel -->
+              <div class="flex items-center gap-2 text-xs font-mono text-gray-400 border-b border-white/[0.06] pb-2.5">
+                <span class="text-brand-accent font-semibold select-none">$</span>
+                <span class="text-gray-200">php artisan pinpoint:report --since=30m</span>
+              </div>
+
+              <div class="flex items-center justify-between pt-1">
                 <div class="flex items-center gap-2">
                   <span class="h-2 w-2 rounded-full bg-amber-400"></span>
                   <span class="font-bold text-white text-sm">api.orders.index • Latency Rollup</span>
                 </div>
-                <span class="rounded bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold text-amber-400 uppercase tracking-wider">
+                <span class="rounded-full bg-amber-500/20 px-2.5 py-0.5 text-[10px] font-bold text-amber-400 uppercase tracking-wider border border-amber-500/30">
                   42 Queries
                 </span>
               </div>
 
               <div class="grid grid-cols-3 gap-3 text-center">
                 <div class="rounded-xl border border-white/[0.08] bg-black/30 p-3.5">
-                  <div class="text-[10px] text-gray-500 uppercase font-semibold">P95 Latency</div>
+                  <div class="text-[10px] text-gray-400 uppercase font-semibold">P95 Latency</div>
                   <div class="mt-1 text-lg font-bold text-rose-400 tabular-nums">1.42s</div>
                 </div>
                 <div class="rounded-xl border border-white/[0.08] bg-black/30 p-3.5">
-                  <div class="text-[10px] text-gray-500 uppercase font-semibold">Average</div>
+                  <div class="text-[10px] text-gray-400 uppercase font-semibold">Average</div>
                   <div class="mt-1 text-lg font-bold text-gray-200 tabular-nums">890ms</div>
                 </div>
                 <div class="rounded-xl border border-white/[0.08] bg-black/30 p-3.5">
-                  <div class="text-[10px] text-gray-500 uppercase font-semibold">Overhead</div>
-                  <div class="mt-1 text-lg font-bold text-emerald-400 tabular-nums">+0.29ms</div>
+                  <div class="text-[10px] text-gray-400 uppercase font-semibold">Overhead</div>
+                  <div class="mt-1 text-lg font-bold text-emerald-400 tabular-nums">~0.3–0.4ms</div>
                 </div>
               </div>
 
               <div class="rounded-lg border border-white/5 bg-white/[0.02] p-3 text-[11px] text-gray-400 flex items-center justify-between">
-                <span>Telemetry flush: <span class="text-gray-200">app()->terminating()</span> (post-response)</span>
-                <span class="text-brand-accent font-medium">0ms TTFB impact</span>
-              </div>
-            </div>
-
-            <!-- Panel View 3: Locate State -->
-            <div id="panel-view-3" class="panel-view hidden space-y-4 transition-opacity duration-300">
-              <div class="flex items-center justify-between border-b border-white/[0.06] pb-3">
-                <div class="flex items-center gap-2">
-                  <span class="h-2 w-2 rounded-full bg-emerald-400"></span>
-                  <span class="font-bold text-white text-sm">Source Origin & Deterministic Fix</span>
-                </div>
-                <span class="rounded bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-400 uppercase tracking-wider">
-                  Resolved
-                </span>
-              </div>
-
-              <div class="rounded-xl border border-white/10 bg-black/40 p-4 space-y-2">
-                <div class="flex items-center justify-between text-xs">
-                  <span class="text-gray-300 font-mono">app/Http/Controllers/OrderController.php:<span class="text-white font-bold">84</span></span>
-                  <span class="rounded bg-sky-500/10 text-sky-300 border border-sky-500/20 px-2 py-0.5 text-[10px] font-mono">vscode:// jump</span>
-                </div>
-                
-                <div class="rounded bg-[#050608] p-3 border border-white/5 text-[11px] space-y-1">
-                  <div class="text-gray-400">82: public function index() {</div>
-                  <div class="text-gray-400">83:     $orders = Order::all();</div>
-                  <div class="bg-rose-500/15 text-rose-300 px-2 py-0.5 rounded border-l-2 border-rose-500 font-semibold">
-                    84:     foreach ($orders as $order) &#123; echo $order-&gt;items-&gt;count(); &#125;
-                  </div>
-                  <div class="text-gray-400">85:     return view('orders.index');</div>
-                  <div class="text-gray-400">86: }</div>
-                </div>
-
-                <div class="flex items-center justify-between gap-3 text-[11px]">
-                  <span class="text-gray-300">Suggested fix: <code class="text-emerald-300 font-bold">Order::with('items')</code></span>
-                  <span class="text-brand-accent cursor-pointer hover:underline shrink-0">Ctrl/⌘ Click to open IDE →</span>
-                </div>
+                <span>Telemetry flush: <span class="text-gray-200 font-mono">app()->terminating()</span></span>
+                <span class="text-brand-accent font-medium">Deferred to response completion</span>
               </div>
             </div>
 
             <!-- Panel View 4: Memory State -->
-            <div id="panel-view-4" class="panel-view hidden space-y-4 transition-opacity duration-300">
-              <div class="flex items-center justify-between border-b border-white/[0.06] pb-3">
+            <div id="panel-view-4" class="panel-view hidden space-y-3.5 transition-opacity duration-200">
+              <!-- Command Header inside panel -->
+              <div class="flex items-center gap-2 text-xs font-mono text-gray-400 border-b border-white/[0.06] pb-2.5">
+                <span class="text-brand-accent font-semibold select-none">$</span>
+                <span class="text-gray-200">php artisan pinpoint:report --tier=critical</span>
+              </div>
+
+              <div class="flex items-center justify-between pt-1">
                 <div class="flex items-center gap-2">
                   <span class="h-2 w-2 rounded-full bg-rose-500 animate-pulse"></span>
-                  <span class="font-bold text-white text-sm">Memory Report • Budget 20 MB</span>
+                  <span class="font-bold text-white text-sm">Critical Routes • Memory Budget 20 MB</span>
                 </div>
-                <span class="rounded bg-rose-500/20 px-2 py-0.5 text-[10px] font-bold text-rose-400 uppercase tracking-wider">
+                <span class="rounded-full bg-rose-500/20 px-2.5 py-0.5 text-[10px] font-bold text-rose-300 uppercase tracking-wider border border-rose-500/30">
                   1 Over Budget
                 </span>
               </div>
@@ -320,18 +361,59 @@ import { ArrowRight, Terminal } from 'lucide-react';
                 <div class="rounded-xl border border-rose-500/30 bg-rose-950/20 p-3.5">
                   <div class="text-[10px] text-gray-400 uppercase font-semibold">api.reports.export</div>
                   <div class="mt-1 text-lg font-bold text-red-400 tabular-nums">64.2 MB</div>
-                  <div class="text-[10px] text-rose-400">Budget exceeded</div>
+                  <div class="text-[10px] text-rose-400 font-semibold">Budget exceeded</div>
                 </div>
                 <div class="rounded-xl border border-white/[0.08] bg-black/30 p-3.5">
-                  <div class="text-[10px] text-gray-500 uppercase font-semibold">api.orders.index</div>
+                  <div class="text-[10px] text-gray-400 uppercase font-semibold">api.orders.index</div>
                   <div class="mt-1 text-lg font-bold text-gray-200 tabular-nums">12.4 MB</div>
-                  <div class="text-[10px] text-gray-500">Within budget</div>
+                  <div class="text-[10px] text-emerald-400 font-medium">Within budget</div>
                 </div>
               </div>
 
               <div class="rounded-lg border border-white/5 bg-white/[0.02] p-3 text-[11px] text-gray-400 flex items-center justify-between">
-                <span>Peak captured via <span class="text-gray-200">memory_get_peak_usage(true)</span> at flush time</span>
+                <span>Peak captured via <span class="text-gray-200 font-mono">memory_get_peak_usage(true)</span></span>
                 <span class="text-brand-accent font-medium">max across samples</span>
+              </div>
+            </div>
+
+            <!-- Panel View 5: Locate State -->
+            <div id="panel-view-5" class="panel-view hidden space-y-3.5 transition-opacity duration-200">
+              <!-- Command Header inside panel -->
+              <div class="flex items-center gap-2 text-xs font-mono text-gray-400 border-b border-white/[0.06] pb-2.5">
+                <span class="text-brand-accent font-semibold select-none">$</span>
+                <span class="text-gray-200">php artisan pinpoint:report --route=api.orders</span>
+              </div>
+
+              <div class="flex items-center justify-between pt-1">
+                <div class="flex items-center gap-2">
+                  <span class="h-2 w-2 rounded-full bg-emerald-400"></span>
+                  <span class="font-bold text-white text-sm">Source Location & Suggested Fix</span>
+                </div>
+                <span class="rounded-full bg-emerald-500/20 px-2.5 py-0.5 text-[10px] font-bold text-emerald-400 uppercase tracking-wider border border-emerald-500/30">
+                  Suggested Fix
+                </span>
+              </div>
+
+              <div class="rounded-xl border border-white/10 bg-black/40 p-3.5 space-y-2">
+                <div class="flex items-center justify-between text-xs">
+                  <span class="text-gray-300 font-mono">app/Http/Controllers/OrderController.php:<span class="text-white font-bold">84</span></span>
+                  <span class="rounded-md bg-sky-500/10 text-sky-300 border border-sky-500/20 px-2 py-0.5 text-[10px] font-mono">vscode:// jump</span>
+                </div>
+                
+                <div class="rounded-lg bg-[#050608] p-3 border border-white/5 text-[11px] space-y-1 font-mono">
+                  <div class="text-gray-400">82: public function index() &#123;</div>
+                  <div class="text-gray-400">83:     $orders = Order::all();</div>
+                  <div class="bg-rose-500/15 text-rose-300 px-2 py-0.5 rounded-md border-l-2 border-rose-500 font-semibold">
+                    84:     foreach ($orders as $order) &#123; echo $order-&gt;items-&gt;count(); &#125;
+                  </div>
+                  <div class="text-gray-400">85:     return view('orders.index');</div>
+                  <div class="text-gray-400">86: &#125;</div>
+                </div>
+
+                <div class="flex items-center justify-between gap-3 text-[11px]">
+                  <span class="text-gray-300">Suggested fix: <code class="text-emerald-300 font-bold">Order::with('items')</code></span>
+                  <span class="text-gray-400 text-[11px] shrink-0">Terminal links can open this location in your configured IDE.</span>
+                </div>
               </div>
             </div>
 
@@ -344,30 +426,34 @@ import { ArrowRight, Terminal } from 'lucide-react';
 
 <script>
   function setupScrollytelling() {
-    const steps = document.querySelectorAll<HTMLElement>('.scrolly-step');
+    const container = document.getElementById('scrolly-steps');
+    if (!container || container.dataset.bound === 'true') return;
+    container.dataset.bound = 'true';
+
+    const steps = document.querySelectorAll('.scrolly-step');
     const panelViews = {
       1: document.getElementById('panel-view-1'),
       2: document.getElementById('panel-view-2'),
       3: document.getElementById('panel-view-3'),
       4: document.getElementById('panel-view-4'),
+      5: document.getElementById('panel-view-5'),
     };
-    const stepBadge = document.getElementById('terminal-step-badge');
-    const tabBtns = document.querySelectorAll<HTMLButtonElement>('.step-tab-btn');
+    const tabBtns = document.querySelectorAll('.step-tab-btn');
 
-    function setActiveStep(stepNum: number) {
-      // Update Tab buttons (active = underlined in logo red, text-style tabs)
+    function setActiveStep(stepNum) {
+      // Update Tab buttons in sticky header
       tabBtns.forEach((btn) => {
         const target = Number(btn.getAttribute('data-target-step'));
         if (target === stepNum) {
-          btn.classList.add('text-white', 'border-brand-accent');
-          btn.classList.remove('text-gray-500', 'border-transparent');
+          btn.classList.add('text-white', 'border-brand-accent', 'font-semibold');
+          btn.classList.remove('text-gray-400', 'border-transparent');
         } else {
-          btn.classList.remove('text-white', 'border-brand-accent');
-          btn.classList.add('text-gray-500', 'border-transparent');
+          btn.classList.remove('text-white', 'border-brand-accent', 'font-semibold');
+          btn.classList.add('text-gray-400', 'border-transparent');
         }
       });
 
-      // Update Step Indicators on Left
+      // Update Step Cards on Left
       steps.forEach((s) => {
         const num = Number(s.getAttribute('data-step'));
         const badge = s.querySelector('.step-num');
@@ -397,24 +483,26 @@ import { ArrowRight, Terminal } from 'lucide-react';
           el.classList.add('hidden');
         }
       });
-
-      if (stepBadge) {
-        if (stepNum === 1) stepBadge.textContent = 'pinpoint:report --tier=critical';
-        if (stepNum === 2) stepBadge.textContent = 'pinpoint:report --since=30m';
-        if (stepNum === 3) stepBadge.textContent = 'pinpoint:report --route=api.orders';
-        if (stepNum === 4) stepBadge.textContent = 'pinpoint:report --sort=memory';
-      }
     }
 
-    // Click listener on Cards themselves
+    // Click & Keyboard listener on Cards themselves
     steps.forEach((step) => {
-      step.addEventListener('click', () => {
+      step.addEventListener('click', (e) => {
+        if (e.target.closest('a')) return;
         const num = Number(step.getAttribute('data-step'));
         if (num) setActiveStep(num);
       });
+      step.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          if (e.target.closest('a')) return;
+          e.preventDefault();
+          const num = Number(step.getAttribute('data-step'));
+          if (num) setActiveStep(num);
+        }
+      });
     });
 
-    // Click listener on Tab Buttons — activates the step on click.
+    // Click listener on Tab Buttons
     tabBtns.forEach((btn) => {
       btn.addEventListener('click', () => {
         const target = Number(btn.getAttribute('data-target-step'));
@@ -422,7 +510,7 @@ import { ArrowRight, Terminal } from 'lucide-react';
       });
     });
 
-    // IntersectionObserver for scroll-driven updates
+    // Balanced IntersectionObserver for scroll tracking without jumping
     if ('IntersectionObserver' in window) {
       const observer = new IntersectionObserver(
         (entries) => {
@@ -434,8 +522,8 @@ import { ArrowRight, Terminal } from 'lucide-react';
           });
         },
         {
-          rootMargin: '-20% 0px -40% 0px',
-          threshold: 0.2,
+          rootMargin: '-25% 0px -35% 0px',
+          threshold: 0.4,
         }
       );
 
@@ -446,3 +534,4 @@ import { ArrowRight, Terminal } from 'lucide-react';
   setupScrollytelling();
   document.addEventListener('astro:after-swap', setupScrollytelling);
 </script>
+

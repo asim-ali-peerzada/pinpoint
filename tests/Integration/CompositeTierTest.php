@@ -48,11 +48,11 @@ test('composite on shows HEALTHY only when tier good, no N+1, memory within budg
 
     $output = runArtisanCaptured('pinpoint:report');
 
-    expect($output)->toContain('Health (tier + N+1 + memory)')
+    expect($output)->toContain('Health')
         ->toContain('HEALTHY');
 });
 
-test('composite flags fast route with N+1 as NEEDS WORK (GOOD)', function () {
+test('composite flags fast route with N+1 as NEEDS WORK · N+1', function () {
     config()->set('pinpoint.composite_tier', true);
 
     seedRoute('api.fast-but-n1', 50, 5, 4096);  // fast, but 5 varying repeats
@@ -60,10 +60,11 @@ test('composite flags fast route with N+1 as NEEDS WORK (GOOD)', function () {
     $output = runArtisanCaptured('pinpoint:report');
 
     expect($output)->toContain('NEEDS WORK')
-        ->toContain('(GOOD)');
+        ->toContain('NEEDS WORK · N+1')
+        ->not->toContain('(GOOD)');
 });
 
-test('composite flags fast route over memory budget as NEEDS WORK', function () {
+test('composite flags fast route over memory budget as NEEDS WORK · MEMORY', function () {
     config()->set('pinpoint.composite_tier', true);
 
     seedRoute('api.memory-hog', 50, 0, 30 * 1024); // fast, no N+1, 30MB > 20MB
@@ -71,7 +72,18 @@ test('composite flags fast route over memory budget as NEEDS WORK', function () 
     $output = runArtisanCaptured('pinpoint:report');
 
     expect($output)->toContain('NEEDS WORK')
-        ->toContain('(GOOD)');
+        ->toContain('NEEDS WORK · MEMORY')
+        ->not->toContain('(GOOD)');
+});
+
+test('composite combines multiple reasons with dot separators', function () {
+    config()->set('pinpoint.composite_tier', true);
+
+    seedRoute('api.everything', 5000, 5, 30 * 1024); // slow + N+1 + over budget
+
+    $output = runArtisanCaptured('pinpoint:report');
+
+    expect($output)->toContain('NEEDS WORK · CRITICAL · N+1 · MEMORY');
 });
 
 test('json includes health verdict and reason when composite on', function () {

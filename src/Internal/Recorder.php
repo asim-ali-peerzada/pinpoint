@@ -18,6 +18,9 @@ class Recorder
 
     protected bool $flushing = false;
 
+    /** @var array<string, mixed>|null */
+    protected ?array $pendingPayload = null;
+
     public function __construct(protected Config $config) {}
 
     public function isRecording(): bool
@@ -127,6 +130,33 @@ class Recorder
     {
         $this->queries = [];
         $this->lazyLoads = [];
+    }
+
+    /**
+     * Stage the request payload for the terminating flush. Stored on the
+     * recorder (scoped — per-request under Octane) so the terminating
+     * callback can be registered ONCE at boot instead of once per request:
+     * Laravel's terminate() re-runs every registered callback, so a
+     * per-request registration would re-flush stale requests in any
+     * long-running process (Octane, queue workers, test suites).
+     */
+    public function rememberPayload(array $payload): void
+    {
+        $this->pendingPayload = $payload;
+    }
+
+    /**
+     * Take (and clear) the staged payload — null when this cycle had no
+     * recorded request (queue jobs, artisan commands, non-sampled requests).
+     *
+     * @return array<string, mixed>|null
+     */
+    public function takePendingPayload(): ?array
+    {
+        $payload = $this->pendingPayload;
+        $this->pendingPayload = null;
+
+        return $payload;
     }
 
     public function hasNPlusOne(): bool

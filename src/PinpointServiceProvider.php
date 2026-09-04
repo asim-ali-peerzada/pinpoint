@@ -4,9 +4,11 @@ namespace AsimAli\Pinpoint;
 
 use AsimAli\Pinpoint\Commands\AggregateCommand;
 use AsimAli\Pinpoint\Commands\CheckCommand;
+use AsimAli\Pinpoint\Commands\DiffCommand;
 use AsimAli\Pinpoint\Commands\PruneCommand;
 use AsimAli\Pinpoint\Commands\ReportCommand;
 use AsimAli\Pinpoint\Commands\ResetCommand;
+use AsimAli\Pinpoint\Commands\SnapshotCommand;
 use AsimAli\Pinpoint\Internal\Recorder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Events\QueryExecuted;
@@ -28,11 +30,15 @@ class PinpointServiceProvider extends PackageServiceProvider
             ->name('pinpoint')
             ->hasConfigFile()
             ->hasRoute('api')
-            ->hasCommand(AggregateCommand::class)
-            ->hasCommand(CheckCommand::class)
-            ->hasCommand(ReportCommand::class)
-            ->hasCommand(PruneCommand::class)
-            ->hasCommand(ResetCommand::class)
+            ->hasCommands([
+                AggregateCommand::class,
+                CheckCommand::class,
+                DiffCommand::class,
+                PruneCommand::class,
+                ReportCommand::class,
+                ResetCommand::class,
+                SnapshotCommand::class,
+            ])
             ->hasMigration('create_pinpoint_requests_table')
             ->hasMigration('create_pinpoint_queries_table')
             ->hasMigration('create_pinpoint_summaries_table')
@@ -43,9 +49,9 @@ class PinpointServiceProvider extends PackageServiceProvider
     {
         // scoped() (not singleton) so per-request mutable state is cleared
         // between requests under Octane / long-running workers.
-        $this->app->scoped(Recorder::class, fn() => new Recorder($this->app->make('config')));
+        $this->app->scoped(Recorder::class, fn () => new Recorder($this->app->make('config')));
 
-        $this->app->scoped(Pinpoint::class, fn() => new Pinpoint($this->app->make(Recorder::class)));
+        $this->app->scoped(Pinpoint::class, fn () => new Pinpoint($this->app->make(Recorder::class)));
     }
 
     public function bootingPackage(): void
@@ -53,6 +59,44 @@ class PinpointServiceProvider extends PackageServiceProvider
         $this->registerQueryListener();
         $this->registerRequestListener();
         $this->registerLazyLoadingObserver();
+        $this->registerTerminatingFlush();
+    }
+
+    /**
+     * ONE terminating callback, registered at boot. Laravel's terminate()
+     * re-runs every registered callback on every call, so registering one
+     * per request would re-flush stale requests in long-running processes
+     * (Octane, queue workers, tests). The per-request payload is staged on
+     * the scoped recorder and taken by this callback after each request.
+     */
+    protected function registerTerminatingFlush(): void
+    {
+        if (! $this->app->make(Recorder::class)->isRecording()) {
+            return;
+        }
+
+        $this->app->terminating(function () {
+            try {
+                // Resolve per call (never capture) — same scoped-instance
+                // rationale as the query listener, for Octane/queue workers.
+                $recorder = $this->app->make(Recorder::class);
+
+                $payload = $recorder->takePendingPayload();
+
+                if ($payload !== null) {
+                    $recorder->flush($payload);
+                }
+            } catch (\Throwable $e) {
+                // Fail silently: the host app must never break because
+                // Pinpoint couldn't write its own tables (e.g.
+                // migrations not run yet).
+                if (str_contains($e->getMessage(), 'no such table')) {
+                    Log::warning('Pinpoint: tables missing — run `php artisan vendor:publish --tag=pinpoint-migrations` then `php artisan migrate`.');
+                } else {
+                    Log::warning('Pinpoint: failed to flush request', ['exception' => $e->getMessage()]);
+                }
+            }
+        });
     }
 
     protected function registerQueryListener(): void
@@ -96,13 +140,16 @@ class PinpointServiceProvider extends PackageServiceProvider
 
                 if (! $recorder->shouldRecord()) {
                     $recorder->reset();
+                    // Clear any payload staged for this cycle so the boot-time
+                    // terminating callback has nothing to flush.
+                    $recorder->takePendingPayload();
 
                     return;
                 }
 
-                // Capture the request metadata now, defer the DB writes until
-                // the response is sent (app()->terminating runs after send()).
-                // Keeps the flush off the user-facing response path.
+                // Capture the request metadata now; the flush happens after
+                // the response is sent (the boot-time terminating callback
+                // runs during app()->terminate()).
                 $payload = [
                     'route_name' => $request->route()?->getName(),
                     'method' => $request->method(),
@@ -115,20 +162,7 @@ class PinpointServiceProvider extends PackageServiceProvider
                     'peak_memory_kb' => (int) round(memory_get_peak_usage(true) / 1024),
                 ];
 
-                $this->app->terminating(function () use ($recorder, $payload) {
-                    try {
-                        $recorder->flush($payload);
-                    } catch (\Throwable $e) {
-                        // Fail silently: the host app must never break because
-                        // Pinpoint couldn't write its own tables (e.g.
-                        // migrations not run yet).
-                        if (str_contains($e->getMessage(), 'no such table')) {
-                            Log::warning('Pinpoint: tables missing — run `php artisan vendor:publish --tag=pinpoint-migrations` then `php artisan migrate`.');
-                        } else {
-                            Log::warning('Pinpoint: failed to flush request', ['exception' => $e->getMessage()]);
-                        }
-                    }
-                });
+                $recorder->rememberPayload($payload);
             } catch (\Throwable $e) {
                 Log::warning('Pinpoint: failed to prepare flush', ['exception' => $e->getMessage()]);
             }
@@ -216,7 +250,7 @@ class PinpointServiceProvider extends PackageServiceProvider
         }
 
         $normalised = array_map(
-            fn($v) => $v === null ? null : (string) $v,
+            fn ($v) => $v === null ? null : (string) $v,
             array_values($bindings)
         );
 

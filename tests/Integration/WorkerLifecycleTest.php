@@ -56,3 +56,15 @@ test('flush runs via the application terminating callbacks', function () {
 
     expect(DB::table('pinpoint_requests')->count())->toBe(1);
 });
+
+test('multiple requests in one process never re-flush stale requests', function () {
+    // Regression: Laravel's terminate() re-runs every registered callback,
+    // so a per-request callback registration would re-flush old requests in
+    // long-running processes (Octane, queue workers, tests). The flush must
+    // be registered ONCE at boot and only flush the current request.
+    $this->get('/pinpoint-test');
+    $this->get('/pinpoint-test');
+    $this->get('/pinpoint-test');
+
+    expect(DB::table('pinpoint_requests')->count())->toBe(3);
+});

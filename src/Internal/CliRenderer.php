@@ -25,29 +25,14 @@ class CliRenderer
 
     protected function render(string $html): void
     {
-        // Termwind's Laravel provider wires render() to the running command's
-        // OutputStyle, so output stays testable and verbosity-aware.
-        //
-        // Parse first, then swap hyperlink tokens: Termwind's own render()
-        // strips ANY angle-bracket markup during its HTML parse phase —
-        // including <a href> and raw OSC 8 bytes — so links are injected as
-        // Symfony <href=URI>text</> tags afterwards, and the decorated
-        // OutputFormatter turns them into canonical OSC 8 sequences.
+        // Termwind strips raw HTML tags and terminal escape sequences during parsing.
+        // Hyperlink placeholder tokens are resolved post-parse into Symfony <href> tags.
         $rendered = parse($html);
 
-        // Termwind::getRenderer() is NOT public API — the whole Termwind class
-        // is marked @internal in its source (nunomaduro/termwind, src/Termwind.php).
-        // It's used because render()/parse() strip <a href> / raw OSC 8 bytes
-        // during their HTML parse phase, so links can only be injected after
-        // parsing. Revisit if Termwind ever adds native OSC 8 support; spec:
-        // https://gist.github.com/egmontkob/eb114294efbcd5adb1944c9f3cb5feda
+        // Inject post-parsed OSC 8 hyperlink escape sequences via Termwind's internal renderer.
         Termwind::getRenderer()->writeln($this->replaceHyperlinks($rendered));
 
-        // Clear after the swap (not before render): callerLink() populates the
-        // map during HTML construction, before render() runs — clearing first
-        // would drop the tokens and leak literal "__PINPOINT_LINK_n__" strings.
-        // Clearing after keeps the map from growing unbounded when one renderer
-        // instance serves multiple renders (Octane workers, test suites).
+        // Reset tokens after output generation to prevent unbounded memory growth under Octane.
         $this->hyperlinks = [];
     }
 
@@ -76,8 +61,7 @@ class CliRenderer
      */
     protected function callerLink(?string $file, ?int $line): string
     {
-        // Without a line number the target would be "file:0" — no link is
-        // better than a link that jumps nowhere.
+        // Omit hyperlink when line number is missing.
         if (! $file || $line === null) {
             return '<span class="text-gray-600">-</span>';
         }
@@ -246,13 +230,16 @@ class CliRenderer
         $html = BadgeRenderer::header($title)
             .sprintf(
                 '<div class="mt-1 mb-1 text-gray-400">%d route(s) · <span class="text-white">%d</span> critical · <span class="text-white">%d</span> with N+1 · <span class="text-white">%d</span> with duplicate queries</div>',
-                count($rows), $critical, $n1, $duplicate
+                count($rows),
+                $critical,
+                $n1,
+                $duplicate
             );
 
         $composite = (bool) config('pinpoint.composite_tier', false);
 
         $tierHeader = $composite
-            ? 'Health (tier + N+1 + memory)'
+            ? 'Health'
             : 'Tier (p95 only)';
 
         $html .= '<table class="w-full"><thead><tr class="text-gray-500 border-b border-gray-600">'
@@ -296,6 +283,8 @@ class CliRenderer
         foreach ($violations as $violation) {
             $badge = match ($violation['type']) {
                 'n_plus_one' => '<span class="px-1 bg-red-600 text-white font-bold">N+1</span>',
+                'duplicate' => '<span class="px-1 bg-cyan-600 text-white font-bold">CACHE</span>',
+                'unknown' => '<span class="px-1 bg-yellow-600 text-black font-bold">REPEAT</span>',
                 'query_budget', 'duration_budget' => '<span class="px-1 bg-yellow-600 text-black font-bold">BUDGET</span>',
                 default => '<span class="px-1 bg-gray-600 text-white font-bold">VIOLATION</span>',
             };

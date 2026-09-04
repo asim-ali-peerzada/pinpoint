@@ -8,8 +8,9 @@ use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 
 class LocalOnly
 {
-    // abort() throws (never returns); $next() yields Symfony's Response —
-    // the Illuminate subclass added nothing but a false choice.
+    /**
+     * Restricts access to local, development, or debug-enabled environments.
+     */
     public function handle(Request $request, Closure $next): SymfonyResponse
     {
         if (! config('pinpoint.enabled') || ! (app()->environment('local', 'development', 'dev') || app()->hasDebugModeEnabled())) {

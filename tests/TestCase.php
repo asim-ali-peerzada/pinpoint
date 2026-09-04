@@ -51,5 +51,15 @@ abstract class TestCase extends Orchestra
         $router->get('/pinpoint-suggestion', fn () => response(
             CloseoutPackage::all()->each->stages
         ));
+        $router->get('/pinpoint-sensitive', fn () => response(
+            DB::select('select * from users where email = ? and password = ?', ['admin@example.com', 'SuperSecret123!'])
+        ));
+        $router->get('/pinpoint-throw', function () {
+            DB::select('select 1');
+            throw new \RuntimeException('boom');
+        });
+        $router->get('/pinpoint-redirect', fn () => redirect('/'));
+        $router->get('/pinpoint-validation', fn () => abort(422));
+        $router->get('/pinpoint-forbidden', fn () => abort(403));
     }
 }
