@@ -13,6 +13,7 @@ class SnapshotCommand extends Command
 {
     protected $signature = 'pinpoint:snapshot
         {--tag=main : Name for this snapshot (e.g. main, v2.1.0, before-refactor)}
+        {--file= : Path to export snapshot JSON file (e.g. storage/pinpoint/baselines/main.json)}
         {--since= : Only snapshot requests from the last N (e.g. 30m, 2h)}
         {--no-overwrite : Fail if a snapshot with this tag already exists}';
 
@@ -27,11 +28,14 @@ class SnapshotCommand extends Command
 
     public function handle(): int
     {
+        $filePath = $this->option('file') ? (string) $this->option('file') : null;
+
         try {
             $count = $this->baselines->write(
                 (string) $this->option('tag'),
                 overwrite: ! $this->option('no-overwrite'),
-                sinceMinutes: $this->resolveSinceMinutes()
+                sinceMinutes: $this->resolveSinceMinutes(),
+                filePath: $filePath
             );
         } catch (InvalidArgumentException|BaselineException $e) {
             $this->cli->info($e->getMessage());
@@ -39,7 +43,11 @@ class SnapshotCommand extends Command
             return self::FAILURE;
         }
 
-        $this->cli->info(sprintf('Snapshot "%s" saved — %d route(s).', $this->option('tag'), $count));
+        $message = sprintf('Snapshot "%s" saved — %d route(s).', $this->option('tag'), $count);
+        if ($filePath !== null) {
+            $message .= sprintf(' Exported to %s.', $filePath);
+        }
+        $this->cli->info($message);
 
         return self::SUCCESS;
     }

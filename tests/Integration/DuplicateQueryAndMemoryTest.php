@@ -654,7 +654,6 @@ test('check --fail-on-duplicates finds duplicates crowded out of the top-N displ
 
 test('report summary shows REPEAT (not Yes) for unknown-binding repeats', function () {
     $id = DB::table('pinpoint_requests')->insertGetId([
-        'route_name' => 'api.raw',
         'method' => 'GET',
         'path' => 'api/raw',
         'duration_ms' => 50,
@@ -684,6 +683,65 @@ test('report summary shows REPEAT (not Yes) for unknown-binding repeats', functi
     expect($output)->toContain('REPEAT (x3)');
     expect($output)->not->toContain('Yes (x3)');
 
-    // And the Locate block names it with the caller.
-    expect($output)->toContain('REPEAT x3');
+    // Grouped under its own Locate section with the caller.
+    expect($output)
+        ->toContain('▲ Repeated queries · 1 route')
+        ->toContain('REPEAT x3')
+        ->toContain('app/Raw.php:7');
+});
+
+test('mixed N+1 + duplicate route appears under both locate groups', function () {
+    $hash = md5(json_encode(['theme']));
+
+    $id = DB::table('pinpoint_requests')->insertGetId([
+        'route_name' => 'api.mixed',
+        'method' => 'GET',
+        'path' => 'api/mixed',
+        'duration_ms' => 50,
+        'query_count' => 6,
+        'query_time_ms' => 15,
+        'has_n_plus_one' => true,
+        'peak_memory_kb' => null,
+        'created_at' => now(),
+    ]);
+
+    // 4 varying-binding repeats (true N+1 group).
+    for ($i = 0; $i < 4; $i++) {
+        DB::table('pinpoint_queries')->insert([
+            'request_id' => $id,
+            'sql_fingerprint' => md5('select * from settings where key = ?'),
+            'sql' => 'select * from settings where key = ?',
+            'bindings_hash' => 'n1-hash-'.$i,
+            'time_ms' => 5,
+            'caller_file' => 'app/Settings.php',
+            'caller_line' => 20,
+            'created_at' => now(),
+        ]);
+    }
+
+    // 3 identical-binding repeats (exact duplicate group).
+    for ($i = 0; $i < 3; $i++) {
+        DB::table('pinpoint_queries')->insert([
+            'request_id' => $id,
+            'sql_fingerprint' => md5('select * from themes where id = ?'),
+            'sql' => 'select * from themes where id = ?',
+            'bindings_hash' => $hash,
+            'time_ms' => 5,
+            'caller_file' => 'app/Themes.php',
+            'caller_line' => 9,
+            'created_at' => now(),
+        ]);
+    }
+
+    $output = runArtisanCaptured('pinpoint:report', []);
+
+    // The banner counts BOTH signals; the locate block shows the route
+    // under each group with the signal-appropriate caller.
+    expect($output)
+        ->toContain('▲ N+1 queries · 1 route')
+        ->toContain('N+1 x4')
+        ->toContain('app/Settings.php:20')
+        ->toContain('◆ Duplicate queries · 1 route')
+        ->toContain('CACHE x3')
+        ->toContain('app/Themes.php:9');
 });

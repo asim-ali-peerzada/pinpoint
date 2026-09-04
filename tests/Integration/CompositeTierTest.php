@@ -60,7 +60,7 @@ test('composite flags fast route with N+1 as NEEDS WORK · N+1', function () {
     $output = runArtisanCaptured('pinpoint:report');
 
     expect($output)->toContain('NEEDS WORK')
-        ->toContain('NEEDS WORK · N+1')
+        ->toContain('▲ NEEDS WORK · N+1')
         ->not->toContain('(GOOD)');
 });
 
@@ -72,7 +72,7 @@ test('composite flags fast route over memory budget as NEEDS WORK · MEMORY', fu
     $output = runArtisanCaptured('pinpoint:report');
 
     expect($output)->toContain('NEEDS WORK')
-        ->toContain('NEEDS WORK · MEMORY')
+        ->toContain('▲ NEEDS WORK · MEMORY')
         ->not->toContain('(GOOD)');
 });
 
@@ -83,7 +83,7 @@ test('composite combines multiple reasons with dot separators', function () {
 
     $output = runArtisanCaptured('pinpoint:report');
 
-    expect($output)->toContain('NEEDS WORK · CRITICAL · N+1 · MEMORY');
+    expect($output)->toContain('● NEEDS WORK · CRITICAL · N+1 · MEMORY');
 });
 
 test('json includes health verdict and reason when composite on', function () {

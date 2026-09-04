@@ -20,7 +20,7 @@ Terminal output is rendered with **Termwind** (ships with Laravel): tier pills a
 ## Installation
 
 ```bash
-composer require --dev asimali/pinpoint
+composer require asimali/pinpoint
 ```
 
 Publish and run the migrations:
@@ -79,8 +79,8 @@ php artisan pinpoint:reset --force                     # or wipe history entirel
 | ---------------------- | ------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
 | `pinpoint:report`    | Per-route summary (p50/p95/p99/avg, tier, N+1) + a "Locate" block for the worst offenders                    | `--tier=`, `--route=`, `--since=`, `--limit=`, `--json`, `--json-to=`                                                       | `0` normal, `1` invalid input / DB error |
 | `pinpoint:check`     | CI gate: fail the build on N+1s or query/duration budget violations                                          | `--fail-on-n1`, `--fail-on-duplicates`, `--max-queries=`, `--max-duration-ms=`, `--since=`, `--allow-empty`, `--json`, `--json-to=`, `--limit=` | `0` pass, `1` fail                       |
-| `pinpoint:snapshot`  | Capture current per-route metrics as a named baseline for later diffs                                        | `--tag=main`, `--since=`, `--no-overwrite`                                                                                                     | `0` success, `1` failure                 |
-| `pinpoint:diff`      | Compare current metrics against a baseline snapshot (regression table + detail block)                        | `--baseline=main`, `--since=`, `--fail-on-regression`, `--show-stable`, `--json`, `--json-to=`                                                 | `0` clean, `1` regression/invalid input  |
+| `pinpoint:snapshot`  | Capture current per-route metrics as a named baseline tag or export to JSON file                                        | `--tag=main`, `--file=`, `--since=`, `--no-overwrite`                                                                                                     | `0` success, `1` failure                 |
+| `pinpoint:diff`      | Compare current metrics against a baseline snapshot tag or JSON file (regression table + detail block)                        | `--baseline=main`, `--since=`, `--fail-on-regression`, `--show-stable`, `--json`, `--json-to=`                                                 | `0` clean, `1` regression/invalid input  |
 | `pinpoint:aggregate` | Roll recent raw requests into the `pinpoint_summaries` table (offline percentiles, all-or-nothing per run) | —                                                                                                                                      | `0` success, `1` failure                 |
 | `pinpoint:prune`     | Delete recorded data older than the retention window (`pinpoint.retention_days`, default 30)               | `--days=`                                                                                                                             | `0` success, `1` failure                 |
 | `pinpoint:reset`     | Wipe ALL recorded data (requests, queries, lazy loads, summaries)                                            | `--force` (skip the confirmation prompt)                                                                                              | `0` success, `1` failure                 |
@@ -221,9 +221,12 @@ Two-step workflow: snapshot the baseline on `main`, then diff after your change 
 # on main, after exercising the app:
 php artisan pinpoint:snapshot --tag=main
 
+# or export a decoupled JSON snapshot for CI:
+php artisan pinpoint:snapshot --file=storage/pinpoint/baselines/main.json
+
 # on the PR branch, after running the test suite:
 php artisan pinpoint:diff --baseline=main
-php artisan pinpoint:diff --baseline=main --fail-on-regression  # exit 1 for CI
+php artisan pinpoint:diff --baseline=storage/pinpoint/baselines/main.json --fail-on-regression  # exit 1 for CI
 ```
 
 The table shows every route's status (`REGRESSION` / `IMPROVEMENT` / `STABLE` / `NEW` / `REMOVED`) with baseline vs current p95 and query counts; regressions get a detail block with the exact deltas, the caller file:line, and the suggested fix (`Model::with(...)` for N+1s). Thresholds live in `pinpoint.diff` (`PINPOINT_DIFF_DURATION_PCT=20`, `PINPOINT_DIFF_QUERY_COUNT=3`, `PINPOINT_DIFF_MEMORY_PCT=50`); an introduced N+1 always flags regardless of the count threshold. A route is only judged when both sides have at least `pinpoint.diff.min_samples` samples (`PINPOINT_DIFF_MIN_SAMPLES`, default 1) — raise it in CI so a lone noisy request can't flag a route.

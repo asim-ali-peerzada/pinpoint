@@ -49,8 +49,8 @@ test('HTTP method is part of the route identity', function () {
     $output = runArtisanCaptured('pinpoint:report');
 
     expect($output)
-        ->toContain('GET api/orders')
-        ->toContain('POST api/orders');
+        ->toContain('GET /api/orders')
+        ->toContain('POST /api/orders');
 });
 
 test('unnamed routes keep distinct metrics per method and path', function () {
@@ -60,8 +60,8 @@ test('unnamed routes keep distinct metrics per method and path', function () {
     $output = runArtisanCaptured('pinpoint:report');
 
     expect($output)
-        ->toContain('GET api/orders')
-        ->toContain('GET api/customers');
+        ->toContain('GET /api/orders')
+        ->toContain('GET /api/customers');
 });
 
 test('parameterized unnamed routes produce per-value labels', function () {
@@ -72,6 +72,6 @@ test('parameterized unnamed routes produce per-value labels', function () {
 
     $output = runArtisanCaptured('pinpoint:report');
 
-    expect($output)->toContain('GET api/families/1')
-        ->toContain('GET api/families/2');
+    expect($output)->toContain('GET /api/families/1')
+        ->toContain('GET /api/families/2');
 });

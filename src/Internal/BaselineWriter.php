@@ -21,7 +21,7 @@ class BaselineWriter
      *
      * @throws BaselineException|\InvalidArgumentException
      */
-    public function write(string $tag, bool $overwrite = true, ?int $sinceMinutes = null): int
+    public function write(string $tag, bool $overwrite = true, ?int $sinceMinutes = null, ?string $filePath = null): int
     {
         $tag = $this->validateTag($tag);
         $rows = $this->summaries->fromRaw($sinceMinutes);
@@ -30,6 +30,14 @@ class BaselineWriter
             throw new BaselineException(
                 'No requests recorded — snapshot not created. Run requests first.'
             );
+        }
+
+        if ($filePath !== null) {
+            $dir = dirname($filePath);
+            if (! is_dir($dir)) {
+                mkdir($dir, 0755, true);
+            }
+            file_put_contents($filePath, json_encode($rows, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
         }
 
         if (! $overwrite && DB::table('pinpoint_baselines')->where('tag', $tag)->exists()) {

@@ -232,3 +232,27 @@ test('diff shows routes added and removed since the baseline', function () {
         ->toContain('api.brand-new')
         ->toContain('NEW');
 });
+
+test('diff compares successfully against a json baseline file', function () {
+    seedDiffRequest('api.orders', 100);
+    $path = sys_get_temp_dir().'/baseline_'.uniqid().'.json';
+
+    try {
+        runSnapshot(['--tag' => 'main', '--file' => $path]);
+        expect(file_exists($path))->toBeTrue();
+
+        DB::table('pinpoint_requests')->truncate();
+        seedDiffRequest('api.orders', 5000); // 50x regression
+
+        $output = runDiff(['--baseline' => $path]);
+        expect($output)->toContain('api.orders')
+            ->toContain('REGRESSION');
+
+        $code = runDiffCode(['--baseline' => $path, '--fail-on-regression' => true]);
+        expect($code)->toBe(Command::FAILURE);
+    } finally {
+        if (file_exists($path)) {
+            unlink($path);
+        }
+    }
+});

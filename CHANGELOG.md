@@ -4,6 +4,28 @@ All notable changes to Pinpoint will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0] - 2026-09-04
+
+### Added
+
+- **Portable baseline snapshots**: `pinpoint:snapshot --file=storage/pinpoint/main.json` exports a baseline as JSON; `pinpoint:diff --baseline=<path>` accepts a file path, so baselines can be shared across machines and CI jobs (commit them to the repo, diff anywhere).
+- **Enterprise CLI presentation**:
+  - Borderless tables with muted `─` dividers (report, drill-down, diff).
+  - Symbol status system: `●` red for critical, `▲` amber for needs-work/N+1/REPEAT, `◆` cyan for CACHE, quiet green/gray for healthy/clean — replacing high-contrast solid pills.
+  - Route labels render route:list-style (`GET /api/orders` — cyan verb, leading slash, linked URI); named routes unchanged.
+  - Locate is grouped by finding type (▲ N+1 / ◆ Duplicate / ▲ Repeated / ● Critical) with tree callers, per-group fix hints, full group counts, and per-group caps (a route with multiple signals appears under every group it belongs to, each with its signal-appropriate caller).
+  - Per-request `ms` units render again (Termwind drops sibling spans in table cells — nested spans fix it).
+
+### Fixed
+
+- **Locate group counts now always match the summary banner**: the block groups from all offenders instead of a global top-5 slice, so a route whose duplicate group fell below the cutoff (e.g. `/duplicate` alongside a mixed route) no longer vanished — the `◆ N with duplicate queries` headline always has a locatable entry per route.
+- **Mixed-signal routes show every signal**: previously the strongest signal won and the other (e.g. CACHE on an N+1 route) was invisible in Locate; each signal now gets its own entry with the correct caller (`worstDuplicateCaller` picks the duplicate group's line, not the N+1 line).
+
+### Docs
+
+- README and landing page: install command standardized to `composer require asimali/pinpoint` (the package documents local + limited-staging use — `--dev` would strip it from `--no-dev` production/staging installs and break the documented staging features).
+- README: leading-slash route display and grouped Locate semantics.
+
 ## [1.5.0] - 2026-09-04
 
 ### Added

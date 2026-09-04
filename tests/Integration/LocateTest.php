@@ -29,7 +29,7 @@ test('summary prints a locate block for flagged routes with caller', function ()
         ->toContain('app/Http/Controllers/OrderController.php:41');
 });
 
-test('locate block caps at 5 offenders with a footer hint', function () {
+test('locate block caps each group at 5 offenders with a per-group hint', function () {
     for ($i = 1; $i <= 8; $i++) {
         DB::table('pinpoint_requests')->insert([
             'route_name' => 'api.slow'.$i, 'method' => 'GET', 'path' => 'api/slow'.$i,
@@ -42,7 +42,9 @@ test('locate block caps at 5 offenders with a footer hint', function () {
 
     expect($output)
         ->toContain('Locate')
-        ->toContain('more route(s)')
+        // Full group count stays visible; only the listing is capped.
+        ->toContain('● Critical tier · 8 routes')
+        ->toContain('… and 3 more')
         ->toContain('--route=');
 });
 

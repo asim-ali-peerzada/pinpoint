@@ -89,7 +89,7 @@ test('report prints a summary line with route, critical and N+1 counts', functio
     $output = runReport();
 
     expect($output)
-        ->toContain('3 route(s) · 2 critical · 1 with N+1')
+        ->toContain('3 route(s) · ● 2 critical · ▲ 1 with N+1')
         ->toContain('Performance Report');
 });
 
@@ -223,8 +223,8 @@ test('report groups unlabeled routes by method and path', function () {
     $output = runReport();
 
     expect($output)
-        ->toContain('GET api/fast')
-        ->toContain('GET api/slow');
+        ->toContain('GET /api/fast')
+        ->toContain('GET /api/slow');
 });
 
 test('aggregate groups unlabeled routes by method and path', function () {

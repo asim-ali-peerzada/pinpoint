@@ -11,7 +11,7 @@ import { ArrowRight } from 'lucide-react';
         Focused performance diagnostics for local dev and CI.
       </h2>
       <p class="mt-4 leading-relaxed text-gray-300 text-sm sm:text-base max-w-xl mx-auto text-pretty text-balance">
-        Pinpoint connects each performance finding directly to the source line responsible.
+        Pinpoint correlates recorded queries and requests with available source locations so you can trace a finding back to the code that triggered it.
       </p>
     </div>
 
@@ -27,10 +27,10 @@ import { ArrowRight } from 'lucide-react';
             <span class="text-xs font-semibold uppercase tracking-[0.14em] text-gray-200 font-mono">Detect</span>
           </div>
           <h3 class="mt-3 text-lg sm:text-xl font-bold tracking-tight text-white">
-            N+1 loops & exact duplicates
+            Repeated queries & N+1 candidates
           </h3>
           <p class="mt-2.5 text-xs sm:text-sm leading-relaxed text-gray-300">
-            Find repeated relationship queries before production. Repeats with identical bindings are flagged <span class="text-cyan-300 font-semibold">CACHE</span> (reach for <code class="text-gray-200">Cache::remember</code>); varying bindings indicate N+1 candidates (reach for eager loading).
+            Find repeated queries and N+1 candidates in your recorded workload. Repeated queries with identical bindings are grouped separately from varying-binding N+1 candidates so you can decide whether to reuse, memoize, cache, or remove the query.
           </p>
           <div class="mt-4 flex flex-wrap items-center gap-1.5 text-[10px] sm:text-[11px] font-medium font-mono">
             <span class="whitespace-nowrap rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-0.5 text-gray-300">Eloquent signal</span>
@@ -69,7 +69,7 @@ import { ArrowRight } from 'lucide-react';
             Performance regression diff
           </h3>
           <p class="mt-2.5 text-xs sm:text-sm leading-relaxed text-gray-300">
-            Compare current test-run metrics against a named baseline snapshot (<code class="text-gray-200">main</code>). Instantly flags when a refactor drops an eager load and spikes queries.
+            Compare the current workload against a recorded baseline and report changes in latency, query count, repeated queries, and memory.
           </p>
           <div class="mt-4 flex flex-wrap items-center gap-1.5 text-[10px] sm:text-[11px] font-medium font-mono">
             <span class="whitespace-nowrap rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-0.5 text-gray-300">pinpoint:diff</span>
@@ -99,7 +99,7 @@ import { ArrowRight } from 'lucide-react';
             Route latency & percentile rollups
           </h3>
           <p class="mt-2.5 text-xs sm:text-sm leading-relaxed text-gray-300">
-            Profile request latency with p50, p95, and average percentiles. Computed on demand from raw request rows in bounded chunks, or snapshotted with <code class="text-gray-200">pinpoint:aggregate</code>.
+            Report p50, p95, p99, and average request duration by route. Summaries can be computed on demand from recorded request rows or snapshotted for regression diffing.
           </p>
           <div class="mt-4">
             <a href="#delta" class="inline-flex items-center gap-1 text-xs font-medium text-brand-accent hover:underline">
@@ -138,7 +138,7 @@ import { ArrowRight } from 'lucide-react';
             Peak PHP memory per route
           </h3>
           <p class="mt-2.5 text-xs sm:text-sm leading-relaxed text-gray-300">
-            The report highlights routes crossing your configured memory budget (<code class="text-gray-200">pinpoint.memory_budget_kb</code>, default 20 MB) in red; baseline diffs can also detect memory growth.
+            Flag requests whose measured peak PHP memory exceeds the configured budget (<code class="text-gray-200">'memory_budget_kb' => 20 * 1024</code>); baseline diffs also detect memory growth between runs.
           </p>
           <div class="mt-4 flex flex-wrap items-center gap-1.5 text-[11px] font-medium font-mono">
             <span class="whitespace-nowrap rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-0.5 text-gray-300">Peak PHP memory</span>
@@ -167,10 +167,10 @@ import { ArrowRight } from 'lucide-react';
             Source-level context & IDE jump
           </h3>
           <p class="mt-2.5 text-xs sm:text-sm leading-relaxed text-gray-300">
-            Where source locations are available, Ctrl/⌘-click a route or caller in your terminal to jump directly to the controller method and offending line in VS Code or PhpStorm. Local-first: data stays in your database.
+            Where source locations are available, Pinpoint emits terminal links that can open the reported file and line in supported IDEs (VS Code · PhpStorm). Local-first: data stays in your database.
           </p>
           <div class="mt-4 flex items-center gap-2 text-xs font-mono text-brand-accent">
-            <span>vscode:// · phpstorm:// terminal links</span>
+            <span>Terminal links · VS Code · PhpStorm</span>
           </div>
 
           <!-- Mobile Inline View -->
@@ -256,7 +256,7 @@ import { ArrowRight } from 'lucide-react';
                   <span class="text-gray-200">SELECT * FROM `settings` WHERE `key` = ?</span>
                 </div>
                 <div class="text-gray-400 text-[11px] pt-0.5">
-                  bindings_hash match across hits → <span class="text-white">suggested fix:</span> <code class="text-cyan-300 font-bold">Cache::remember(...)</code>
+                  bindings_hash match across hits → <span class="text-white">possible action:</span> <code class="text-cyan-300 font-bold">Cache::remember</code>, memoization, or query reuse
                 </div>
               </div>
             </div>

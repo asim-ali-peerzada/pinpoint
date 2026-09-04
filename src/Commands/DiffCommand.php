@@ -19,7 +19,7 @@ class DiffCommand extends Command
     use EmitsJson;
 
     protected $signature = 'pinpoint:diff
-        {--baseline=main : Tag of the snapshot to compare against}
+        {--baseline=main : Tag or JSON file path of the snapshot to compare against}
         {--since= : Only compare requests from the last N (e.g. 30m, 1h)}
         {--fail-on-regression : Exit 1 when any regression is found (for CI)}
         {--json : Output machine-readable JSON on stdout}

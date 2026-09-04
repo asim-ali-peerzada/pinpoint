@@ -13,11 +13,11 @@
         <div>
           <span class="text-[11px] font-mono font-bold uppercase tracking-wider text-brand-accent">The Silent Regression Problem</span>
           <h2 class="mt-1 text-xl sm:text-2xl font-bold tracking-tight text-white">
-            When a refactor or PR drops an eager load.
+            When a refactor silently changes query behavior
           </h2>
         </div>
         <span class="shrink-0 rounded-full bg-rose-500/15 border border-rose-500/30 px-3 py-1 text-xs font-mono font-bold text-rose-300">
-          2q → 51q Regression
+          2 queries → 51 queries
         </span>
       </div>
 
@@ -39,16 +39,16 @@
         <!-- Explanation bullets -->
         <div class="lg:col-span-5 space-y-2.5 text-xs text-gray-300">
           <div class="flex items-center gap-2">
-            <span class="text-emerald-400 font-bold">✔</span>
-            <span>Feature tests pass with 0 errors</span>
+            <span class="text-emerald-400 font-bold">✓</span>
+            <span>Tests pass</span>
           </div>
           <div class="flex items-center gap-2">
-            <span class="text-emerald-400 font-bold">✔</span>
-            <span>Application works locally</span>
+            <span class="text-emerald-400 font-bold">✓</span>
+            <span>Response is correct</span>
           </div>
           <div class="flex items-center gap-2">
             <span class="text-rose-400 font-bold">✗</span>
-            <span class="font-semibold text-rose-300">Database queries jump 2 → 51</span>
+            <span class="font-semibold text-rose-300">Query count: 2 → 51</span>
           </div>
           <p class="pt-1 text-[11.5px] leading-relaxed text-gray-400 border-t border-white/[0.06]">
             <code class="text-white font-mono">pinpoint:diff</code> compares recorded PR metrics against a baseline snapshot (<code class="text-white font-mono">main</code>) and exits 1 on regression.
@@ -69,7 +69,7 @@
         </div>
 
         <span class="shrink-0 rounded-full border border-emerald-500/30 bg-emerald-950/40 px-2.5 py-0.5 font-mono text-xs font-semibold text-emerald-400 shadow-[0_0_12px_rgba(16,185,129,0.15)]">
-          -93.7% latency
+          Measured after eager loading
         </span>
       </div>
 
@@ -78,8 +78,7 @@
         <!-- Before -->
         <div class="p-6 sm:p-7 space-y-3">
           <div class="flex items-center justify-between">
-            <span class="text-[11px] font-bold uppercase tracking-wider text-gray-500 font-mono">Unoptimized (N+1)</span>
-            <span class="rounded bg-rose-500/15 px-2 py-0.5 text-[10px] font-bold uppercase text-rose-300 font-mono ring-1 ring-rose-400/30">Critical</span>
+            <span class="text-[11px] font-bold uppercase tracking-wider text-gray-400 font-mono">Before eager loading</span>
           </div>
           <div>
             <div class="font-mono text-4xl sm:text-5xl font-bold tracking-tight text-red-500 tabular-nums">
@@ -95,7 +94,6 @@
         <div class="p-6 sm:p-7 space-y-3 bg-white/[0.015]">
           <div class="flex items-center justify-between">
             <span class="text-[11px] font-bold uppercase tracking-wider text-emerald-400 font-mono">After eager loading</span>
-            <span class="rounded bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold uppercase text-emerald-300 font-mono ring-1 ring-emerald-400/30">Optimized</span>
           </div>
           <div>
             <div class="font-mono text-4xl sm:text-5xl font-bold tracking-tight text-emerald-400 tabular-nums">
@@ -110,7 +108,7 @@
 
       <!-- Bottom Resolution Summary with Factual Workload Label -->
       <div class="border-t border-white/[0.06] bg-[#07080B] px-5 py-3.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs text-gray-300">
-        <span>Example measurement: <strong class="text-gray-200">1,420 ms → 89 ms</strong> after adding eager loading on local PHP 8.3 / MySQL 8.0 (50 records).</span>
+        <span>Example measurement: <strong class="text-gray-200">1,420 ms → 89 ms</strong> (42 queries → 3 queries) after adding eager loading on local PHP 8.3 / MySQL 8.0 (50 records).</span>
         <span class="text-gray-400 font-mono text-[11px]">Inspect the recorded workload with <code class="text-gray-300">pinpoint:report</code></span>
       </div>
     </div>
@@ -121,18 +119,18 @@
       <div class="rounded-xl border border-cyan-500/25 bg-cyan-950/15 p-5 space-y-3">
         <div class="flex items-center justify-between">
           <span class="rounded-full bg-cyan-500/20 border border-cyan-500/40 px-2.5 py-0.5 font-mono text-[11px] font-bold uppercase text-cyan-300">
-            CACHE CANDIDATE
+            REPEATED QUERY
           </span>
           <span class="text-[11px] font-mono text-gray-400">bindings_hash match</span>
         </div>
         <div>
           <p class="font-mono text-xs text-white font-medium">Identical SQL + Identical Bindings</p>
           <p class="mt-1 text-xs text-gray-300 leading-relaxed">
-            The same SQL shape ran repeatedly with identical bound parameters. Consider memoization or Cache::remember().
+            Same query executed multiple times during the request. Review whether the result can be reused or avoided.
           </p>
         </div>
         <div class="pt-2 border-t border-cyan-500/20 text-xs font-mono text-cyan-300">
-          Action: <code class="bg-black/50 px-2 py-0.5 rounded-md text-white border border-cyan-500/30">Cache::remember()</code>
+          Possible action: <code class="bg-black/50 px-2 py-0.5 rounded-md text-white border border-cyan-500/30">Cache::remember()</code>, memoization, or query reuse
         </div>
       </div>
 
@@ -145,13 +143,13 @@
           <span class="text-[11px] font-mono text-gray-400">varying bindings</span>
         </div>
         <div>
-          <p class="font-mono text-xs text-white font-medium">Identical SQL + Varying IDs</p>
+          <p class="font-mono text-xs text-white font-medium">Repeated SQL + Varying Bindings</p>
           <p class="mt-1 text-xs text-gray-300 leading-relaxed">
-            A child relationship is fetched individually inside a collection loop.
+            Repeated SQL with varying bindings can indicate a relationship being loaded once per model.
           </p>
         </div>
         <div class="pt-2 border-t border-rose-500/20 text-xs font-mono text-rose-300">
-          Action: <code class="bg-black/50 px-2 py-0.5 rounded-md text-white border border-rose-500/30">Model::with('relation')</code>
+          Possible action: eager load the relationship with <code class="bg-black/50 px-2 py-0.5 rounded-md text-white border border-rose-500/30">Model::with('relation')</code>
         </div>
       </div>
     </div>

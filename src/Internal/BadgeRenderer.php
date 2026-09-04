@@ -52,7 +52,7 @@ class BadgeRenderer
         $overMemory = (bool) ($row['memory_over_budget'] ?? false);
 
         if ($isHealthyTier && ! $hasN1 && ! $overMemory) {
-            return '<span class="px-1 bg-green-600 text-white font-bold">HEALTHY</span>';
+            return '<span class="text-green-500 font-bold">HEALTHY</span>';
         }
 
         $reasons = [];
@@ -69,19 +69,26 @@ class BadgeRenderer
             $reasons[] = 'MEMORY';
         }
 
-        return '<span><span class="px-1 bg-red-600 text-white font-bold">NEEDS WORK</span>'
-            .'<span class="text-gray-600"> · '.implode(' · ', $reasons).'</span></span>';
+        // Red is reserved for latency-critical rows; everything else that
+        // needs work gets amber. Single span: Termwind trims whitespace
+        // around sibling spans inside table cells.
+        $class = $row['tier'] === TierClassifier::CRITICAL ? 'text-red-500' : 'text-yellow-500';
+        $symbol = $row['tier'] === TierClassifier::CRITICAL ? '●' : '▲';
+
+        return '<span class="'.$class.' font-bold">'.$symbol.' NEEDS WORK · '.implode(' · ', $reasons).'</span>';
     }
 
     public static function tier(string $tier): string
     {
         $label = self::tierLabel($tier);
 
+        // Subdued symbol + colored text (no solid pills): quiet successes,
+        // loud problems. ● red = critical, ▲ amber = needs attention.
         return match ($tier) {
-            TierClassifier::GOOD => '<span class="px-1 bg-green-600 text-white font-bold">'.$label.'</span>',
-            TierClassifier::ACCEPTABLE => '<span class="px-1 bg-yellow-600 text-black font-bold">'.$label.'</span>',
-            TierClassifier::NEEDS_IMPROVEMENT => '<span class="px-1 bg-orange-600 text-white font-bold">'.$label.'</span>',
-            TierClassifier::CRITICAL => '<span class="px-1 bg-red-600 text-white font-bold">'.$label.'</span>',
+            TierClassifier::GOOD => '<span class="text-green-500 font-bold">'.$label.'</span>',
+            TierClassifier::ACCEPTABLE => '<span class="text-yellow-500 font-bold">'.$label.'</span>',
+            TierClassifier::NEEDS_IMPROVEMENT => '<span class="text-yellow-500 font-bold">▲ '.$label.'</span>',
+            TierClassifier::CRITICAL => '<span class="text-red-500 font-bold">● '.$label.'</span>',
             default => '<span class="text-gray-400">'.$label.'</span>',
         };
     }
@@ -96,18 +103,18 @@ class BadgeRenderer
         return $tier === TierClassifier::NEEDS_IMPROVEMENT ? 'NEEDS IMPROVEMENT' : strtoupper($tier);
     }
 
-    public static function n1(string $n1): string
+    public static function n1(string $n1): string // NOSONAR
     {
         if (str_starts_with($n1, 'Yes')) {
-            return '<span class="text-red-500 font-bold">'.$n1.'</span>';
+            return '<span class="text-yellow-500 font-bold">▲ '.$n1.'</span>';
         }
 
         if (str_starts_with($n1, 'CACHE')) {
-            return '<span class="text-cyan-400 font-bold">'.$n1.'</span>';
+            return '<span class="text-cyan-400 font-bold">◆ '.$n1.'</span>';
         }
 
         if (str_starts_with($n1, 'REPEAT')) {
-            return '<span class="text-yellow-500 font-bold">'.$n1.'</span>';
+            return '<span class="text-yellow-500 font-bold">▲ '.$n1.'</span>';
         }
 
         return '<span class="text-gray-600">No</span>';
@@ -116,9 +123,9 @@ class BadgeRenderer
     public static function queryType(?string $type, int $count): string
     {
         return match ($type) {
-            'duplicate' => '<span class="px-1 bg-cyan-600 text-white font-bold">CACHE x'.$count.'</span>',
-            'n_plus_one' => '<span class="px-1 bg-red-600 text-white font-bold">N+1 x'.$count.'</span>',
-            default => '<span class="px-1 bg-yellow-600 text-black font-bold">REPEAT x'.$count.'</span>',
+            'duplicate' => '<span class="text-cyan-400 font-bold">◆ CACHE x'.$count.'</span>',
+            'n_plus_one' => '<span class="text-yellow-500 font-bold">▲ N+1 x'.$count.'</span>',
+            default => '<span class="text-yellow-500 font-bold">▲ REPEAT x'.$count.'</span>',
         };
     }
 
@@ -152,11 +159,11 @@ class BadgeRenderer
     public static function diffStatus(string $status): string
     {
         return match ($status) {
-            'regression' => '<span class="px-1 bg-red-600 text-white font-bold">REGRESSION</span>',
-            'improvement' => '<span class="px-1 bg-green-600 text-white font-bold">IMPROVEMENT</span>',
-            'stable' => '<span class="px-1 bg-gray-600 text-white font-bold">STABLE</span>',
-            'new' => '<span class="px-1 bg-blue-600 text-white font-bold">NEW</span>',
-            'removed' => '<span class="px-1 bg-gray-500 text-white font-bold">REMOVED</span>',
+            'regression' => '<span class="text-red-500 font-bold">● REGRESSION</span>',
+            'improvement' => '<span class="text-green-500 font-bold">✔ IMPROVEMENT</span>',
+            'stable' => '<span class="text-gray-500">STABLE</span>',
+            'new' => '<span class="text-blue-400 font-bold">NEW</span>',
+            'removed' => '<span class="text-gray-500">REMOVED</span>',
             default => '<span class="text-gray-400">'.e(strtoupper($status)).'</span>',
         };
     }

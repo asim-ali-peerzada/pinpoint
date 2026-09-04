@@ -38,7 +38,8 @@ class DiffRenderer extends CliRenderer
                 $counts[DiffCalculator::STATUS_NEW] ?? 0,
                 $counts[DiffCalculator::STATUS_REMOVED] ?? 0
             )
-            .'<table class="w-full"><thead><tr class="text-gray-500 border-b border-gray-600">'
+            .'<hr>'
+            .'<table class="w-full" style="compact"><thead><tr class="text-gray-500 border-b border-gray-600">'
             .'<th class="text-left">Route</th>'
             .'<th class="text-left">Status</th>'
             .'<th class="text-right">Baseline</th>'
@@ -56,7 +57,7 @@ class DiffRenderer extends CliRenderer
                 .'</tr>';
         }
 
-        $html .= '</tbody></table></div>';
+        $html .= '</tbody></table><hr></div>';
 
         $this->render($html);
     }
@@ -166,7 +167,7 @@ class DiffRenderer extends CliRenderer
             }
 
             if ($detail['fix']) {
-                $html .= '<div class="text-gray-400">Likely fix: <span class="text-green-400">'.e($detail['fix']).'</span></div>';
+                $html .= '<div class="text-gray-400">Suggested fix: <span class="text-green-400">'.e($detail['fix']).'</span></div>';
             }
         }
 

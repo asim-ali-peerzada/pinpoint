@@ -7,9 +7,9 @@ import { Copy } from 'lucide-react';
 const steps = [
   {
     n: '01',
-    rawCmd: 'composer require --dev asimali/pinpoint',
-    label: 'Install as a dev dependency',
-    html: '<span class="text-brand-accent font-semibold">composer</span> <span class="text-white">require</span> <span class="text-gray-400">--dev</span> <span class="text-white font-medium">asimali/pinpoint</span>',
+    rawCmd: 'composer require asimali/pinpoint',
+    label: 'Install the package',
+    html: '<span class="text-brand-accent font-semibold">composer</span> <span class="text-white">require</span> <span class="text-white font-medium">asimali/pinpoint</span>',
   },
   {
     n: '02',
@@ -30,7 +30,7 @@ const coreToolkit = [
   {
     cmd: 'pinpoint:report',
     tag: 'Interactive Diagnostic',
-    desc: 'Generate terminal summary tables with percentile rollups (p95/avg), peak memory per route with budget alerts, N+1 vs CACHE classification (exact-duplicate detection), terminal IDE links, and machine-readable JSON payloads.',
+    desc: 'Generate terminal summary tables with latency rollups (p50/p95/p99/avg), peak memory per route with budget alerts, N+1 vs CACHE classification (exact-duplicate detection), terminal IDE links, and machine-readable JSON payloads.',
     flags: ['--tier=critical', '--route=<name>', '--since=30m', '--limit=10', '--json', '--json-to=<file>'],
     featured: true,
   },
@@ -45,13 +45,13 @@ const coreToolkit = [
     cmd: 'pinpoint:check',
     tag: 'CI Performance Gate',
     desc: 'Evaluate query counts, durations, and repeated-query violations (N+1 candidates and duplicate queries) as an automated CI gate, exiting with code 1 upon violation.',
-    flags: ['--fail-on-n1', '--fail-on-repeat', '--max-queries=<n>', '--max-duration-ms=<ms>', '--since=30', '--allow-empty', '--json', '--json-to=<file>'],
+    flags: ['--fail-on-n1', '--fail-on-repeat', '--max-queries=<n>', '--max-duration-ms=<ms>', '--since=30m', '--allow-empty', '--json', '--json-to=<file>'],
   },
   {
     cmd: 'pinpoint:snapshot',
     tag: 'Baseline Capture',
-    desc: 'Capture current performance metrics as a named baseline tag for future regression diffing (e.g. before merging to main).',
-    flags: ['--tag=main', '--since=1h', '--no-overwrite'],
+    desc: 'Capture current performance metrics as a named baseline tag or exported JSON file for future regression diffing (e.g. before merging to main).',
+    flags: ['--tag=main', '--file=<path.json>', '--since=1h', '--no-overwrite'],
   },
 ];
 
@@ -227,7 +227,7 @@ const maintenanceToolkit = [
 
         <!-- Quick install snippet -->
         <div class="mt-6 flex justify-center">
-          <InstallSnippet command="composer require --dev asimali/pinpoint" />
+          <InstallSnippet command="composer require asimali/pinpoint" />
         </div>
       </div>
     </div>

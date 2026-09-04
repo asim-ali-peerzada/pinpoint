@@ -112,7 +112,44 @@ class CliRenderer
         $label = e(mb_strimwidth($route, 0, $max, '…'));
         $location = $this->routeActionLocation($route);
 
-        if ($location && $location['file'] && $location['line'] !== null) {
+        $linkable = $location && $location['file'] && $location['line'] !== null;
+
+        // Split "METHOD path" labels route:list-style: cyan verb + linked
+        // URI, nested in one span (Termwind drops sibling spans in cells).
+        // Named routes (no verb) render exactly as before.
+        if (! str_contains($label, ' ')) {
+            if (! $linkable) {
+                return $label;
+            }
+
+            $token = $this->linkToken($label);
+
+            if ($token === null) {
+                return $label;
+            }
+
+            $this->hyperlinks[$token] = sprintf('<href=%s>%s</>', EditorLink::scheme($location['file'], $location['line']), $label);
+
+            return $token;
+        }
+
+        [$method, $uri] = explode(' ', $label, 2);
+        // Route:list-style leading slash. The token stands in for the
+        // displayed (slashed) URI so column widths hold after the swap —
+        // never emit a literal slash next to a token.
+        $displayUri = '/'.ltrim($uri, '/');
+
+        if ($linkable) {
+            $token = $this->linkToken($displayUri);
+
+            if ($token !== null) {
+                $this->hyperlinks[$token] = sprintf('<href=%s>%s</>', EditorLink::scheme($location['file'], $location['line']), $displayUri);
+
+                return '<span><span class="text-cyan-400 font-bold">'.$method.'</span> '.$token.'</span>';
+            }
+
+            // Short labels can't host a URI-width token — link the whole
+            // label exactly as before so no route loses its hyperlink.
             $token = $this->linkToken($label);
 
             if ($token !== null) {
@@ -122,7 +159,7 @@ class CliRenderer
             }
         }
 
-        return $label;
+        return '<span><span class="text-cyan-400 font-bold">'.$method.'</span> '.$displayUri.'</span>';
     }
 
     public function routeActionLocation(string $routeLabel): ?array
@@ -228,13 +265,13 @@ class CliRenderer
         $duplicate = count(array_filter($rows, fn ($r) => (bool) ($r['has_duplicate'] ?? false)));
 
         $html = BadgeRenderer::header($title)
-            .sprintf(
-                '<div class="mt-1 mb-1 text-gray-400">%d route(s) · <span class="text-white">%d</span> critical · <span class="text-white">%d</span> with N+1 · <span class="text-white">%d</span> with duplicate queries</div>',
-                count($rows),
-                $critical,
-                $n1,
-                $duplicate
-            );
+                    .sprintf(
+                        '<div class="mt-1 mb-1 text-gray-400">%d route(s) · <span class="text-red-500">●</span> <span class="text-white">%d</span> critical · <span class="text-yellow-500">▲</span> <span class="text-white">%d</span> with N+1 · <span class="text-cyan-400">◆</span> <span class="text-white">%d</span> with duplicate queries</div>',
+                        count($rows),
+                        $critical,
+                        $n1,
+                        $duplicate
+                    );
 
         $composite = (bool) config('pinpoint.composite_tier', false);
 
@@ -242,7 +279,8 @@ class CliRenderer
             ? 'Health'
             : 'Tier (p95 only)';
 
-        $html .= '<table class="w-full"><thead><tr class="text-gray-500 border-b border-gray-600">'
+        $html .= '<hr>'
+            .'<table class="w-full" style="compact"><thead><tr class="text-gray-500 border-b border-gray-600">'
             .'<th class="text-left">Route</th>'
             .'<th class="text-right">p95</th>'
             .'<th class="text-right">Avg</th>'
@@ -255,8 +293,8 @@ class CliRenderer
         foreach ($rows as $row) {
             $html .= '<tr>'
                 .'<td class="text-left text-white">'.$this->routeLink($row['route']).'</td>'
-                .'<td class="text-right text-white">'.$row['p95'].'<span class="text-gray-500">ms</span></td>'
-                .'<td class="text-right text-white">'.$row['avg'].'<span class="text-gray-500">ms</span></td>'
+                .'<td class="text-right text-white"><span>'.$row['p95'].'<span class="text-gray-500">ms</span></span></td>'
+                .'<td class="text-right text-white"><span>'.$row['avg'].'<span class="text-gray-500">ms</span></span></td>'
                 .'<td class="text-right text-gray-300">'.$row['samples'].'</td>'
                 .'<td class="text-right">'.BadgeRenderer::memoryCell($row['memory'] ?? null, (bool) ($row['memory_over_budget'] ?? false)).'</td>'
                 .'<td class="text-left">'.BadgeRenderer::healthOrTier($row, $composite).'</td>'
@@ -264,7 +302,7 @@ class CliRenderer
                 .'</tr>';
         }
 
-        $html .= '</tbody></table></div>';
+        $html .= '</tbody></table><hr></div>';
 
         $this->render($html);
     }
@@ -398,6 +436,10 @@ class CliRenderer
      * offenders (N+1 or critical routes). Capped so a long list of bad
      * routes can't flood the terminal.
      *
+     * Offenders are grouped by finding type (N+1, duplicates, slow tier)
+     * with tree linkage from each route to its caller — no separate
+     * brand header, so the block reads as a continuation of the report.
+     *
      * @param  array<int, array{route: string, reason: string, repeat: int, caller_file: string|null, caller_line: int|null}>  $offenders
      */
     public function locate(array $offenders, int $cap = 5): void
@@ -408,24 +450,55 @@ class CliRenderer
 
         usort($offenders, fn ($a, $b) => $b['repeat'] <=> $a['repeat']);
 
-        $html = BadgeRenderer::header('Locate');
+        $groups = [
+            ['match' => 'N+1', 'title' => '▲ N+1 queries', 'fix' => 'Fix: eager-load with Model::with(...)'],
+            ['match' => 'CACHE', 'title' => '◆ Duplicate queries', 'fix' => 'Fix: wrap the repeated query in Cache::remember(...)'],
+            ['match' => 'REPEAT', 'title' => '▲ Repeated queries', 'fix' => null],
+            ['match' => null, 'title' => '● Critical tier', 'fix' => null],
+        ];
 
-        $shown = array_slice($offenders, 0, $cap);
+        $html = '<div class="mx-2 my-1"><div class="mt-2 text-gray-500">Locate</div>';
 
-        foreach ($shown as $offender) {
-            $caller = $offender['caller_file']
-                ? $this->callerLink($offender['caller_file'], $offender['caller_line'])
-                : '<span class="text-gray-600">run --route for caller</span>';
+        foreach ($groups as $group) {
+            // Group from ALL offenders — never a global slice, so every
+            // route the banner counts stays present under its group.
+            $items = array_values(array_filter(
+                $offenders,
+                fn ($o) => $group['match'] === null
+                    ? ! str_starts_with($o['reason'], 'N+1') && ! str_starts_with($o['reason'], 'CACHE') && ! str_starts_with($o['reason'], 'REPEAT')
+                    : str_starts_with($o['reason'], $group['match'])
+            ));
 
-            $html .= '<div class="mt-1">'
-                .'<span class="text-white">'.$this->routeLink($offender['route']).'</span> '
-                .'<span class="text-gray-400">— '.e($offender['reason']).'</span>'
-                .'<div class="text-gray-400">'.$caller.'</div>'
-                .'</div>';
-        }
+            if ($items === []) {
+                continue;
+            }
 
-        if (count($offenders) > $cap) {
-            $html .= '<div class="mt-1 text-gray-500">'.(count($offenders) - $cap).' more route(s) — run <span class="text-blue-400">pinpoint:report --route=&lt;name&gt;</span> for exact file and line.</div>';
+            $total = count($items);
+
+            $html .= '<div class="mt-1 text-white">'.$group['title'].' · '.$total.($total === 1 ? ' route' : ' routes').'</div>';
+
+            if ($group['fix'] !== null) {
+                $html .= '<div class="text-gray-500">'.$group['fix'].'</div>';
+            }
+
+            foreach (array_slice($items, 0, $cap) as $i => $offender) {
+                $last = $i === min($cap, $total) - 1;
+                $branch = $last ? '└── ' : '├── ';
+                $stem = $last ? '    ' : '│   ';
+                $caller = $offender['caller_file']
+                    ? $this->callerLink($offender['caller_file'], $offender['caller_line'])
+                    : '<span class="text-gray-600">run --route for caller</span>';
+
+                $html .= '<div class="mt-1">'
+                    .'<span class="text-white">'.$branch.$this->routeLink($offender['route']).'</span> '
+                    .'<span class="text-gray-400">— '.e($offender['reason']).'</span>'
+                    .'<div class="text-gray-400">'.$stem.'└── '.$caller.'</div>'
+                    .'</div>';
+            }
+
+            if ($total > $cap) {
+                $html .= '<div class="mt-1 text-gray-500">… and '.($total - $cap).' more — run <span class="text-blue-400">pinpoint:report --route=&lt;name&gt;</span> for exact file and line.</div>';
+            }
         }
 
         $html .= '</div>';
@@ -440,7 +513,8 @@ class CliRenderer
     {
         $html = BadgeRenderer::header('Top Offending Queries');
 
-        $html .= '<table class="w-full"><thead><tr class="text-gray-500 border-b border-gray-600">'
+        $html .= '<hr>'
+            .'<table class="w-full" style="compact"><thead><tr class="text-gray-500 border-b border-gray-600">'
             .'<th class="text-left">SQL</th>'
             .'<th class="text-right">Repeats</th>'
             .'<th class="text-right">Avg ms</th>'
@@ -470,7 +544,7 @@ class CliRenderer
                 .'</tr>';
         }
 
-        $html .= '</tbody></table></div>';
+        $html .= '</tbody></table><hr></div>';
 
         $this->render($html);
     }

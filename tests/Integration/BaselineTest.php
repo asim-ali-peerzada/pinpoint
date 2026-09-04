@@ -139,3 +139,65 @@ test('reader round-trips a writer snapshot', function () {
         ->and($rows[0]['p95'])->toBe(100)
         ->and($rows[0]['query_count'])->toBe(4);
 });
+
+test('writer exports to a json file and reader loads from it', function () {
+    seedBaselineRequest('api.orders', 100, 4);
+    $path = sys_get_temp_dir().'/pinpoint_test_baseline_'.uniqid().'.json';
+
+    try {
+        baselineWriter()->write('main', filePath: $path);
+
+        expect(file_exists($path))->toBeTrue();
+
+        $rows = baselineReader()->load($path);
+
+        expect($rows[0]['route'])->toBe('api.orders')
+            ->and($rows[0]['p95'])->toBe(100)
+            ->and($rows[0]['query_count'])->toBe(4);
+    } finally {
+        if (file_exists($path)) {
+            unlink($path);
+        }
+    }
+});
+
+test('reader loads baseline from json file with routes wrapper payload', function () {
+    $path = sys_get_temp_dir().'/pinpoint_test_payload_'.uniqid().'.json';
+    file_put_contents($path, json_encode([
+        'meta' => ['version' => '1.0'],
+        'routes' => [
+            ['route' => 'api.wrapped', 'p95' => 150, 'samples' => 5],
+        ],
+    ]));
+
+    try {
+        $rows = baselineReader()->load($path);
+
+        expect($rows[0]['route'])->toBe('api.wrapped')
+            ->and($rows[0]['p95'])->toBe(150)
+            ->and($rows[0]['tier'])->toBe('good');
+    } finally {
+        if (file_exists($path)) {
+            unlink($path);
+        }
+    }
+});
+
+test('reader throws when baseline file does not exist', function () {
+    expect(fn () => baselineReader()->load('non_existent_file.json'))
+        ->toThrow(BaselineException::class, 'not found');
+});
+
+test('reader throws when baseline file contains invalid json', function () {
+    $path = sys_get_temp_dir().'/pinpoint_bad_'.uniqid().'.json';
+    file_put_contents($path, 'invalid json');
+
+    try {
+        expect(fn () => baselineReader()->load($path))
+            ->toThrow(BaselineException::class, 'corrupt');
+    } finally {
+        if (file_exists($path)) {
+            unlink($path);
+        }
+    }
+});

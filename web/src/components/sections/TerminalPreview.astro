@@ -125,8 +125,8 @@ const reportRoutes: ReportRow[] = [
       <span class="text-gray-400 font-mono text-xs hidden sm:inline">Terminal Diagnostics</span>
     </div>
 
-    <!-- Command Pill Switches -->
-    <div role="tablist" aria-label="Terminal diagnostic commands" class="flex items-center gap-1 sm:gap-1.5 bg-black/50 p-1 rounded-lg border border-white/[0.06]">
+    <!-- Workflow Concept Tabs (Option A) -->
+    <div role="tablist" aria-label="Terminal diagnostic workflows" class="flex items-center gap-1 sm:gap-1.5 bg-black/60 p-1 rounded-lg border border-white/[0.08]">
       <button
         type="button"
         role="tab"
@@ -134,10 +134,9 @@ const reportRoutes: ReportRow[] = [
         aria-selected="true"
         aria-controls="terminal-panel-diff"
         data-terminal-btn="diff"
-        class="terminal-pill-btn rounded-md px-2.5 py-1 font-mono text-[11px] sm:text-xs transition-colors flex items-center gap-1.5 bg-brand-accent text-white font-semibold shadow-sm"
+        class="terminal-pill-btn rounded-md px-3 py-1 text-xs font-medium transition-all flex items-center justify-center bg-brand-accent text-white font-semibold shadow-sm"
       >
-        <span>pinpoint:diff</span>
-        <span class="hidden md:inline rounded bg-white/20 px-1 py-0.2 text-[9px] uppercase tracking-wider font-bold">PR Diff</span>
+        Diff
       </button>
 
       <button
@@ -147,9 +146,9 @@ const reportRoutes: ReportRow[] = [
         aria-selected="false"
         aria-controls="terminal-panel-report"
         data-terminal-btn="report"
-        class="terminal-pill-btn rounded-md px-2.5 py-1 font-mono text-[11px] sm:text-xs transition-colors flex items-center gap-1.5 text-gray-400 hover:text-gray-200 hover:bg-white/[0.04]"
+        class="terminal-pill-btn rounded-md px-3 py-1 text-xs font-medium transition-all flex items-center justify-center text-gray-400 hover:text-gray-200 hover:bg-white/[0.04]"
       >
-        <span>pinpoint:report</span>
+        Report
       </button>
 
       <button
@@ -159,10 +158,9 @@ const reportRoutes: ReportRow[] = [
         aria-selected="false"
         aria-controls="terminal-panel-check"
         data-terminal-btn="check"
-        class="terminal-pill-btn rounded-md px-2.5 py-1 font-mono text-[11px] sm:text-xs transition-colors flex items-center gap-1.5 text-gray-400 hover:text-gray-200 hover:bg-white/[0.04]"
+        class="terminal-pill-btn rounded-md px-3 py-1 text-xs font-medium transition-all flex items-center justify-center text-gray-400 hover:text-gray-200 hover:bg-white/[0.04]"
       >
-        <span>pinpoint:check</span>
-        <span class="hidden md:inline rounded bg-rose-500/30 text-rose-200 px-1 py-0.2 text-[9px] uppercase tracking-wider font-bold">CI Gate</span>
+        CI Gate
       </button>
     </div>
   </div>
@@ -172,9 +170,9 @@ const reportRoutes: ReportRow[] = [
     <div class="flex items-center justify-between gap-2 border-b border-white/[0.06] pb-3 text-gray-400">
       <div class="flex items-center gap-2">
         <span class="text-brand-accent font-semibold">$</span>
-        <span class="text-gray-200">php artisan pinpoint:diff --baseline=main</span>
+        <span class="text-gray-200">php artisan pinpoint:diff --baseline=storage/pinpoint/baselines/main.json</span>
       </div>
-      <span class="hidden sm:inline-block text-[11px] text-gray-500">Comparing the current recorded workload against the main baseline</span>
+      <span class="hidden sm:inline-block text-[11px] text-gray-500">Compare current workload against a recorded baseline snapshot</span>
     </div>
 
     <!-- Diff Table -->
@@ -245,7 +243,7 @@ const reportRoutes: ReportRow[] = [
           <code class="text-gray-200">app/Http/Controllers/OrderController.php:42</code>
         </div>
         <div class="text-emerald-400 font-medium">
-          <span class="text-gray-500">Likely fix: </span>
+          <span class="text-gray-500">Suggested fix: </span>
           <code class="bg-black/50 px-1.5 py-0.5 rounded border border-emerald-500/30">Order::with('customer')</code>
         </div>
       </div>

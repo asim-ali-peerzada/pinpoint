@@ -294,34 +294,62 @@ class ReportCommand extends Command
             $hasDuplicate = $row['has_duplicate_queries'];
             $unknownRepeat = $row['unknown_repeat'];
             $hasUnknown = $unknownRepeat >= $threshold;
+            $isN1 = $row['n1_repeat'] >= $threshold;
+            $isCritical = $row['tier'] === TierClassifier::CRITICAL;
 
-            if ($row['n1_repeat'] < $threshold && ! $hasDuplicate && ! $hasUnknown && $row['tier'] !== TierClassifier::CRITICAL) {
+            if (! $isN1 && ! $hasDuplicate && ! $hasUnknown && ! $isCritical) {
                 continue;
             }
 
-            $caller = $this->worstCaller($row['route']);
+            // One entry per signal: a mixed route appears under every group
+            // it belongs to, so each banner count stays locatable.
+            if ($isN1) {
+                $caller = $this->worstCaller($row['route']);
 
-            if ($row['n1_repeat'] >= $threshold) {
-                $reason = 'N+1 x'.$row['n1_repeat'];
-                $repeat = $row['n1_repeat'];
-            } elseif ($hasDuplicate) {
-                $reason = 'CACHE x'.$dupRepeat;
-                $repeat = $dupRepeat;
-            } elseif ($hasUnknown) {
-                $reason = 'REPEAT x'.$unknownRepeat;
-                $repeat = $unknownRepeat;
-            } else {
-                $reason = 'critical tier (p95 '.$row['p95'].'ms)';
-                $repeat = $row['n1_repeat'];
+                $offenders[] = [
+                    'route' => $row['route'],
+                    'reason' => 'N+1 x'.$row['n1_repeat'],
+                    'repeat' => $row['n1_repeat'],
+                    'caller_file' => $caller['file'] ?? null,
+                    'caller_line' => $caller['line'] ?? null,
+                ];
             }
 
-            $offenders[] = [
-                'route' => $row['route'],
-                'reason' => $reason,
-                'repeat' => $repeat,
-                'caller_file' => $caller['file'] ?? null,
-                'caller_line' => $caller['line'] ?? null,
-            ];
+            if ($hasDuplicate) {
+                $caller = $this->worstDuplicateCaller($row['route']) ?? $this->worstCaller($row['route']);
+
+                $offenders[] = [
+                    'route' => $row['route'],
+                    'reason' => 'CACHE x'.$dupRepeat,
+                    'repeat' => $dupRepeat,
+                    'caller_file' => $caller['file'] ?? null,
+                    'caller_line' => $caller['line'] ?? null,
+                ];
+            }
+
+            if ($hasUnknown) {
+                $caller = $this->worstCaller($row['route']);
+
+                $offenders[] = [
+                    'route' => $row['route'],
+                    'reason' => 'REPEAT x'.$unknownRepeat,
+                    'repeat' => $unknownRepeat,
+                    'caller_file' => $caller['file'] ?? null,
+                    'caller_line' => $caller['line'] ?? null,
+                ];
+            }
+
+            if (! $isN1 && ! $hasDuplicate && ! $hasUnknown && $isCritical) {
+                $caller = $this->worstCaller($row['route']);
+
+                $offenders[] = [
+                    'route' => $row['route'],
+                    'reason' => 'critical tier (p95 '.$row['p95'].'ms)',
+                    'repeat' => $row['n1_repeat'],
+                    'caller_file' => $caller['file'] ?? null,
+                    'caller_line' => $caller['line'] ?? null,
+                ];
+            }
         }
 
         $this->cli->locate($offenders);
@@ -336,6 +364,30 @@ class ReportCommand extends Command
     protected function worstCaller(string $routeLabel): ?array
     {
         return QueryReader::worstCaller($routeLabel);
+    }
+
+    /**
+     * Caller of the highest-repeat exact-duplicate group for a route label.
+     * A mixed route's overall worst caller usually belongs to its N+1
+     * group, so the CACHE entry needs its own lookup to point at the
+     * right line. Null when no duplicate group is found (the caller then
+     * falls back to the overall worst).
+     *
+     * @return array{file: string, line: int}|null
+     */
+    protected function worstDuplicateCaller(string $routeLabel): ?array
+    {
+        $duplicate = $this->queries
+            ->topQueries($routeLabel, 100)
+            ->filter(fn ($query) => ($query->query_type ?? null) === 'duplicate')
+            ->sortByDesc('repeat_count')
+            ->first();
+
+        if (! $duplicate || ! $duplicate->caller_file) {
+            return null;
+        }
+
+        return ['file' => $duplicate->caller_file, 'line' => (int) $duplicate->caller_line];
     }
 
     protected function drillInto(string $routeLabel, ?int $sinceMinutes = null): void

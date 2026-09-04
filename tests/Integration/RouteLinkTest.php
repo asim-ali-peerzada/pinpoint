@@ -110,12 +110,15 @@ test('link tokens do not distort table column widths', function () {
         expect(mb_strlen($token))->toBe(mb_strlen($m[1]));
     }
 
-    // Column geometry in the rendered output: the route cell must be followed
-    // by the p95 column at a POSITION consistent with the 15-char route label.
+    // Column geometry in the rendered output: the borderless table has no
+    // pipe borders, so assert the route cell is followed by the p95 column
+    // after padding consistent with the 15-char route label — and that no
+    // ASCII grid leaked in.
     $output = $buffer->fetch();
     $plain = preg_replace('/\e\[[0-9;]*m|\e\]8;;[^\e]*\e\\\\/', '', $output);
-    preg_match('/\|\s*api\.route-source\s+\|\s*1\s+\|/', $plain, $m);
+    preg_match('/api\.route-source\s+1ms\s+1ms/', $plain, $m);
 
     expect($m[0] ?? '')->not->toBe('')
-        ->and($output)->not->toContain('__PP_L_');
+        ->and($output)->not->toContain('__PP_L_')
+        ->and($output)->not->toContain('+---');
 });

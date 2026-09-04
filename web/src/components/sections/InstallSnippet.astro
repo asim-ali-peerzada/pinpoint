@@ -7,7 +7,7 @@ interface Props {
   class?: string;
 }
 
-const { command = 'composer require --dev asimali/pinpoint', class: className } = Astro.props;
+const { command = 'composer require asimali/pinpoint', class: className } = Astro.props;
 ---
 
 <div class={cn('group relative max-w-full', className)}>

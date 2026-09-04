@@ -35,7 +35,7 @@ test('rows with null route identity fall back to the method path label', functio
 
     $output = runArtisanCaptured('pinpoint:report');
 
-    expect($output)->toContain('GET api/orphan');
+    expect($output)->toContain('GET /api/orphan');
 });
 
 test('null bindings_hash rows (no-binding queries) do not break counting', function () {
